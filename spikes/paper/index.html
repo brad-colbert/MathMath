@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Paper spike</title>
+<link rel="stylesheet" href="/nm/mathlive/mathlive-fonts.css">
+<link rel="stylesheet" href="/nm/mathlive/mathlive-static.css">
+<style>
+  @page { size: letter; margin: 0; }
+  html, body { margin: 0; background: #888; }
+  #page { position: relative; width: 612pt; min-height: 792pt; margin: 12pt auto; background: #fff; overflow: hidden; cursor: crosshair; }
+  .region { position: absolute; font-family: serif; font-size: 10pt; white-space: nowrap; cursor: default; line-height: 1; }
+  .region.error { color: #c00; }
+  #editor { position: absolute; min-width: 2em; font-size: 10pt; border: 0; padding: 0; --caret-color: #06c; outline: 1px solid #9bd; z-index: 2; background: #fff; }
+  .result { margin-left: 3pt; }
+  #crosshair { position: absolute; color: #d00; font: 12pt monospace; pointer-events: none; transform: translate(-50%, -50%); }
+  @media print {
+    html, body { background: #fff; }
+    #page { margin: 0; }
+    #crosshair { display: none; }
+  }
+</style>
+<div id="page"></div>
+<script type="module" src="/app.js"></script>

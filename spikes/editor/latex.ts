@@ -1,0 +1,618 @@
+// Prints the worksheet tree as LaTeX and reads it back. An editor built on LaTeX needs both, so its
+// size and its failures are part of what this spike measures.
+import type { Expr, Stmt, Target } from '../../src/model/ast.js';
+
+const GREEK: Record<string, string> = {
+  'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ε': '\\varepsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
+  'ι': '\\iota', 'κ': '\\kappa', 'λ': '\\lambda', 'μ': '\\mu', 'ν': '\\nu', 'ξ': '\\xi', 'π': '\\pi', 'ρ': '\\rho', 'σ': '\\sigma',
+  'τ': '\\tau', 'υ': '\\upsilon', 'ϕ': '\\phi', 'φ': '\\varphi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega', 'Δ': '\\Delta', 'Θ': '\\Theta',
+  'Λ': '\\Lambda', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega', 'Γ': '\\Gamma', '∞': '\\infty',
+};
+const UNGREEK = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
+
+function name(id: string): string {
+  const dot = id.indexOf('.');
+  const [base, sub] = dot > 0 ? [id.slice(0, dot), id.slice(dot + 1)] : [id, null];
+  const b = GREEK[base] ?? (/^[A-Za-z]$/.test(base) ? base : `\\mathrm{${escapeText(base)}}`);
+  return sub ? `${b}_{\\text{${escapeText(sub)}}}` : b;
+}
+
+const escapeText = (t: string): string => t.replace(/[\\{}_%&#$^~]/g, (c) => `\\${c}`);
+
+function numberText(v: number): string {
+  const s = String(v);
+  const m = /^(-?[\d.]+)e([+-]?\d+)$/.exec(s);
+  return m ? `${m[1]}\\times10^{${Number(m[2])}}` : s;
+}
+
+const PREC: Record<string, number> = {
+  equal: 1, notEqual: 1, lessThan: 1, greaterThan: 1, lessOrEqual: 1, greaterOrEqual: 1, and: 1, or: 1, xor: 1,
+  plus: 2, minus: 2, neg: 3, mult: 3, div: 5, crossProduct: 3, pow: 4,
+};
+const INFIX: Record<string, string> = {
+  plus: '+', minus: '-', mult: '\\cdot ', crossProduct: '\\times ', equal: '=', notEqual: '\\ne ', lessThan: '<', greaterThan: '>',
+  lessOrEqual: '\\le ', greaterOrEqual: '\\ge ', and: '\\land ', or: '\\lor ', xor: '\\oplus ',
+};
+
+function prec(e: Expr): number {
+  if (e.k === 'real') return e.v < 0 ? 3 : 9;
+  if (e.k === 'op') return PREC[e.op] ?? 9;
+  if (e.k === 'bigop' || e.k === 'derivative') return 2.5;
+  return 9;
+}
+
+const paren = (t: string): string => `\\left(${t}\\right)`;
+const grouped = (e: Expr): string =>
+  (e.k === 'id' && e.name.includes('.')) || (e.k === 'op' && e.op === 'indexer') ? `{${tex(e)}}` : at(e, 5);
+const at = (e: Expr, min: number): string => (prec(e) < min ? paren(tex(e)) : tex(e));
+
+function stmt(s: Stmt): string[] {
+  switch (s.k) {
+    case 'assign': return [`${target(s.target)}\\gets ${tex(s.value)}`];
+    case 'if': return [`${inline(s.then)}\\ \\mathbf{if}\\ ${tex(s.cond)}`];
+    case 'otherwise': return [`${inline(s.then)}\\ \\mathbf{otherwise}`];
+    case 'for': return [`\\mathbf{for}\\ ${name(s.varName)}\\in ${tex(s.iter)}\\ ${block(s.body)}`];
+    case 'while': return [`\\mathbf{while}\\ ${tex(s.cond)}\\ ${block(s.body)}`];
+    case 'return': return [`\\mathbf{return}\\ ${tex(s.value)}`];
+    case 'block': return [block(s)];
+    case 'expr': return [tex(s.e)];
+  }
+}
+
+const inline = (s: Stmt): string => (s.k === 'block' ? block(s) : stmt(s)[0]!);
+
+function block(s: Stmt): string {
+  const body = s.k === 'block' ? s.body : [s];
+  return program(body);
+}
+
+const program = (body: Stmt[]): string =>
+  `\\left|\\begin{array}{l}${body.flatMap(stmt).join('\\\\')}\\end{array}\\right.`;
+
+export function target(t: Target): string {
+  switch (t.k) {
+    case 'var': return name(t.name);
+    case 'index': return `${t.name.includes('.') ? `{${name(t.name)}}` : name(t.name)}_{${t.index.map(tex).join(',')}}`;
+    case 'col': return `${name(t.name)}^{\\langle ${tex(t.index)}\\rangle}`;
+    case 'fn': return `${name(t.name)}\\left(${t.params.map(name).join(',')}\\right)`;
+    case 'multi': return `\\begin{pmatrix}${t.targets.map(target).join('\\\\')}\\end{pmatrix}`;
+    default: return '\\mathrm{unsupported}';
+  }
+}
+
+export function tex(e: Expr): string {
+  switch (e.k) {
+    case 'real': return numberText(e.v);
+    case 'imag': return `${numberText(e.v)}\\mathrm{i}`;
+    case 'str': return `\\text{"${escapeText(e.v)}"}`;
+    case 'id': return name(e.name);
+    case 'placeholder': return '\\placeholder{}';
+    case 'matrix': {
+      const rows: string[] = [];
+      for (let i = 0; i < e.rows; i++) {
+        rows.push(Array.from({ length: e.cols }, (_, j) => tex(e.items[i + j * e.rows]!)).join('&'));
+      }
+      return `\\begin{pmatrix}${rows.join('\\\\')}\\end{pmatrix}`;
+    }
+    case 'range': return `${tex(e.first)}${e.second ? `,${tex(e.second)}` : ''}..${tex(e.last)}`;
+    case 'call': return `${e.fn.k === 'id' ? name(e.fn.name) : paren(tex(e.fn))}\\left(${e.args.map(tex).join(',')}\\right)`;
+    case 'program': return program(e.body);
+    case 'bigop': {
+      if (e.op === 'integral') return `\\int_{${tex(e.lo)}}^{${tex(e.hi)}}${at(e.body, 3)}\\,\\mathrm{d}${name(e.varName)}`;
+      const sym = e.op === 'summation' ? '\\sum' : '\\prod';
+      return `${sym}_{${name(e.varName)}=${tex(e.lo)}}^{${tex(e.hi)}}${at(e.body, 3)}`;
+    }
+    case 'derivative': return `\\frac{\\mathrm{d}}{\\mathrm{d}${name(e.varName)}}${at(e.body, 3)}`;
+    case 'op': {
+      const [a, b] = e.args;
+      const p = PREC[e.op] ?? 9;
+      if (INFIX[e.op]) return `${at(a!, p)}${INFIX[e.op]}${at(b!, p + 0.5)}`;
+      switch (e.op) {
+        case 'div': return `\\frac{${tex(a!)}}{${tex(b!)}}`;
+        case 'pow': return `{${at(a!, 5)}}^{${tex(b!)}}`;
+        case 'neg': return `-${at(a!, 3.5)}`;
+        case 'sqrt': return `\\sqrt{${tex(a!)}}`;
+        case 'nthRoot': return `\\sqrt[${tex(a!)}]{${tex(b!)}}`;
+        case 'absval': return `\\left|${tex(a!)}\\right|`;
+        case 'transpose': return `{${at(a!, 5)}}^{\\mathsf{T}}`;
+        case 'vectorize': return `\\overrightarrow{${tex(a!)}}`;
+        case 'vectorSum': return `\\sum ${at(a!, 5)}`;
+        case 'not': return `\\lnot ${at(a!, 5)}`;
+        case 'factorial': return `${at(a!, 5)}!`;
+        case 'indexer': return `${grouped(a!)}_{${e.args.slice(1).map(tex).join(',')}}`;
+        case 'matcol': return `{${at(a!, 5)}}^{\\langle ${tex(b!)}\\rangle}`;
+        default: return `\\mathrm{op:${e.op}}`;
+      }
+    }
+    default: return `\\mathrm{unsupported}`;
+  }
+}
+
+// Reading back.
+type Tok = { t: 'cmd' | 'ch' | 'num'; v: string };
+
+function lex(src: string): Tok[] {
+  const out: Tok[] = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i]!;
+    if (ch === '\\') {
+      const m = /^\\([A-Za-z]+\*?|.)/s.exec(src.slice(i))!;
+      out.push({ t: 'cmd', v: `\\${m[1]}` });
+      i += m[0].length;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if (src.startsWith('..', i)) {
+      out.push({ t: 'ch', v: '..' });
+      i += 2;
+      continue;
+    }
+    const n = /^\d+(\.\d+)?|^\.\d+/.exec(src.slice(i));
+    if (n) {
+      out.push({ t: 'num', v: n[0] });
+      i += n[0].length;
+      continue;
+    }
+    out.push({ t: 'ch', v: ch });
+    i++;
+  }
+  return out;
+}
+
+const op = (o: string, ...args: Expr[]): Expr => ({ k: 'op', op: o, args });
+const TYPED_FUNCTIONS = new Set(['\\sin', '\\cos', '\\tan', '\\ln', '\\log', '\\exp', '\\max', '\\min', '\\arcsin', '\\arccos', '\\arctan']);
+const SPACING = new Set(['\\,', '\;', '\\:', '\\!', '\\ ', '\\quad', '\\qquad']);
+const REL: Record<string, string> = {
+  '=': 'equal', '\\ne': 'notEqual', '\\neq': 'notEqual', '<': 'lessThan', '>': 'greaterThan', '\\le': 'lessOrEqual', '\\leq': 'lessOrEqual',
+  '\\ge': 'greaterOrEqual', '\\geq': 'greaterOrEqual', '\\land': 'and', '\\lor': 'or', '\\oplus': 'xor', '\\wedge': 'and', '\\vee': 'or',
+};
+
+export function exprToTarget(e: Expr): Target {
+  if (e.k === 'id') return { k: 'var', name: e.name };
+  if (e.k === 'call' && e.fn.k === 'id') return { k: 'fn', name: e.fn.name, params: e.args.map((a) => (a as { name: string }).name) };
+  if (e.k === 'op' && e.op === 'indexer' && e.args[0]?.k === 'id') return { k: 'index', name: e.args[0].name, index: e.args.slice(1) };
+  if (e.k === 'op' && e.op === 'matcol' && e.args[0]?.k === 'id') return { k: 'col', name: e.args[0].name, index: e.args[1]! };
+  if (e.k === 'matrix') return { k: 'multi', targets: e.items.map(exprToTarget) };
+  throw new Error('not a definable target');
+}
+
+export function readTex(src: string): Expr {
+  const toks = lex(src);
+  let p = 0;
+  const heads = new Map<Tok, string>();
+  const toksHead = (n: Tok): string => heads.get(n) ?? '';
+  const skip = (): void => {
+    while (toks[p] && SPACING.has(toks[p]!.v)) p++;
+  };
+  const peek = (): Tok | undefined => {
+    skip();
+    return toks[p];
+  };
+  const is = (v: string): boolean => peek()?.v === v;
+  const eat = (v: string): void => {
+    if (!is(v)) throw new Error(`expected ${v}, found ${peek()?.v ?? 'end'} at ${p}`);
+    p++;
+  };
+  const rawBetween = (): string => {
+    eat('{');
+    let depth = 1;
+    let out = '';
+    while (p < toks.length) {
+      const t = toks[p++]!;
+      if (t.v === '{') depth++;
+      if (t.v === '}' && --depth === 0) return out;
+      if (t.v === '\\degree') out += '°';
+      else if (UNGREEK[t.v]) out += UNGREEK[t.v];
+      else out += t.v.startsWith('\\') && t.v.length === 2 && !/[A-Za-z]/.test(t.v[1]!) ? t.v[1]! : t.v;
+    }
+    throw new Error('unclosed group');
+  };
+  const group = (): Expr => {
+    const n = peek();
+    if (n?.t === 'num' && /^\d\d/.test(n.v)) {
+      // `\\frac12` and `x^23`: a bare argument is a single digit.
+      heads.set(n, n.v[0]!);
+      n.v = n.v.slice(1);
+      return { k: 'real', v: Number(toksHead(n)) };
+    }
+    if (is('{')) {
+      p++;
+      const e = relation();
+      eat('}');
+      return e;
+    }
+    return atom();
+  };
+  const scriptList = (): Expr[] => {
+    if (!is('{')) return [atom()];
+    p++;
+    const items = [relation()];
+    while (is(',')) {
+      p++;
+      items.push(relation());
+    }
+    eat('}');
+    return items;
+  };
+  const identifier = (base: string): Expr => {
+    if (is('_') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === '\\text') {
+      p += 2;
+      p++;
+      const sub = rawBetween();
+      eat('}');
+      return { k: 'id', name: `${base}.${sub}` };
+    }
+    if (is('_') && toks[p + 1]?.v === '\\text') {
+      p += 2;
+      return { k: 'id', name: `${base}.${rawBetween()}` };
+    }
+    return { k: 'id', name: base };
+  };
+  const callOrId = (base: string): Expr => {
+    const id = identifier(base);
+    if (is('\\left') && toks[p + 1]?.v === '(') {
+      p += 2;
+      const args = is('\\right') ? [] : list();
+      eat('\\right');
+      eat(')');
+      return { k: 'call', fn: id, args };
+    }
+    if (is('(')) {
+      p++;
+      const args = is(')') ? [] : list();
+      eat(')');
+      return { k: 'call', fn: id, args };
+    }
+    return id;
+  };
+  const list = (): Expr[] => {
+    const items = [relation()];
+    while (is(',')) {
+      p++;
+      items.push(relation());
+    }
+    return items;
+  };
+  const env = (name: string): Expr[][] => {
+    eat('\\begin');
+    eat('{');
+    for (const c of name) eat(c);
+    eat('}');
+    if (name === 'array') {
+      eat('{');
+      while (!is('}')) p++;
+      p++;
+    }
+    const rows: Expr[][] = [[]];
+    for (;;) {
+      if (is('\\end')) {
+        p++;
+        eat('{');
+        for (const c of name) eat(c);
+        eat('}');
+        return rows;
+      }
+      rows.at(-1)!.push(relation());
+      if (is('&')) p++;
+      else if (is('\\\\')) {
+        p++;
+        rows.push([]);
+      }
+    }
+  };
+  const statement = (): Stmt => {
+    if (is('\\mathbf')) {
+      const kw = (toks[p + 2]?.v ?? '') === '' ? '' : (() => {
+        p++;
+        return rawBetween();
+      })();
+      if (kw === 'return') return suffix({ k: 'return', value: relation() });
+      if (kw === 'for') {
+        const v = atom();
+        eat('\\in');
+        const iter = relation();
+        return suffix({ k: 'for', varName: (v as { name: string }).name, iter, body: bodyStmt() });
+      }
+      if (kw === 'while') {
+        const cond = relation();
+        return suffix({ k: 'while', cond, body: bodyStmt() });
+      }
+      throw new Error(`keyword ${kw}`);
+    }
+    const start = p;
+    if (is('\\left') && toks[p + 1]?.v === '|') {
+      const then = bodyStmt();
+      return suffix(then);
+    }
+    const first = relation();
+    if (is('\\gets') || is('\\leftarrow')) {
+      p++;
+      const tgt = toTarget(first);
+      return suffix({ k: 'assign', target: tgt, value: relation() });
+    }
+    void start;
+    return suffix({ k: 'expr', e: first });
+  };
+  const suffix = (s: Stmt): Stmt => {
+    if (!is('\\mathbf')) return s;
+    p++;
+    const kw = rawBetween();
+    if (kw === 'if') return suffix({ k: 'if', cond: relation(), then: s });
+    if (kw === 'otherwise') return { k: 'otherwise', then: s };
+    throw new Error(`keyword ${kw}`);
+  };
+  const bodyStmt = (): Stmt => {
+    if (!(is('\\left') && toks[p + 1]?.v === '|')) return statement();
+    const body = programBody();
+    return body.length === 1 ? body[0]! : { k: 'block', body };
+  };
+  const programBody = (): Stmt[] => {
+    eat('\\left');
+    eat('|');
+    eat('\\begin');
+    eat('{');
+    for (const c of 'array') eat(c);
+    eat('}');
+    eat('{');
+    while (!is('}')) p++;
+    p++;
+    const body: Stmt[] = [];
+    while (!is('\\end')) {
+      body.push(statement());
+      if (is('\\\\')) p++;
+    }
+    p++;
+    eat('{');
+    for (const c of 'array') eat(c);
+    eat('}');
+    eat('\\right');
+    eat('.');
+    return body;
+  };
+  const toTarget = (e: Expr): Target => {
+    if (e.k === 'id') return { k: 'var', name: e.name };
+    if (e.k === 'op' && e.op === 'indexer' && e.args[0]?.k === 'id') return { k: 'index', name: e.args[0].name, index: e.args.slice(1) };
+    if (e.k === 'op' && e.op === 'matcol' && e.args[0]?.k === 'id') return { k: 'col', name: e.args[0].name, index: e.args[1]! };
+    if (e.k === 'matrix') return { k: 'multi', targets: e.items.map(toTarget) };
+    throw new Error('not a target');
+  };
+  function atom(): Expr {
+    const t = peek();
+    if (!t) throw new Error('unexpected end');
+    p++;
+    if (t.t === 'num') {
+      if (is('\\times') && toks[p + 1]?.v === '10' && toks[p + 2]?.v === '^') {
+        p += 3;
+        const power = group();
+        const n = power.k === 'real' ? power.v : power.k === 'op' && power.op === 'neg' ? -(power.args[0] as { v: number }).v : NaN;
+        return { k: 'real', v: Number(`${t.v}e${n}`) };
+      }
+      return { k: 'real', v: Number(t.v) };
+    }
+    if (t.t === 'ch') {
+      if (/[A-Za-z]/.test(t.v)) {
+        // Adjacent letters are one name, as in Mathcad. Multiplication is always written.
+        let word = t.v;
+        while (toks[p]?.t === 'ch' && /^[A-Za-z]$/.test(toks[p]!.v)) word += toks[p++]!.v;
+        return callOrId(word === 'pi' ? 'π' : word);
+      }
+      if (t.v === '{') {
+        const e = relation();
+        eat('}');
+        return e;
+      }
+      if (t.v === '(') {
+        const e = relation();
+        eat(')');
+        return e;
+      }
+      throw new Error(`unexpected ${t.v}`);
+    }
+    if (UNGREEK[t.v]) return callOrId(UNGREEK[t.v]!);
+    if (TYPED_FUNCTIONS.has(t.v)) return callOrId(t.v.slice(1));
+    switch (t.v) {
+      case '\\mathrm': {
+        const base = rawBetween();
+        if (base === 'i' ) return { k: 'imag', v: 1 };
+        return callOrId(base);
+      }
+      case '\\operatorname': return callOrId(rawBetween());
+      case '\\frac': {
+        if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 5]?.v === '}') {
+          p += 6;
+          eat('{');
+          eat('\\mathrm');
+          rawBetween();
+          const v = atom();
+          eat('}');
+          return { k: 'derivative', varName: (v as { name: string }).name, body: unary() };
+        }
+        const a = group();
+        return op('div', a, group());
+      }
+      case '\\sqrt': {
+        if (is('[')) {
+          p++;
+          const n = relation();
+          eat(']');
+          return op('nthRoot', n, group());
+        }
+        return op('sqrt', group());
+      }
+      case '\\left': {
+        if (is('(')) {
+          p++;
+          const e = relation();
+          eat('\\right');
+          eat(')');
+          return e;
+        }
+        if (is('|')) {
+          if (toks[p + 1]?.v === '\\begin' && toks[p + 3]?.v === 'a') {
+            p--;
+            return { k: 'program', body: programBody() };
+          }
+          p++;
+          const e = relation();
+          eat('\\right');
+          eat('|');
+          return op('absval', e);
+        }
+        throw new Error(`unknown delimiter ${peek()?.v}`);
+      }
+      case '\\begin': {
+        p--;
+        const rows = env('pmatrix');
+        const r = rows.length;
+        const c = rows[0]!.length;
+        const items: Expr[] = [];
+        for (let j = 0; j < c; j++) for (let i = 0; i < r; i++) items.push(rows[i]![j]!);
+        return { k: 'matrix', rows: r, cols: c, items };
+      }
+      case '\\text': {
+        const raw = rawBetween();
+        return { k: 'str', v: raw.replace(/^"|"$/g, '') };
+      }
+      case '\\overrightarrow': return op('vectorize', group());
+      case '\\lnot': return op('not', group());
+      case '\\placeholder': {
+        if (is('{')) rawBetween();
+        return { k: 'placeholder' };
+      }
+      case '\\int': {
+        eat('_');
+        const lo = group();
+        eat('^');
+        const hi = group();
+        const body = additive();
+        eat('\\mathrm');
+        rawBetween();
+        const v = atom();
+        return { k: 'bigop', op: 'integral', varName: (v as { name: string }).name, body, lo, hi };
+      }
+      case '\\sum':
+      case '\\prod': {
+        if (!is('_')) return op('vectorSum', unary());
+        eat('_');
+        eat('{');
+        const v = atom();
+        eat('=');
+        const lo = relation();
+        eat('}');
+        eat('^');
+        const hi = group();
+        return { k: 'bigop', op: t.v === '\\sum' ? 'summation' : 'product', varName: (v as { name: string }).name, body: unary(), lo, hi };
+      }
+      default: throw new Error(`unknown ${t.v}`);
+    }
+  }
+  function scripts(): Expr {
+    let base = atom();
+    for (;;) {
+      if (is('_')) {
+        p++;
+        base = op('indexer', base, ...scriptList());
+      } else if (is('^')) {
+        p++;
+        if (is('{') && toks[p + 1]?.v === '\\mathsf') {
+          p += 2;
+          rawBetween();
+          eat('}');
+          base = op('transpose', base);
+        } else if (is('{') && toks[p + 1]?.v === '\\langle') {
+          p += 2;
+          const i = relation();
+          eat('\\rangle');
+          eat('}');
+          base = op('matcol', base, i);
+        } else base = op('pow', base, group());
+      } else if (is('!')) {
+        p++;
+        base = op('factorial', base);
+      } else return base;
+    }
+  }
+  const startsFactor = (): boolean => {
+    const t = peek();
+    if (!t) return false;
+    if (t.t === 'num') return true;
+    if (t.t === 'ch') return /[A-Za-z(]/.test(t.v);
+    if (t.v === '\\left') return toks[p + 1]?.v === '(';
+    if (t.v === '\\mathrm' && toks[p + 2]?.v === 'd' && toks[p + 3]?.v === '}') return false;
+    return t.v === '\\mathrm' || t.v === '\\frac' || t.v === '\\sqrt' || t.v === '\\operatorname'
+      || TYPED_FUNCTIONS.has(t.v) || UNGREEK[t.v] !== undefined;
+  };
+  function unary(): Expr {
+    if (is('-')) {
+      p++;
+      const e = unary();
+      return e.k === 'real' ? { k: 'real', v: -e.v } : op('neg', e);
+    }
+    return scripts();
+  }
+  function product(): Expr {
+    let a = unary();
+    for (;;) {
+      if (is('\\cdot')) {
+        p++;
+        a = op('mult', a, unary());
+      } else if (is('\\times')) {
+        p++;
+        a = op('crossProduct', a, unary());
+      } else if (a.k === 'real' && is('\\mathrm') && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}') {
+        unary();
+        a = { k: 'imag', v: a.v };
+      } else if (startsFactor()) {
+        // Typed `2x` means 2 times x. Printing always writes \cdot, so this only affects typed input.
+        a = op('mult', a, unary());
+      } else return a;
+    }
+  }
+  function additive(): Expr {
+    let a = product();
+    while (is('+') || is('-')) {
+      const o = peek()!.v === '+' ? 'plus' : 'minus';
+      p++;
+      a = op(o, a, product());
+    }
+    return a;
+  }
+  function range(): Expr {
+    const first = additive();
+    if (is('..')) {
+      p++;
+      return { k: 'range', first, second: null, last: additive() };
+    }
+    if (is(',')) {
+      const mark = p;
+      p++;
+      try {
+        const second = additive();
+        if (is('..')) {
+          p++;
+          return { k: 'range', first, second, last: additive() };
+        }
+      } catch {
+        // Not a stepped range: the comma separates arguments.
+      }
+      p = mark;
+    }
+    return first;
+  }
+  function relation(): Expr {
+    let a = range();
+    while (peek() && REL[peek()!.v]) {
+      const o = REL[peek()!.v]!;
+      p++;
+      a = op(o, a, range());
+    }
+    return a;
+  }
+  const e = relation();
+  if (p < toks.length && peek()) throw new Error(`trailing ${peek()?.v}`);
+  return e;
+}
