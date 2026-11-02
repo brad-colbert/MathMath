@@ -15,6 +15,14 @@ npm test
 npm run build
 ```
 
+To score the engine against stored results in a folder of `.xmcd` worksheets, and to compare ways of
+running programs:
+
+```sh
+MATHMATH_CORPUS=/path/to/worksheets npm run scoreboard
+npm run bench
+```
+
 Use `scripts/setup.sh` rather than a bare `npm install` on a first checkout. If the checkout is inside
 a Dropbox folder, it marks `node_modules` and `dist` as ignored before they fill, and `npm test` and
 `npm run build` then stop with an error if a mark goes missing. Outside Dropbox, none of this applies.
