@@ -490,6 +490,366 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await p5.close();
 }
 
+// Plots.
+{
+  const plotAt = async (p: Page, left: number, top: number, ys: string, x: string): Promise<void> => {
+    await clickAt(p, left, top);
+    await keys(p, '@');
+    await sleep(80);
+    await keys(p, ys);
+    await p.keyboard.press('Tab');
+    await sleep(60);
+    await keys(p, x);
+    await p.keyboard.press('Escape');
+    await sleep(80);
+  };
+  const plotInfo = (p: Page) => p.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.plot')].map((el) => ({
+    paths: [...el.querySelectorAll('path')].map((d) => (d.getAttribute('d')!.match(/[ML]/g) ?? []).length),
+    dots: el.querySelectorAll('circle').length,
+    ticks: [...el.querySelectorAll('text')].map((t) => t.textContent),
+    problem: el.querySelector('.plot-problem')?.textContent ?? '',
+    swatches: el.querySelectorAll('.ylabel svg').length,
+    width: el.getBoundingClientRect().width,
+  })));
+  const idleP = (p: Page) => p.waitForFunction('!window.mathmath.doc.computing', { timeout: 20000 });
+
+  const page = await fresh();
+  await type(page, 60, 60, 'x:0;10');
+  await plotAt(page, 60, 96, 'x^2', 'x');
+  await idleP(page);
+  let info = await plotInfo(page);
+  let ws = await model(page);
+  check('@ makes a plot from typed y and x', ws.regions[1]?.content.k === 'plot' && ws.regions[1].content.ys.length === 1 && ws.regions[1].content.x?.name === 'x', ws.regions[1]?.content);
+  check('it draws one point per range value', info[0]?.paths[0] === 11, info[0]);
+  const ends = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll<HTMLElement>('.region.plot [data-slot]')].slice(0, 6).map((e) => [e.dataset.slot, e.textContent])));
+  check('ticks are round numbers inside the axis', ['20', '40', '60', '80'].every((t) => info[0]?.ticks.includes(t)), info[0]?.ticks);
+  check('and the ends show the limits, rounded out to cover the data', ends.ymin === '0' && ends.ymax === '100' && ends.xmin === '0' && ends.xmax === '10', ends);
+  check('a single trace needs no legend swatch', info[0]?.swatches === 0);
+
+  // Several traces, separated by commas, each with its own line in the legend.
+  await type(page, 300, 60, 't:0,0.1;6');
+  await plotAt(page, 300, 96, 'sin(t),cos(t)', 't');
+  await idleP(page);
+  info = await plotInfo(page);
+  check('commas make several traces', info[1]?.paths.length === 2 && info[1].paths.every((n) => n === 61), info[1]);
+  check('each trace is labelled with its own line style', info[1]?.swatches === 2);
+  check('and the calculation did not fail', !(await page.evaluate(() => document.querySelector('.busy')?.textContent ?? '')).includes('failed'));
+
+  // A limit typed on the axis replaces the automatic one.
+  const lim = await page.evaluate(() => {
+    const el = document.querySelectorAll<HTMLElement>('.region.plot')[0]!.querySelector<HTMLElement>('[data-slot="ymax"]')!;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(lim.x, lim.y);
+  await sleep(120);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyA');
+  await page.keyboard.up('Control');
+  await keys(page, '50');
+  await page.keyboard.press('Escape');
+  await idleP(page);
+  await sleep(60);
+  ws = await model(page);
+  info = await plotInfo(page);
+  check('a typed limit sets the axis', ws.regions[1].content.yAxis.max?.v === 50 && !info[0]!.ticks.includes('100'), { max: ws.regions[1].content.yAxis.max, ticks: info[0]?.ticks });
+
+  // Log axes, from the Plot menu.
+  const box = await page.evaluate(() => {
+    const r = document.querySelectorAll<HTMLElement>('.region.plot')[0]!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(box.x, box.y);
+  await sleep(60);
+  await page.evaluate(() => {
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === 'Log y axis')!.click();
+  });
+  await idleP(page);
+  await sleep(60);
+  info = await plotInfo(page);
+  ws = await model(page);
+  check('the Plot menu sets a log axis', ws.regions[1].content.yAxis.log === true, ws.regions[1].content.yAxis);
+  check('a log axis has decade ticks and skips zero', info[0]!.ticks.includes('10') && info[0]!.paths[0] === 10, info[0]);
+
+  // Resizing by the corner handle, which lands on the grid.
+  const handle = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot .handle')!.getBoundingClientRect();
+    return { x: r.left + 4, y: r.top + 4 };
+  });
+  await page.mouse.move(handle.x, handle.y);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + 60, handle.y + 30, { steps: 5 });
+  await page.mouse.up();
+  await sleep(80);
+  ws = await model(page);
+  check('dragging the handle resizes a plot, on the grid', ws.regions[1].content.width > 216 && ws.regions[1].content.width % 6 === 0, ws.regions[1].content.width);
+
+  // A saved plot comes back.
+  const saved = await page.evaluate(() => (window as any).mathmath.save());
+  const again = await fresh();
+  await again.evaluate((t) => (window as any).mathmath.load('p.mathmath', t), saved);
+  await idleP(again);
+  await sleep(80);
+  check('a saved plot opens and redraws', (await plotInfo(again)).length === 2 && (await plotInfo(again))[1]!.paths.length === 2);
+
+  // Printing keeps plots as vectors: their tick labels are text in the PDF.
+  if (shots) {
+    const pdf = await again.pdf({ preferCSSPageSize: true, printBackground: true });
+    writeFileSync(`${shots}/plots.pdf`, pdf);
+    const text = execSync(`pdftotext ${shots}/plots.pdf -`).toString();
+    const images = execSync(`pdfimages -list ${shots}/plots.pdf`).toString().trim().split('\n').length - 2;
+    check('printed plots are vector graphics, with real text', text.includes('10') && text.includes('0.5') && images === 0, { images });
+    await again.screenshot({ path: `${shots}/plots.png` as `${string}.png` });
+  }
+  await again.close();
+
+  // Undo removes a new plot.
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(60);
+  check('undo reverses a resize', (await model(page)).regions[1].content.width === 216);
+  await page.close();
+
+  // Vectors with no x, and mismatched lengths.
+  const p2 = await fresh();
+  await p2.evaluate(() => {
+    const m = (window as any).mathmath;
+    const vec = (items: number[]) => ({ k: 'matrix', rows: items.length, cols: 1, items: items.map((v) => ({ k: 'real', v })) });
+    const plot = (id: string, top: number, x: unknown, ys: unknown[]) => ({
+      id, left: 60, top, alignX: 60, alignY: top, disabled: false,
+      content: { k: 'plot', x, ys, xAxis: { min: null, max: null, log: false }, yAxis: { min: null, max: null, log: false }, markers: true, width: 200, height: 140 },
+    });
+    m.load('v.mathmath', JSON.stringify({
+      format: 'mathmath', version: 1,
+      worksheet: { ...m.doc.ws, regions: [plot('1', 40, null, [vec([1, 4, 9])]), plot('2', 220, vec([1, 2]), [vec([1, 2, 3])])] },
+    }));
+  });
+  await idleP(p2);
+  await sleep(80);
+  const vinfo = await plotInfo(p2);
+  check('a vector plots against its index', vinfo[0]?.dots === 3, vinfo[0]);
+  check('mismatched lengths say so on the plot', vinfo[1]?.problem.includes('x has 2 values and y has 3') === true, vinfo[1]?.problem);
+  await p2.close();
+
+  // A file from before plots existed still opens.
+  const p3 = await fresh();
+  await p3.evaluate(() => (window as any).mathmath.load('old.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { regions: [], texts: [] } })));
+  await sleep(80);
+  check('an older file still opens', (await model(p3)).opaque?.length === 0);
+  await p3.close();
+}
+
+// Units.
+{
+  const answers = async (p: Page) => (await shown(p)).map((t) => t.replace(/\s/g, ''));
+  const page = await fresh();
+  await type(page, 60, 60, 'L:3*m');
+  await type(page, 60, 96, 'L=');
+  await type(page, 60, 132, 'q:2*W/m^2');
+  await type(page, 60, 168, 'q=');
+  await type(page, 60, 204, 'P:2*kg*m^2/s^3');
+  await type(page, 60, 240, 'P=');
+  let text = await answers(page);
+  check('a length shows in metres', text[1]?.endsWith('=3m') === true, text[1]);
+  const irradiance = await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    return d.outcomes.get(d.ws.regions[3].id)?.value;
+  });
+  check('irradiance shows as Mathcad writes it, in base units', irradiance === '2\\ \\frac{\\mathrm{kg}}{\\mathrm{s}^{3}}', irradiance);
+  check('a dimension with a name shows that name', text[5]?.endsWith('=2W') === true, text[5]);
+
+  // Clicking the answer chooses its unit.
+  const at = await page.evaluate(() => {
+    const el = document.querySelectorAll<HTMLElement>('.region')[1]!.querySelector<HTMLElement>('[data-slot="unit"]');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  check('the answer is a unit slot', at !== null);
+  if (at) {
+    await page.mouse.click(at.x, at.y);
+    await sleep(120);
+    await keys(page, 'cm');
+    await page.keyboard.press('Escape');
+    await sleep(60);
+  }
+  text = await answers(page);
+  check('choosing cm shows the length in centimetres', text[1]?.endsWith('=300cm') === true, text[1]);
+  // Editing the math keeps the unit.
+  await clickAt(page, 62, 94);
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowLeft');
+  await keys(page, '*2');
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  text = await answers(page);
+  const c = (await model(page)).regions[1].content;
+  check('editing the math keeps the chosen unit', text[1]?.endsWith('=600cm') === true && c.unit?.name === 'cm', { text: text[1], unit: c.unit });
+  await page.close();
+
+  // An imported region with an override keeps it through an edit, and temperatures convert.
+  const p2 = await fresh();
+  await p2.evaluate(() => {
+    const m = (window as any).mathmath;
+    const id = (name: string) => ({ k: 'id', name });
+    const mult = (a: unknown, b: unknown) => ({ k: 'op', op: 'mult', args: [a, b] });
+    const r = (n: number, content: unknown) => ({ id: String(n), left: 60, top: 30 + n * 36, alignX: 60, alignY: 38 + n * 36, disabled: false, content });
+    m.load('u.mathmath', JSON.stringify({
+      format: 'mathmath', version: 1,
+      worksheet: { ...m.doc.ws, regions: [
+        r(1, { k: 'define', target: { k: 'var', name: 'd' }, value: mult({ k: 'real', v: 2 }, id('km')), global: false, stored: null, unit: null, shown: false }),
+        r(2, { k: 'eval', expr: id('d'), stored: null, unit: id('m') }),
+        r(3, { k: 'eval', expr: mult({ k: 'real', v: 300 }, id('K')), stored: null, unit: id('°C') }),
+      ] },
+    }));
+  });
+  text = await answers(p2);
+  check('an override from a file shows', text[1]?.endsWith('=2000m') === true || text[1]?.endsWith('=2×103m') === true, text[1]);
+  check('degrees Celsius take their offset', text[2]?.endsWith('=26.85°C') === true, text[2]);
+  await clickAt(p2, 62, 104);
+  await p2.keyboard.press('End');
+  await p2.keyboard.press('ArrowLeft');
+  await keys(p2, '*3');
+  await p2.keyboard.press('Escape');
+  await sleep(60);
+  const kept = (await model(p2)).regions[1].content;
+  check('an imported override survives editing the math', kept.unit?.name === 'm' && kept.expr.k === 'op', kept);
+  await p2.close();
+}
+
+// Images.
+{
+  const pixelsAt = (p: Page, n = 0) => p.evaluate((i) => {
+    const canvas = document.querySelectorAll<HTMLElement>('.region.image')[i]?.querySelector('canvas');
+    if (!canvas) return null;
+    const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+    return { width: canvas.width, height: canvas.height, data: [...data] };
+  }, n);
+  const page = await fresh();
+  await type(page, 60, 60, 'M:');
+  await clickAt(page, 62, 58);
+  await page.keyboard.press('End');
+  await page.evaluate(() => {
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Matrix')!.click();
+  });
+  await sleep(40);
+  for (const v of ['0', '100', '200', '255']) {
+    await keys(page, v);
+    await page.keyboard.press('Tab');
+  }
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  await clickAt(page, 60, 120);
+  await page.evaluate(() => {
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Image')!.click();
+  });
+  await sleep(60);
+  await keys(page, 'M');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction('!window.mathmath.doc.computing');
+  await sleep(80);
+  const px = await pixelsAt(page);
+  check('a matrix shows as an image, pixel for element', px?.width === 2 && px.height === 2 && px.data[0] === 0 && px.data[4] === 100 && px.data[8] === 200 && px.data[12] === 255, px);
+  // Color mode reads three blocks of columns.
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const region = m.doc.ws.regions.find((r: any) => r.content.k === 'image');
+    m.doc.update(region, (c: any) => ({ ...c, mode: 'rgb' }));
+  });
+  await page.waitForFunction('!window.mathmath.doc.computing');
+  await sleep(60);
+  const bad = await page.evaluate(() => document.querySelector<HTMLElement>('.region.image')!.title);
+  check('color mode needs three blocks, and says so', bad.includes('three equal blocks'), bad);
+  await page.close();
+
+  // Attaching a file, then reading it.
+  const p2 = await fresh();
+  const png = await p2.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 2;
+    c.height = 1;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#ff0000';
+    g.fillRect(0, 0, 1, 1);
+    g.fillStyle = '#0000ff';
+    g.fillRect(1, 0, 1, 1);
+    return c.toDataURL('image/png').split(',')[1]!;
+  });
+  const folder = mkdtempSync(join(tmpdir(), 'mathmath-img-'));
+  writeFileSync(join(folder, 'tiny.png'), Buffer.from(png, 'base64'));
+  const menu = (p: Page, label: string) => p.evaluate((l) => {
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === l)!.click();
+  }, label);
+  await clickAt(p2, 60, 60);
+  const [chooser] = await Promise.all([p2.waitForFileChooser(), menu(p2, 'From this computer…')]);
+  await chooser.accept([join(folder, 'tiny.png')]);
+  await sleep(300);
+  await keys(p2, 'P');
+  await p2.keyboard.press('Escape');
+  await sleep(60);
+  const made = (await model(p2)).regions[0]?.content;
+  check('loading a file adds readImage, assigned to the variable typed', made?.k === 'define' && made.target.name === 'P' && made.value.fn?.name === 'readImage' && made.value.args[0]?.v === 'tiny.png', made);
+  await type(p2, 60, 120, 'P=');
+  await p2.waitForFunction('!window.mathmath.doc.computing');
+  await sleep(80);
+  const read = (await shown(p2)).map((t) => t.replace(/[\s\u200b]/g, ''));
+  check('an attached image reads as red, green and blue blocks', read[1]?.endsWith('=(2550000255)') === true, read);
+  // A folder path in readImage is refused, with a reason.
+  await clickAt(p2, 300, 60);
+  await keys(p2, 'Q:readImage("C:/pics/tiny.png"');
+  await p2.keyboard.press('Escape');
+  await p2.waitForFunction('!window.mathmath.doc.computing');
+  await sleep(60);
+  const refused = await p2.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.error')].map((e) => e.title));
+  check('readImage refuses a folder path', refused.some((t) => t.includes('not a folder path')), refused);
+  // A web address must be https.
+  await p2.evaluate(() => {
+    window.prompt = () => 'http://example.com/a.png';
+  });
+  await menu(p2, 'From a web address…');
+  await sleep(150);
+  check('a web address must be https', ((await p2.evaluate(() => document.querySelector('.busy')?.textContent)) ?? '').includes('https://'));
+  // It travels inside the saved file.
+  const saved = await p2.evaluate(() => (window as any).mathmath.save());
+  check('attached files are saved with the worksheet', JSON.parse(saved).worksheet.assets['tiny.png']?.mime === 'image/png');
+  // A picture from a file sits on the page.
+  const [pick] = await Promise.all([p2.waitForFileChooser(), p2.evaluate(() => {
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'Picture…')!.click();
+  })]);
+  await pick.accept([join(folder, 'tiny.png')]);
+  await sleep(300);
+  const pic = await p2.evaluate(() => {
+    const img = document.querySelector<HTMLImageElement>('.region.opaque img');
+    return img ? { src: img.src.slice(0, 22), ok: img.complete && img.naturalWidth === 2 } : null;
+  });
+  check('a picture from a file shows on the page', pic?.ok === true && pic.src.startsWith('data:image/png'), pic);
+  await p2.close();
+}
+
+// Mathcad's file functions are grayed, with what to do instead.
+{
+  const page = await fresh();
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const r = (n: number, content: unknown) => ({ id: String(n), left: 60, top: 30 + n * 36, alignX: 60, alignY: 38 + n * 36, disabled: false, content });
+    const read = { k: 'call', fn: { k: 'id', name: 'READRGB' }, args: [{ k: 'str', v: 'Z:\\home\\pics\\photo.jpg' }] };
+    m.load('old.mathmath', JSON.stringify({
+      format: 'mathmath', version: 1,
+      worksheet: { ...m.doc.ws, regions: [
+        r(1, { k: 'define', target: { k: 'var', name: 'I' }, value: read, global: false, stored: null, unit: null, shown: false }),
+        r(2, { k: 'eval', expr: { k: 'op', op: 'mult', args: [{ k: 'id', name: 'I' }, { k: 'real', v: 2 }] }, stored: null, unit: null }),
+      ] },
+    }));
+  });
+  await page.waitForFunction('!window.mathmath.doc.computing');
+  await sleep(60);
+  const look = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => ({ stale: e.classList.contains('stale'), error: e.classList.contains('error'), title: e.title })));
+  check('a Mathcad file function is grayed, with advice to use Files and readImage', look[0]?.stale === true && !look[0].error && look[0].title.includes('Files') && look[0].title.includes('readImage'), look[0]);
+  check('and so is what depends on it', look[1]?.stale === true && look[1].title.includes('READRGB'), look[1]);
+  await page.close();
+}
+
 // Enter moves down the page, as in writing.
 {
   const page = await fresh();
@@ -805,6 +1165,41 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.keyboard.press('Escape');
   await sleep(60);
   check('Esc stops it', !(await page.evaluate(() => (window as any).mathmath.doc.computing)));
+  await page.close();
+}
+
+// The mode button: LIVE calculates as you edit, EDIT doesn't until switched back.
+{
+  const page = await fresh();
+  const mode = () => page.evaluate(() => {
+    const b = document.querySelector<HTMLButtonElement>('#toolbar button.mode')!;
+    return { text: b.textContent, pressed: b.getAttribute('aria-pressed'), live: (window as any).mathmath.doc.live };
+  });
+  const click = () => page.evaluate(() => document.querySelector<HTMLButtonElement>('#toolbar button.mode')!.click());
+  check('the sheet starts LIVE', JSON.stringify(await mode()) === '{"text":"LIVE","pressed":"true","live":true}', await mode());
+  await type(page, 72, 72, 'a:2');
+  await type(page, 72, 120, 'a+1=');
+  await idle(page);
+  const answer = () => page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const el = document.querySelector<HTMLElement>(`[data-id="${d.ws.regions[1].id}"]`);
+    return { value: d.outcomes.get(d.ws.regions[1].id)?.value, stale: el?.classList.contains('stale'), note: el?.title };
+  });
+  check('LIVE calculates', /3/.test((await answer()).value ?? ''), await answer());
+  await click();
+  check('one click switches to EDIT', JSON.stringify(await mode()) === '{"text":"EDIT","pressed":"false","live":false}', await mode());
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.update(d.ws.regions[0], (c: any) => ({ ...c, value: { k: 'real', v: 5 } }));
+  });
+  const edited = { computing: await page.evaluate(() => (window as any).mathmath.doc.computing), ...(await answer()) };
+  check('EDIT calculates nothing, and the old answer grays', !edited.computing && /3/.test(edited.value ?? '') && edited.stale === true
+    && /EDIT/.test(edited.note ?? ''), edited);
+  await click();
+  check('switching back to LIVE calculates', (await mode()).live && (await page.evaluate(() => (window as any).mathmath.doc.computing)));
+  await idle(page);
+  const after = await answer();
+  check('and the answer is current again', /6/.test(after.value ?? '') && !after.stale, after);
   await page.close();
 }
 

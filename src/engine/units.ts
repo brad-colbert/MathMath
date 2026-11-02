@@ -63,4 +63,7 @@ const OFFSET: Record<string, Unit> = {
   degF: { factor: 5 / 9, dim: K, offset: (459.67 * 5) / 9 },
 };
 
+/** The short name for a unit as written in stored results: `centimeter` is `cm`. */
+export const shortUnit = (name: string): string => ({ degC: '°C', degF: '°F' } as Record<string, string>)[name] ?? LONG[name] ?? name;
+
 export const storedUnit = (name: string): Unit | undefined => OFFSET[name] ?? UNITS[LONG[name] ?? name];

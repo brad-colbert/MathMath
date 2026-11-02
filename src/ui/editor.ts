@@ -25,8 +25,8 @@ const MathfieldElement = (mathlive as unknown as {
   MathfieldElement: (new () => Field) & { fontsDirectory: string | null; soundsDirectory: string | null };
 }).MathfieldElement;
 
-const PROGRAM_OPEN = '\\left|\\begin{array}{l}';
-const PROGRAM_CLOSE = '\\end{array}\\right.';
+const PROGRAM_OPEN = '\\begin{array}{|l}';
+const PROGRAM_CLOSE = '\\end{array}';
 
 MathfieldElement.fontsDirectory = null;
 MathfieldElement.soundsDirectory = null;
@@ -71,8 +71,10 @@ export const TEMPLATES = {
 };
 
 export interface EditorEvents {
-  commit: (next: 'stay' | 'below') => void;
+  /** `next` moves on to a plot's next slot. */
+  commit: (next: 'stay' | 'below' | 'next') => void;
   startText: () => void;
+  startPlot: () => void;
 }
 
 export class Editor {
@@ -80,6 +82,8 @@ export class Editor {
   private open = false;
   private baseline = '';
   private inName = false;
+  /** A slot holds one expression or a list, not a whole region. */
+  private slotMode = false;
 
   constructor(parent: HTMLElement, private events: EditorEvents) {
     const field = new MathfieldElement();
@@ -107,7 +111,8 @@ export class Editor {
     return this.open;
   }
 
-  show(left: number, top: number, latex: string): void {
+  show(left: number, top: number, latex: string, slot = false): void {
+    this.slotMode = slot;
     const f = this.field;
     f.style.left = `${left}pt`;
     f.style.top = `${top}pt`;
@@ -205,13 +210,22 @@ export class Editor {
     const f = this.field;
     if ((e.ctrlKey || e.metaKey) && e.key === '.') return this.consume(e, () => this.arrow());
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Inside a string every key is just text, except the quote that ends it.
+    if (f.mode === 'text' && !this.inName && !['"', 'Escape', 'Enter', 'Tab'].includes(e.key)) return;
     this.endName(e.key);
     switch (e.key) {
       case 'Escape': return this.consume(e, () => {
         this.inName = false;
         this.events.commit('stay');
       });
-      case 'Enter': return this.consume(e, () => this.events.commit('below'));
+      case 'Enter': return this.consume(e, () => this.events.commit(this.slotMode ? 'stay' : 'below'));
+      case 'Tab':
+        // In a slot, Tab goes to the next slot, unless there's still a blank to fill in this one.
+        if (this.slotMode && !this.value().includes('\\placeholder')) this.consume(e, () => this.events.commit('next'));
+        return;
+      case '@':
+        if (!this.slotMode && this.value() === '') this.consume(e, () => this.events.startPlot());
+        return;
       case ' ': return this.consume(e, () => growSelection(f));
       case '(': return this.consume(e, () => this.insert('\\left(#?\\right)'));
       case ')': return this.consume(e, () => f.executeCommand('moveAfterParent'));
@@ -225,8 +239,15 @@ export class Editor {
       case '{': return this.consume(e, () => this.insert('\\gets '));
       case '}': return this.consume(e, () => this.insert('\\ \\mathbf{if}\\ '));
       case '"':
-        if (this.value() === '') this.consume(e, () => this.events.startText());
-        return;
+        if (!this.slotMode && this.value() === '') return this.consume(e, () => this.events.startText());
+        // Inside math, quotes make a string, as in "photo.jpg". A second quote ends it.
+        return this.consume(e, () => {
+          if (f.mode === 'text') f.executeCommand('moveAfterParent');
+          else {
+            f.insert('\\text{""}', { format: 'latex' });
+            f.executeCommand('moveToPreviousChar');
+          }
+        });
       case '.':
         // After a letter, a period starts a name's literal subscript, as in Mathcad.
         if (/[A-Za-z]$/.test(previousChar(f))) {

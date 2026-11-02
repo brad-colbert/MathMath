@@ -4,7 +4,8 @@
  */
 import { emptyWorksheet } from '../format/native.js';
 import { readRegion } from '../latex/region.js';
-import type { Content, OpaqueRegion, Region, TextRegion, Worksheet } from '../model/ast.js';
+import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
+import { fileKey } from '../engine/files.js';
 import { Algebra } from './algebra.js';
 import type { AskAlgebra, ComputeRequest, Shown } from './compute.worker.js';
 
@@ -31,12 +32,21 @@ export class Doc {
   ws: Worksheet = emptyWorksheet();
   outcomes = new Map<string, Shown>();
   computing = false;
+  /** LIVE recalculates after every change. EDIT calculates nothing until switched back to LIVE. */
+  live = true;
+  /**
+   * Why the results shown don't match the sheet, or '' when they do: edits in EDIT mode, or a
+   * calculation that was stopped. While one runs, `computing` says so instead.
+   */
+  behind = '';
   dirty = false;
   name = 'Untitled';
   /** Called after anything changes, with the ids whose content must redraw, or null for all. */
   onChange: (ids: Set<string> | null) => void = () => {};
   /** Called when a calculation starts or ends. */
   onBusy: (busy: boolean) => void = () => {};
+  /** Called when the mode changes between LIVE and EDIT. */
+  onMode: (live: boolean) => void = () => {};
   /** Called when a calculation can't finish. */
   onProblem: (message: string) => void = () => {};
   private nextId = 1;
@@ -58,6 +68,9 @@ export class Doc {
     this.saved = snapshot(ws);
     const ids = this.items().map((i) => Number(i.region.id)).filter(Number.isFinite);
     this.nextId = Math.max(0, ...ids) + 1;
+    // Results belong to the sheet they came from: ids repeat between sheets.
+    this.outcomes = new Map();
+    this.behind = '';
     this.recompute();
     this.onChange(null);
   }
@@ -74,9 +87,23 @@ export class Doc {
     return this.items().find((i) => i.region.id === id);
   }
 
-  /** Starts a calculation, replacing any still running. Results arrive later. */
+  /** Switches between LIVE and EDIT. Going LIVE calculates at once; going to EDIT stops a calculation. */
+  setLive(live: boolean): void {
+    if (this.live === live) return;
+    this.live = live;
+    this.onMode(live);
+    if (live) this.recompute();
+    else this.stop();
+    this.onChange(null);
+  }
+
+  /** Starts a calculation, replacing any still running. Results arrive later. In EDIT mode, marks them out of date. */
   recompute(): void {
     this.stop();
+    if (!this.live) {
+      if (this.outcomes.size > 0) this.behind = 'Not recalculated in EDIT mode. Switch to LIVE to calculate.';
+      return;
+    }
     const seq = ++this.seq;
     const worker = new Worker(new URL('./compute.worker.ts', import.meta.url), { type: 'module' });
     this.worker = worker;
@@ -86,6 +113,7 @@ export class Doc {
       worker.terminate();
       this.worker = null;
       this.computing = false;
+      if (this.outcomes.size > 0) this.behind = `Not updated: the calculation failed (${reason})`;
       this.onBusy(false);
       this.onProblem(`Calculation failed: ${reason}`);
       this.onChange(null);
@@ -106,11 +134,12 @@ export class Doc {
       this.worker = null;
       this.computing = false;
       this.outcomes = new Map(m.data.shown.map((s) => [s.id, s]));
+      this.behind = '';
       this.onBusy(false);
       this.onChange(null);
     };
-    const { regions, origin, tol, format } = this.ws;
-    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, format } };
+    const { regions, origin, tol, format, assets } = this.ws;
+    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, format, assets } };
     worker.postMessage(request);
   }
 
@@ -122,6 +151,7 @@ export class Doc {
     this.algebra.abort();
     if (this.computing) {
       this.computing = false;
+      if (this.outcomes.size > 0) this.behind = 'Calculation stopped before this was updated. Any change calculates again.';
       this.onBusy(false);
       this.onChange(null);
     }
@@ -179,6 +209,51 @@ export class Doc {
     };
     this.ws.regions.push(region);
     return region;
+  }
+
+  /** A new plot with its top-left corner at (left, top). */
+  addPlot(left: number, top: number): Region {
+    const region: Region = {
+      id: String(this.nextId++), left, top, alignX: left, alignY: top, disabled: false,
+      content: { k: 'plot', x: null, ys: [], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: 216, height: 150 },
+    };
+    this.ws.regions.push(region);
+    this.touched();
+    return region;
+  }
+
+  /** A new view of a matrix as an image, with its top-left corner at (left, top). */
+  addImage(left: number, top: number): Region {
+    const region: Region = {
+      id: String(this.nextId++), left, top, alignX: left, alignY: top, disabled: false,
+      content: { k: 'image', expr: null, mode: 'gray', width: 144, height: 120, png: null },
+    };
+    this.ws.regions.push(region);
+    this.touched();
+    return region;
+  }
+
+  /** A picture from a file, as it is. */
+  addPicture(left: number, top: number, mime: string, data: string, width: number, height: number): void {
+    this.ws.opaque.push({ id: String(this.nextId++), kind: 'picture', left, top, width, height, png: data, mime, xml: null, items: {} });
+    this.touched();
+  }
+
+  /**
+   * Keeps files the worksheet reads, by name. Attaching isn't undoable: a file is data the sheet
+   * uses, not part of its layout.
+   */
+  attach(files: { name: string; mime: string; data: string }[]): void {
+    for (const f of files) this.ws.assets[fileKey(f.name)] = { mime: f.mime, data: f.data };
+    this.dirty = true;
+    this.recompute();
+    this.onChange(null);
+  }
+
+  /** Changes part of a region, such as a plot's axis. */
+  update(region: Region, change: (c: Content) => Content): void {
+    region.content = change(region.content);
+    this.touched();
   }
 
   addText(left: number, y: number): TextRegion {

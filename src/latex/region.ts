@@ -30,6 +30,9 @@ export function regionLatex(c: Content): string {
       return `${head}${tex(c.expr)}${keywords}${ARROW}`;
     }
     case 'draft': return c.latex;
+    // Plots are edited through their slots, not as one line of math.
+    case 'plot':
+    case 'image':
     case 'other': return '';
   }
 }
@@ -108,14 +111,17 @@ export function readRegion(latex: string, previous?: Content): Content {
       const right = clean.slice(at + marker.length);
       if (ARROW_AT_END.test(right)) return readSym(right, t, global);
       const value: Expr = readTex(right);
-      const format = previous?.k === 'define' && previous.format ? { format: previous.format } : {};
-      return { k: 'define', target: t, value, global, stored: null, unit: null, shown: false, ...format };
+      // A display unit and a shown result belong to the region, not its math, so editing keeps them.
+      const kept = previous?.k === 'define' ? previous : null;
+      const format = kept?.format ? { format: kept.format } : {};
+      return { k: 'define', target: t, value, global, stored: null, unit: kept?.unit ?? null, shown: kept?.shown ?? false, ...format };
     }
   }
   if (ARROW_AT_END.test(clean)) return readSym(clean, null, false);
   // Only a trailing = asks for a result. Anything else is math written to be read.
   if (!/=\s*$/.test(clean)) return { k: 'show', expr: readTex(clean) };
   const expr = readTex(clean.replace(/=\s*$/, ''));
-  const format = previous?.k === 'eval' && previous.format ? { format: previous.format } : {};
-  return { k: 'eval', expr, stored: null, unit: null, ...format };
+  const kept = previous?.k === 'eval' ? previous : null;
+  const format = kept?.format ? { format: kept.format } : {};
+  return { k: 'eval', expr, stored: null, unit: kept?.unit ?? null, ...format };
 }

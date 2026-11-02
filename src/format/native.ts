@@ -25,11 +25,15 @@ export function loadWorksheet(text: string): Worksheet {
   };
   if (file.format !== FORMAT_NAME || !file.worksheet) throw new Error('This is not a MathMath file.');
   if ((file.version ?? 0) > VERSION) throw new Error(`This file needs a newer version of MathMath (format ${file.version}).`);
-  return file.worksheet;
+  // Files from earlier builds lack fields added since. Fill only those, so a saved file reads back
+  // and saves again unchanged.
+  const ws = file.worksheet as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(emptyWorksheet())) if (!(key in ws)) ws[key] = value;
+  return ws as unknown as Worksheet;
 }
 
 export function emptyWorksheet(): Worksheet {
   return {
-    page: DEFAULT_PAGE, format: DEFAULT_FORMAT, regions: [], texts: [], opaque: [], origin: 0, tol: 0.001, otherRegions: {}, componentOutputs: [],
+    page: DEFAULT_PAGE, format: DEFAULT_FORMAT, assets: {}, regions: [], texts: [], opaque: [], origin: 0, tol: 0.001, otherRegions: {}, componentOutputs: [],
   };
 }

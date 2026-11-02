@@ -62,6 +62,15 @@ export interface SymCommand {
   args: Expr[];
 }
 
+/** A plot axis. Null limits are chosen from the data. */
+export interface Axis {
+  min: Expr | null;
+  max: Expr | null;
+  log: boolean;
+}
+
+export const autoAxis = (): Axis => ({ min: null, max: null, log: false });
+
 /** How numbers display. `precision` is decimal places. Numbers outside 10^±exponent go exponential. */
 export interface NumberFormat {
   precision: number;
@@ -76,6 +85,13 @@ export type Content =
   | { k: 'sym'; target: Target | null; global: boolean; expr: Expr; commands: SymCommand[]; stored: Expr | null }
   /** Math written to be read, with no definition or result. */
   | { k: 'show'; expr: Expr }
+  /**
+   * A matrix shown as an image: gray levels 0 to 255, or color from red, green and blue blocks side by
+   * side. `png` is a stored rendering, shown until the image is computed.
+   */
+  | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
+  /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
+  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number }
   /** Typed math that couldn't be read. Kept exactly as typed, so nothing is ever lost. */
   | { k: 'draft'; latex: string; error: string }
   | { k: 'other'; tag: string };
@@ -108,8 +124,10 @@ export interface OpaqueRegion {
   top: number;
   width: number;
   height: number;
-  /** Base64 PNG of how the original program drew it. */
+  /** Base64 image data: how the original program drew it, or a picture from a file. */
   png: string | null;
+  /** The image type, when it isn't PNG. */
+  mime?: string;
   /** The original XML. */
   xml: string | null;
   /** Base64 data the XML refers to, by item id. */
@@ -129,8 +147,17 @@ export const DEFAULT_PAGE: PageModel = {
 
 export const DEFAULT_FORMAT: NumberFormat = { precision: 3, exponent: 3, trailingZeros: false };
 
+/** A file a worksheet reads, such as an image, kept inside the worksheet file. */
+export interface Asset {
+  mime: string;
+  /** Base64. */
+  data: string;
+}
+
 export interface Worksheet {
   page: PageModel;
+  /** By file name, so a path from another machine still finds its file. */
+  assets: Record<string, Asset>;
   format: NumberFormat;
   regions: Region[];
   texts: TextRegion[];

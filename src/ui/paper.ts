@@ -9,6 +9,8 @@ import { isEditable, regionLatex } from '../latex/region.js';
 import type { Content, NumberFormat, Region, TextRegion } from '../model/ast.js';
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
+import { drawPlot } from './plot.js';
+import { NEXT_SLOT, type Slot, slotLatex, withSlot } from './slots.js';
 
 const PT = 96 / 72;
 const DRAG_THRESHOLD = 4;
@@ -32,13 +34,20 @@ function render(latex: string): string {
 
 type Press =
   | { kind: 'blank'; x: number; y: number }
-  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean };
+  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null }
+  | { kind: 'resize'; id: string; x: number; y: number; width: number; height: number };
+
+type Editing =
+  | { kind: 'region'; region: Region; bottom: number; isNew: boolean }
+  | { kind: 'slot'; region: Region; slot: Slot };
+
+const MIN_PLOT = { width: 96, height: 72 };
 
 export class Paper {
   private views = new Map<string, HTMLElement>();
   private selected = new Set<string>();
   private editor: Editor;
-  private editing: { region: Region; bottom: number; isNew: boolean } | null = null;
+  private editing: Editing | null = null;
   private textEdit: { region: TextRegion; el: HTMLElement } | null = null;
   private crosshair: HTMLElement;
   private marquee: HTMLElement | null = null;
@@ -53,6 +62,7 @@ export class Paper {
     this.editor = new Editor(sheet, {
       commit: (next) => this.commit(next),
       startText: () => this.startTextFromEmpty(),
+      startPlot: () => this.startPlotFromEmpty(),
     });
     doc.onChange = (ids) => this.draw(ids);
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
@@ -103,7 +113,7 @@ export class Paper {
     el.style.left = `${left}pt`;
     el.style.top = `${top}pt`;
     el.classList.toggle('selected', this.selected.has(id));
-    if (id === this.editing?.region.id) return;
+    if (this.editing?.kind === 'region' && id === this.editing.region.id) return;
     if (item.kind === 'math' || fresh || content) this.drawContent(item, el);
   }
 
@@ -111,10 +121,10 @@ export class Paper {
     if (item.kind === 'opaque') {
       el.style.width = `${item.region.width}pt`;
       el.style.height = `${item.region.height}pt`;
-      el.title = `${item.region.kind}: shown as saved, and not recomputed`;
+      el.title = item.region.kind === 'picture' && item.region.mime ? 'Picture' : `${item.region.kind}: shown as saved, and not recomputed`;
       if (item.region.png && !el.firstChild) {
         const img = document.createElement('img');
-        img.src = `data:image/png;base64,${item.region.png}`;
+        img.src = `data:${item.region.mime ?? 'image/png'};base64,${item.region.png}`;
         img.alt = item.region.kind;
         img.draggable = false;
         el.appendChild(img);
@@ -125,6 +135,35 @@ export class Paper {
       // Fonts differ a little from the original program's, so stored widths need some room to spare.
       if (item.region.width > 0) el.style.width = `${item.region.width * 1.15}pt`;
       el.textContent = item.region.text;
+      return;
+    }
+    // A plot or image keeps its last picture, faded, until it's recalculated. Not while a calculation
+    // runs: that would flash a large picture on every edit.
+    if (item.region.content.k === 'image' || item.region.content.k === 'plot') {
+      const outdated = this.doc.computing ? '' : this.doc.behind;
+      el.classList.toggle('stale', outdated !== '' && this.doc.outcomes.has(item.region.id));
+      el.title = el.classList.contains('stale') ? outdated : '';
+    }
+    if (item.region.content.k === 'image') {
+      this.drawImage(item.region, item.region.content, el);
+      return;
+    }
+    if (item.region.content.k === 'plot') {
+      const outcome = this.doc.outcomes.get(item.region.id);
+      // Redraw only when the plot or its data changed: drawing replaces the plot's elements.
+      const key = `${JSON.stringify(item.region.content)}|${this.selected.has(item.region.id)}`;
+      const cache = el as HTMLElement & { plotKey?: string; plotData?: unknown };
+      if (cache.plotKey === key && cache.plotData === outcome) return;
+      cache.plotKey = key;
+      cache.plotData = outcome;
+      el.classList.add('plot');
+      drawPlot(el, item.region.content, outcome?.plot, outcome?.error);
+      if (this.selected.has(item.region.id)) {
+        const handle = document.createElement('div');
+        handle.className = 'handle';
+        handle.title = 'Drag to resize';
+        el.appendChild(handle);
+      }
       return;
     }
     const { latex, state, note } = this.mathView(item.region);
@@ -139,18 +178,69 @@ export class Paper {
     el.title = note;
   }
 
+  /** A matrix as an image. Until it's computed, or if it can't be, the stored picture stands in. */
+  private drawImage(region: Region, c: Extract<Content, { k: 'image' }>, el: HTMLElement): void {
+    const outcome = this.doc.outcomes.get(region.id);
+    const key = `${JSON.stringify({ ...c, png: c.png ? c.png.length : 0 })}|${this.selected.has(region.id)}`;
+    const cache = el as HTMLElement & { imageKey?: string; imageData?: unknown };
+    if (cache.imageKey === key && cache.imageData === outcome) return;
+    cache.imageKey = key;
+    cache.imageData = outcome;
+    el.classList.add('image');
+    el.style.width = `${c.width}pt`;
+    el.style.height = `${c.height}pt`;
+    el.innerHTML = '';
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+    el.appendChild(frame);
+    if (outcome?.image) {
+      const { width, height, rgba } = outcome.image;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+      // Sharp pixels when a small matrix is enlarged; smooth when a photo is shrunk.
+      if (width * 4 < c.width && height * 4 < c.height) canvas.classList.add('enlarged');
+      frame.appendChild(canvas);
+    } else if (c.png) {
+      const img = document.createElement('img');
+      img.src = `data:image/png;base64,${c.png}`;
+      img.className = 'stand-in';
+      img.draggable = false;
+      frame.appendChild(img);
+    }
+    const label = document.createElement('div');
+    label.className = `slot${c.expr ? '' : ' empty'}`;
+    label.dataset.slot = 'expr';
+    label.title = 'The matrix to show';
+    label.innerHTML = c.expr ? render(tex(c.expr)) : '&#9632;';
+    el.appendChild(label);
+    el.classList.toggle('error', !!outcome?.error);
+    el.title = outcome?.error ?? (c.mode === 'rgb' ? 'Color, from red, green and blue blocks side by side' : 'Gray levels 0 to 255, or color from three matrices');
+    if (this.selected.has(region.id)) {
+      const handle = document.createElement('div');
+      handle.className = 'handle';
+      handle.title = 'Drag to resize';
+      el.appendChild(handle);
+    }
+  }
+
   private mathView(region: Region): { latex: string; state: 'ok' | 'error' | 'stale' | 'draft'; note: string } {
     const c: Content = region.content;
     const format: NumberFormat = (c.k === 'define' || c.k === 'eval' ? c.format : undefined) ?? this.doc.ws.format;
     if (c.k === 'draft') return { latex: c.latex, state: 'draft', note: `Can't read this yet: ${c.error}` };
     if (c.k === 'other') return { latex: `\\text{${c.tag}}`, state: 'stale', note: 'Not supported yet' };
     if (c.k === 'show') return { latex: regionLatex(c), state: 'ok', note: '' };
+    if (c.k === 'plot' || c.k === 'image') return { latex: '', state: 'ok', note: '' };
     if (c.k === 'sym') return this.symView(region, c);
     const outcome = this.doc.outcomes.get(region.id);
     const math = display(regionLatex(c)).replace(/=$/, '');
     const shows = c.k === 'eval' || (c.k === 'define' && c.shown);
-    const answer = (result: string): string => `${math}=${result}`;
+    // The answer is a slot: clicking it chooses the unit it shows in.
+    const answer = (result: string): string => `${math}=\\htmlData{slot=unit}{${result}}`;
     if (region.disabled) return { latex: math, state: 'stale', note: 'Calculation is off for this region' };
+    // A Mathcad feature to replace, such as a file function: grayed, with what to do instead.
+    if (outcome?.mathcad) return { latex: math, state: 'stale', note: outcome.error ?? '' };
     const stored = c.stored;
     if (outcome?.error) {
       if (stored) {
@@ -158,9 +248,9 @@ export class Paper {
       }
       return { latex: math, state: 'error', note: outcome.error };
     }
-    // While a calculation runs, an existing answer may be out of date, and must look it.
-    const current = this.doc.computing ? 'stale' : 'ok';
-    const note = this.doc.computing ? 'Calculating' : '';
+    // While a calculation runs, or in EDIT mode after a change, an answer may be out of date, and must look it.
+    const note = this.outdated();
+    const current = note ? 'stale' : 'ok';
     if (shows && outcome?.value) return { latex: answer(outcome.value), state: current, note };
     if (shows && !outcome && stored) return { latex: answer(formatStored(stored, format)), state: 'stale', note: 'Saved answer' };
     return { latex: math, state: 'ok', note: '' };
@@ -173,10 +263,16 @@ export class Paper {
     if (outcome?.error) return { latex: math, state: 'error', note: outcome.error };
     if (outcome?.unevaluated) return { latex: math, state: 'stale', note: 'No closed form was found' };
     if (outcome?.value) {
-      return { latex: `${math}${outcome.value}`, state: this.doc.computing ? 'stale' : 'ok', note: this.doc.computing ? 'Calculating' : '' };
+      const note = this.outdated();
+      return { latex: `${math}${outcome.value}`, state: note ? 'stale' : 'ok', note };
     }
     if (c.stored) return { latex: `${math}${tex(c.stored)}`, state: 'stale', note: 'Saved answer' };
-    return { latex: math, state: 'stale', note: 'Calculating' };
+    return { latex: math, state: 'stale', note: this.doc.live ? 'Calculating' : 'Not calculated in EDIT mode. Switch to LIVE to calculate.' };
+  }
+
+  /** Why results on the page may be out of date, or '' if they're current. */
+  private outdated(): string {
+    return this.doc.computing ? 'Calculating' : this.doc.behind;
   }
 
   private drawPages(): void {
@@ -232,8 +328,61 @@ export class Paper {
   }
 
   private select(ids: Iterable<string>): void {
+    const before = this.selected;
     this.selected = new Set(ids);
     for (const [id, el] of this.views) el.classList.toggle('selected', this.selected.has(id));
+    // Plots show a resize handle when selected, so they redraw when that changes.
+    const changed = new Set([...before, ...this.selected].filter((id) => before.has(id) !== this.selected.has(id)));
+    if (changed.size > 0) this.draw(changed);
+  }
+
+  /** The one selected region of a kind, for the Format menu. */
+  selectedOf(kind: 'plot' | 'image'): Region | null {
+    if (this.selected.size !== 1) return null;
+    const item = this.doc.find([...this.selected][0]!);
+    return item?.kind === 'math' && item.region.content.k === kind ? item.region : null;
+  }
+
+  /** Where the next inserted thing goes: the click waiting for input, or the top of the page. */
+  insertionPoint(): { left: number; top: number } {
+    if (this.editing?.kind === 'region' && this.editor.value() === '') {
+      const { region } = this.editing;
+      this.editor.close();
+      this.editing = null;
+      this.crosshair.hidden = true;
+      this.doc.discard(region.id);
+      return { left: region.left, top: region.top };
+    }
+    return { left: this.doc.ws.page.margins.left, top: this.doc.ws.page.margins.top };
+  }
+
+  /** Starts a plot where math was about to be typed. */
+  insertPlot(): void {
+    if (this.editing?.kind === 'region' && this.editor.value() === '') this.startPlotFromEmpty();
+    else this.doc.onProblem('Click on the paper where it should go first');
+  }
+
+  /** Adds `■ := readImage("name")` for a file just loaded, with the name to type selected. */
+  insertReadImage(source: string): void {
+    const at = this.insertionPoint();
+    const region = this.doc.addMath(at.left, at.top + 8);
+    const quoted = source.replace(/[\\{}_%&#$^~]/g, (ch) => (ch === '\\' ? '\\textbackslash ' : `\\${ch}`));
+    this.open(region, true);
+    this.editor.field.setValue(`\\placeholder{}\\coloneq \\mathrm{readImage}\\left(\\text{"${quoted}"}\\right)`, { silenceNotifications: true });
+    this.editor.field.position = 0;
+    this.editor.field.executeCommand('moveToNextPlaceholder');
+  }
+
+  /** Starts an image view where math was about to be typed. */
+  insertImage(): void {
+    if (!(this.editing?.kind === 'region' && this.editor.value() === '')) {
+      this.doc.onProblem('Click on the paper where it should go first');
+      return;
+    }
+    const at = this.insertionPoint();
+    const region = this.doc.addImage(at.left, at.top);
+    this.select([region.id]);
+    this.openSlot(region, 'expr');
   }
 
   get selection(): Set<string> {
@@ -267,14 +416,62 @@ export class Paper {
   private open(region: Region, isNew: boolean): void {
     const el = this.views.get(region.id);
     const bottom = region.top + (el ? el.offsetHeight / PT : 0);
-    this.editing = { region, bottom, isNew };
+    this.editing = { kind: 'region', region, bottom, isNew };
     if (el) el.style.visibility = 'hidden';
     this.editor.show(region.left, region.top, regionLatex(region.content));
   }
 
-  private commit(next: 'stay' | 'below'): void {
+  /** Edits one part of a region in place, over the part itself. */
+  private openSlot(region: Region, slot: Slot): void {
+    const el = this.views.get(region.id);
+    const part = el?.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+    const sheet = this.sheet.getBoundingClientRect();
+    const box = (part ?? el)?.getBoundingClientRect();
+    const left = box ? (box.left - sheet.left) / PT : region.left;
+    const top = box ? (box.top - sheet.top) / PT : region.top;
+    this.editing = { kind: 'slot', region, slot };
+    part?.classList.add('editing');
+    this.editor.show(left, top, slotLatex(region.content, slot), true);
+  }
+
+  private commitSlot(region: Region, slot: Slot, next: 'stay' | 'below' | 'next'): void {
+    const latex = this.editor.value();
+    const changed = this.editor.edited();
+    this.editor.close();
+    this.editing = null;
+    this.views.get(region.id)?.querySelector('.slot.editing')?.classList.remove('editing');
+    if (changed) {
+      try {
+        const content = withSlot(region.content, slot, latex);
+        this.doc.update(region, () => content);
+      } catch (err) {
+        this.doc.onProblem(`Can't read that: ${(err as Error).message}`);
+      }
+    }
+    const following = NEXT_SLOT[slot];
+    if (next === 'next' && following) this.openSlot(region, following);
+  }
+
+  private startPlotFromEmpty(): void {
+    const editing = this.editing;
+    if (editing?.kind !== 'region') return;
+    const { region } = editing;
+    this.editor.close();
+    this.editing = null;
+    this.crosshair.hidden = true;
+    this.doc.discard(region.id);
+    const plot = this.doc.addPlot(region.left, region.top);
+    this.select([plot.id]);
+    this.openSlot(plot, 'ys');
+  }
+
+  private commit(next: 'stay' | 'below' | 'next'): void {
     const editing = this.editing;
     if (!editing) return;
+    if (editing.kind === 'slot') {
+      this.commitSlot(editing.region, editing.slot, next);
+      return;
+    }
     const { region, bottom, isNew } = editing;
     const latex = this.editor.value();
     const changed = this.editor.edited();
@@ -309,7 +506,7 @@ export class Paper {
 
   private startTextFromEmpty(): void {
     const editing = this.editing;
-    if (!editing) return;
+    if (editing?.kind !== 'region') return;
     const { region } = editing;
     this.editor.close();
     this.editing = null;
@@ -356,6 +553,14 @@ export class Paper {
     e.preventDefault();
     const p = this.point(e);
     this.commitAll();
+    if (target.classList.contains('handle') && view) {
+      const item = this.doc.find(view.dataset.id!);
+      if (item?.kind === 'math' && (item.region.content.k === 'plot' || item.region.content.k === 'image')) {
+        const { width, height } = item.region.content;
+        this.press = { kind: 'resize', id: item.region.id, x: p.x, y: p.y, width, height };
+        return;
+      }
+    }
     if (!view) {
       this.select([]);
       this.press = { kind: 'blank', x: p.x, y: p.y };
@@ -371,7 +576,8 @@ export class Paper {
       return;
     }
     if (!this.selected.has(id)) this.select([id]);
-    this.press = { kind: 'region', id, x: p.x, y: p.y, dragging: false };
+    const slot = (target.closest<HTMLElement>('[data-slot]')?.dataset.slot ?? null) as Slot | null;
+    this.press = { kind: 'region', id, x: p.x, y: p.y, dragging: false, slot };
   }
 
   private onMove(e: MouseEvent): void {
@@ -380,6 +586,16 @@ export class Paper {
     const p = this.point(e);
     const [dx, dy] = [p.x - press.x, p.y - press.y];
     const far = Math.hypot(dx, dy) * PT > DRAG_THRESHOLD;
+    if (press.kind === 'resize') {
+      const el = this.views.get(press.id);
+      const svg = el?.querySelector<HTMLElement | SVGElement>('.plot-svg, .frame');
+      if (el) {
+        el.style.width = `${Math.max(MIN_PLOT.width, press.width + dx)}pt`;
+        el.style.height = `${Math.max(MIN_PLOT.height, press.height + dy)}pt`;
+      }
+      if (svg) svg.style.opacity = '0.4';
+      return;
+    }
     if (press.kind === 'region') {
       if (!press.dragging && !far) return;
       press.dragging = true;
@@ -409,6 +625,15 @@ export class Paper {
     this.press = null;
     if (!press) return;
     const p = this.point(e);
+    if (press.kind === 'resize') {
+      const item = this.doc.find(press.id);
+      if (item?.kind === 'math') {
+        const width = Math.max(MIN_PLOT.width, snap(press.width + p.x - press.x));
+        const height = Math.max(MIN_PLOT.height, snap(press.height + p.y - press.y));
+        this.doc.update(item.region, (c) => (c.k === 'plot' || c.k === 'image' ? { ...c, width, height } : c));
+      }
+      return;
+    }
     if (press.kind === 'blank') {
       if (!this.marquee) return;
       const box = this.marquee.getBoundingClientRect();
@@ -432,6 +657,14 @@ export class Paper {
       return;
     }
     const item = this.doc.find(press.id);
+    if (item?.kind === 'math' && press.slot) {
+      this.openSlot(item.region, press.slot);
+      return;
+    }
+    if (item?.kind === 'math' && (item.region.content.k === 'plot' || item.region.content.k === 'image')) {
+      this.select([press.id]);
+      return;
+    }
     this.select([]);
     if (item?.kind === 'math' && isEditable(item.region.content)) this.open(item.region, false);
     else if (item?.kind === 'text') this.openText(item.region);

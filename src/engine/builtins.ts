@@ -1,4 +1,6 @@
 import { eigenvalues } from './eigen.js';
+import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
+import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, fromValues, getEl, isNoDim, newMat, num, numbersOf,
@@ -74,7 +76,22 @@ function sortRowsBy(m: Mat, key: Float64Array): Mat {
   return out;
 }
 
-export function makeBuiltins(origin: number): Map<string, Fn> {
+/** An image as one matrix of 0 to 255, with red, green and blue blocks side by side. */
+function imageMatrix(img: DecodedImage): Mat {
+  const { width: w, height: h, rgba } = img;
+  const m = newMat(h, w * 3);
+  for (let i = 0; i < h; i++) {
+    for (let j = 0; j < w; j++) {
+      const p = (i * w + j) * 4;
+      m.re[i + j * h] = rgba[p]!;
+      m.re[i + (j + w) * h] = rgba[p + 1]!;
+      m.re[i + (j + 2 * w) * h] = rgba[p + 2]!;
+    }
+  }
+  return m;
+}
+
+export function makeBuiltins(origin: number, files: Files = NO_FILES): Map<string, Fn> {
   const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - origin;
 
   const table: Record<string, Impl> = {
@@ -210,6 +227,16 @@ export function makeBuiltins(origin: number): Map<string, Fn> {
     '°C': (x) => keepTemp(x, (c) => c + 273.15),
     '°F': (x) => keepTemp(x, (f) => ((f + 459.67) * 5) / 9),
     eigenvals: (m) => eigenvalues(requireMat(m)),
+    readImage: (source) => {
+      if (source?.t !== 'str') throw new EvalError('runtime', 'readImage needs a file name or web address in quotes');
+      const name = source.v;
+      if (!isWebAddress(name) && /[\\/]/.test(name)) {
+        throw new EvalError('runtime', 'readImage takes the name of an attached file, or a web address, not a folder path');
+      }
+      const img = files.image(fileKey(name));
+      if (!img) throw new EvalError('runtime', `${name} isn't attached to this worksheet. Load it with Files on the toolbar`);
+      return imageMatrix(img);
+    },
     concat: (...a) => str(a.map((s) => (s.t === 'str' ? s.v : '')).join('')),
     strlen: (s) => num(s.t === 'str' ? s.v.length : 0),
     num2str: (a) => str(String(requireReal(a))),
@@ -234,6 +261,15 @@ export function makeBuiltins(origin: number): Map<string, Fn> {
 
   const out = new Map<string, Fn>();
   for (const [name, impl] of Object.entries(table)) out.set(name, { t: 'fn', name, call: (a) => impl(...a) });
+  for (const name of MATHCAD_FILE_FUNCTIONS) {
+    out.set(name, {
+      t: 'fn',
+      name,
+      call: () => {
+        throw new EvalError('mathcad', `${name} is Mathcad's, and reads a file on Mathcad's computer. Use Files on the toolbar to load the file instead: it adds readImage, assigned to a variable you name, to use here in its place.`);
+      },
+    });
+  }
   return out;
 }
 

@@ -11,7 +11,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // Images can be loaded from a web address, once, when asked for in the Files menu.
+  "connect-src 'self' https:",
   "object-src 'none'",
   "base-uri 'none'",
 ].join('; ');

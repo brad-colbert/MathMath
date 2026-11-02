@@ -1,21 +1,26 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
-import { type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
+import { type Pixels, type PlotData, type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
+import { type DecodedImage, type Files, fileKey } from '../engine/files.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/ast.js';
 import type { Defs } from '../symbolic/defs.js';
 import { NotSymbolic, expand } from '../symbolic/expand.js';
 import { type GiacRequest, Printer, buildRequest, readAnswer } from '../symbolic/giac.js';
-import { formatValue } from '../ui/format.js';
+import { displayUnit, formatValue } from '../ui/format.js';
 
 export interface ComputeRequest {
   seq: number;
-  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'format'>;
+  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'format' | 'assets'>;
 }
 
 /** What the page needs for one region. Values can't cross to the page, so they travel as LaTeX. */
 export interface Shown {
   id: string;
   value?: string;
+  /** The error is a Mathcad feature to replace, not a mistake. */
+  mathcad?: boolean;
+  plot?: PlotData;
+  image?: Pixels;
   error?: string;
   /** Symbolic evaluation found no closed form. */
   unevaluated?: boolean;
@@ -60,16 +65,47 @@ const solve: SymSolver = async (c: Extract<Content, { k: 'sym' }>, defs: Defs): 
   }
 };
 
+/** Decodes attached images up front, so reading one during evaluation needs no waiting. */
+async function decode(assets: Worksheet['assets']): Promise<Files> {
+  const images = new Map<string, DecodedImage>();
+  for (const [name, asset] of Object.entries(assets)) {
+    if (!asset.mime.startsWith('image/')) continue;
+    try {
+      const bytes = Uint8Array.from(atob(asset.data), (ch) => ch.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: asset.mime }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      images.set(fileKey(name), { width: bitmap.width, height: bitmap.height, rgba: data });
+    } catch {
+      // An unreadable image reads as missing, and the region that asks for it says so.
+    }
+  }
+  return { image: (name) => images.get(name) };
+}
+
 async function run({ seq, sheet }: ComputeRequest): Promise<void> {
   const ws: Worksheet = { ...sheet, page: null as never, texts: [], opaque: [], otherRegions: {}, componentOutputs: [] };
-  const shown: Shown[] = (await runWithSymbolics(ws, solve)).map((o) => {
+  const files = await decode(sheet.assets ?? {});
+  const shown: Shown[] = (await runWithSymbolics(ws, solve, 'align', files)).map((o) => {
     const id = o.region.id;
-    if (o.error) return { id, error: o.error.reason };
+    if (o.error) return o.error.kind === 'mathcad' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
+    if (o.plot) return { id, plot: o.plot };
+    if (o.image) return { id, image: o.image };
     if (o.unevaluated) return { id, unevaluated: true };
     if (o.symbolic) return { id, value: tex(o.symbolic) };
-    return o.value ? { id, value: formatValue(o.value, formatFor(o.region, sheet.format)) } : { id };
+    const c = o.region.content;
+    const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
+    return o.value ? { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit) } : { id };
   });
-  self.postMessage({ seq, shown });
+  // Point data moves to the page rather than being copied: plots can be large. Traces can share an
+  // array, and a buffer listed twice makes the browser refuse the whole message.
+  const transfer = new Set(shown.flatMap((s) => [
+    ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
+    ...(s.image ? [s.image.rgba.buffer] : []),
+  ]));
+  self.postMessage({ seq, shown }, { transfer: [...transfer] as ArrayBuffer[] });
 }
 
 self.onmessage = (m: MessageEvent<ComputeRequest | { answer: string; id: number }>) => {

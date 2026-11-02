@@ -1,5 +1,6 @@
 import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/ast.js';
 import { Defs } from '../symbolic/defs.js';
+import type { Files } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import {
   absV, addV, compareReal, cross, divE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
@@ -28,9 +29,31 @@ export class Scope {
 
 export type OrderKey = 'align' | 'top';
 
+/** One plotted trace, with NaN where a point can't be drawn. */
+export interface Trace {
+  x: Float64Array;
+  y: Float64Array;
+  error?: string;
+}
+
+export interface PlotData {
+  traces: Trace[];
+  /** Limits typed on the plot. Anything missing comes from the data. */
+  limits: { xmin?: number; xmax?: number; ymin?: number; ymax?: number };
+}
+
+/** An image region's pixels, row by row, four bytes a pixel. */
+export interface Pixels {
+  width: number;
+  height: number;
+  rgba: Uint8ClampedArray;
+}
+
 export interface Outcome {
   region: Region;
   value?: Value;
+  plot?: PlotData;
+  image?: Pixels;
   /** The result of a symbolic region. */
   symbolic?: Expr;
   unevaluated?: boolean;
@@ -95,8 +118,12 @@ const CONSTANTS: Record<string, Num> = {
 
 export class Evaluator {
   private builtins: Map<string, Fn>;
-  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'>) {
-    this.builtins = makeBuiltins(ws.origin);
+  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'>, files?: Files) {
+    this.builtins = makeBuiltins(ws.origin, files);
+  }
+
+  get origin(): number {
+    return this.ws.origin;
   }
 
   /** `min` is a unit as a value and a function when called, so the two lookups differ. */
@@ -571,14 +598,16 @@ class Run {
   scope = new Scope(null);
   defs = new Defs();
 
-  constructor(ws: Worksheet) {
-    this.ev = new Evaluator(ws);
+  constructor(ws: Worksheet, files?: Files) {
+    this.ev = new Evaluator(ws, files);
   }
 
+  /** The value of a display unit. Units resolve before functions here, so `°C` isn't a function. */
   private unitOf(unit: Expr | null): { unit?: Value } {
     if (!unit) return {};
     try {
-      return { unit: this.ev.eval(unit, this.scope) };
+      const v = this.ev.eval(unit, this.scope);
+      return v.t === 'num' ? { unit: v } : {};
     } catch {
       return {};
     }
@@ -586,6 +615,23 @@ class Run {
 
   plain(region: Region): void {
     const c = region.content;
+    if (c.k === 'image') {
+      try {
+        if (!c.expr) throw new EvalError('runtime', 'Type the matrix to show');
+        this.outcomes.push({ region, image: pixels(this.ev.evalRegionExpr(c.expr, this.scope), c.mode) });
+      } catch (err) {
+        this.outcomes.push({ region, error: toEvalError(err) });
+      }
+      return;
+    }
+    if (c.k === 'plot') {
+      try {
+        this.outcomes.push({ region, plot: plotData(this.ev, c, this.scope) });
+      } catch (err) {
+        this.outcomes.push({ region, error: toEvalError(err) });
+      }
+      return;
+    }
     if (c.k === 'other' || c.k === 'draft' || c.k === 'show') {
       this.outcomes.push({ region });
       return;
@@ -633,6 +679,98 @@ class Run {
   }
 }
 
+/**
+ * A matrix as pixels: gray levels, or color from three equal blocks of columns side by side. Three
+ * matrices in a vector are color too, red then green then blue.
+ */
+export function pixels(v: Value, mode: 'gray' | 'rgb'): Pixels {
+  if (v.t === 'mat' && v.cells && v.rows * v.cols === 3) {
+    const [r, g, b] = v.cells;
+    if (r?.t !== 'mat' || g?.t !== 'mat' || b?.t !== 'mat' || r.cells || g.cells || b.cells) throw new EvalError('runtime', 'A color image needs three matrices of numbers');
+    if (g.rows !== r.rows || b.rows !== r.rows || g.cols !== r.cols || b.cols !== r.cols) throw new EvalError('runtime', 'The red, green and blue matrices differ in size');
+    const joined = newMat(r.rows, r.cols * 3);
+    joined.re.set(r.re, 0);
+    joined.re.set(g.re, r.re.length);
+    joined.re.set(b.re, 2 * r.re.length);
+    return pixels(joined, 'rgb');
+  }
+  if (v.t !== 'mat' || v.cells) throw new EvalError('runtime', 'An image needs a matrix of numbers');
+  const { rows: h, cols } = v;
+  if (mode === 'rgb' && cols % 3 !== 0) throw new EvalError('runtime', `A color image needs three equal blocks of columns, and this has ${cols}`);
+  const w = mode === 'rgb' ? cols / 3 : cols;
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  const at = (i: number, j: number): number => v.re[i + j * h]!;
+  for (let i = 0; i < h; i++) {
+    for (let j = 0; j < w; j++) {
+      const p = (i * w + j) * 4;
+      if (mode === 'rgb') {
+        rgba[p] = at(i, j);
+        rgba[p + 1] = at(i, j + w);
+        rgba[p + 2] = at(i, j + 2 * w);
+      } else rgba[p] = rgba[p + 1] = rgba[p + 2] = at(i, j);
+      rgba[p + 3] = 255;
+    }
+  }
+  return { width: w, height: h, rgba };
+}
+
+/** The most points a trace keeps. Beyond this a plot can't show the difference. */
+const MAX_POINTS = 20000;
+
+function numbers(v: Value, what: string): Float64Array {
+  if (v.t === 'num') return Float64Array.of(v.im === 0 ? v.re : NaN);
+  if (v.t !== 'mat') throw new EvalError('runtime', `${what} must be a number or a vector`);
+  if (v.cells) throw new EvalError('runtime', `${what} can't be a nested array`);
+  if (v.rows > 1 && v.cols > 1) throw new EvalError('runtime', `${what} must be a vector, not a matrix`);
+  const out = new Float64Array(v.re.length);
+  for (let i = 0; i < out.length; i++) out[i] = v.im && v.im[i] !== 0 ? NaN : v.re[i]!;
+  return out;
+}
+
+/** Thins a long trace evenly. Plots of very long vectors keep their shape. */
+function thin(x: Float64Array, y: Float64Array): [Float64Array, Float64Array] {
+  if (x.length <= MAX_POINTS) return [x, y];
+  const step = x.length / MAX_POINTS;
+  const [tx, ty] = [new Float64Array(MAX_POINTS), new Float64Array(MAX_POINTS)];
+  for (let i = 0; i < MAX_POINTS; i++) {
+    const j = Math.floor(i * step);
+    tx[i] = x[j]!;
+    ty[i] = y[j]!;
+  }
+  return [tx, ty];
+}
+
+/** Evaluates a plot's expressions. Range variables give aligned columns, as in any region. */
+export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
+  const limit = (e: Expr | null): number | undefined => (e ? requireReal(ev.eval(e, scope), 'axis limit') : undefined);
+  const limits: PlotData['limits'] = {};
+  const set = (key: keyof PlotData['limits'], e: Expr | null): void => {
+    const v = limit(e);
+    if (v !== undefined) limits[key] = v;
+  };
+  set('xmin', c.xAxis.min);
+  set('xmax', c.xAxis.max);
+  set('ymin', c.yAxis.min);
+  set('ymax', c.yAxis.max);
+  const xs = c.x ? numbers(ev.evalRegionExpr(c.x, scope), 'the x axis') : null;
+  const traces = c.ys.map((y): Trace => {
+    try {
+      const ys = numbers(ev.evalRegionExpr(y, scope), 'a y value');
+      // With no x expression, points go at 0, 1, 2…, counted from the array origin.
+      let x = xs ?? Float64Array.from(ys, (_, i) => i + ev.origin);
+      let yy = ys;
+      if (x.length === 1 && yy.length > 1) x = new Float64Array(yy.length).fill(x[0]!);
+      if (yy.length === 1 && x.length > 1) yy = new Float64Array(x.length).fill(yy[0]!);
+      if (x.length !== yy.length) throw new EvalError('runtime', `x has ${x.length} values and y has ${yy.length}`);
+      const [tx, ty] = thin(x, yy);
+      return { x: tx, y: ty };
+    } catch (err) {
+      return { x: new Float64Array(0), y: new Float64Array(0), error: toEvalError(err).reason };
+    }
+  });
+  return { traces, limits };
+}
+
 const isGlobal = (r: Region): boolean => (r.content.k === 'define' || r.content.k === 'sym') && r.content.global;
 
 function inOrder(ws: Worksheet, order: OrderKey): Region[] {
@@ -652,8 +790,8 @@ export function runWorksheet(ws: Worksheet, order: OrderKey = 'align'): Outcome[
 }
 
 /** Runs a worksheet with symbolic evaluation. A region can depend on the arrow above it. */
-export async function runWithSymbolics(ws: Worksheet, solve: SymSolver, order: OrderKey = 'align'): Promise<Outcome[]> {
-  const run = new Run(ws);
+export async function runWithSymbolics(ws: Worksheet, solve: SymSolver, order: OrderKey = 'align', files?: Files): Promise<Outcome[]> {
+  const run = new Run(ws, files);
   for (const region of inOrder(ws, order)) {
     const c = region.content;
     if (c.k === 'sym') run.symbolic(region, c, await solve(c, run.defs, run.scope, ws));

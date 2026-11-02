@@ -1,6 +1,8 @@
 /** Shows a computed value as LaTeX, following the worksheet's number format. */
-import { type Dim, type Mat, type Num, type Value, getEl, isNoDim } from '../engine/values.js';
-import type { NumberFormat, StoredResult, StoredValue } from '../model/ast.js';
+import { chooseUnits, unitsLatex } from '../engine/display-units.js';
+import { shortUnit } from '../engine/units.js';
+import { type Dim, type Mat, NODIM, type Num, type Value, dimDiv, getEl, isNoDim } from '../engine/values.js';
+import type { Expr, NumberFormat, StoredResult, StoredValue } from '../model/ast.js';
 
 const trim = (s: string): string => (s.includes('.') ? s.replace(/\.?0+$/, '') : s);
 
@@ -34,18 +36,63 @@ function complex(n: { re: number; im: number }, f: NumberFormat): string {
   return `${formatNumber(n.re, f)}${n.im < 0 ? '-' : '+'}${im}\\mathrm{i}`;
 }
 
-const BASE = ['m', 'kg', 's', 'A', 'K', 'mol', 'cd'];
-
-/** Base units for now. Choosing named units such as W is a later milestone. */
-function units(dim: Dim): string {
-  if (isNoDim(dim)) return '';
-  const parts = dim.flatMap((power, i) => {
-    if (Math.abs(power) < 1e-9) return [];
-    const p = Number(power.toFixed(6));
-    return [`\\mathrm{${BASE[i]}}${p === 1 ? '' : `^{${p}}`}`];
-  });
-  return `\\ ${parts.join('\\cdot ')}`;
+/** A display unit chosen on the sheet, such as `cm` after a result. */
+export interface DisplayUnit {
+  /** The unit's value in base units, or null for a temperature, which has an offset. */
+  value: Num | null;
+  latex: string;
+  offset?: { scale: number; zero: number };
 }
+
+/** Upright, as units are written, whatever the expression. */
+export function unitTex(e: Expr): string {
+  const t = (x: Expr): string => unitTex(x);
+  switch (e.k) {
+    case 'real': return String(e.v);
+    case 'id': return e.name === 'Ω' ? '\\Omega' : `\\mathrm{${e.name.replace(/[\\{}_^]/g, '')}}`;
+    case 'op': {
+      const [a, b] = e.args;
+      if (e.op === 'mult') return `${t(a!)}\\cdot ${t(b!)}`;
+      if (e.op === 'div') return `\\frac{${t(a!)}}{${t(b!)}}`;
+      if (e.op === 'pow') return `${t(a!)}^{${t(b!)}}`;
+      if (e.op === 'neg') return `-${t(a!)}`;
+      return '?';
+    }
+    default: return '?';
+  }
+}
+
+/** `degC` and `degF` are the typed spellings, since ° isn't on most keyboards. */
+const TEMPERATURES: Record<string, { scale: number; zero: number }> = {
+  '°C': { scale: 1, zero: 273.15 },
+  '°F': { scale: 5 / 9, zero: (459.67 * 5) / 9 },
+  degC: { scale: 1, zero: 273.15 },
+  degF: { scale: 5 / 9, zero: (459.67 * 5) / 9 },
+};
+
+/** The display unit for a result, from the unit expression and its value. */
+export function displayUnit(expr: Expr | null, value: Value | undefined): DisplayUnit | undefined {
+  if (!expr) return undefined;
+  if (expr.k === 'id' && TEMPERATURES[expr.name]) {
+    return { value: null, latex: `\\mathrm{${expr.name.replace('deg', '°')}}`, offset: TEMPERATURES[expr.name]! };
+  }
+  if (value?.t !== 'num' || value.re === 0) return undefined;
+  return { value, latex: unitTex(expr) };
+}
+
+/** The scale and unit for a dimension: the chosen unit, plus any dimension it leaves over. */
+function unitFor(dim: Dim, unit: DisplayUnit | undefined): { divide: number; latex: string; offset?: DisplayUnit['offset'] } {
+  if (unit?.offset) return { divide: unit.offset.scale, latex: unit.latex, offset: unit.offset };
+  if (unit?.value) {
+    const rest = dimDiv(dim, unit.value.dim);
+    const extra = isNoDim(rest) ? '' : `\\cdot ${unitsLatex(chooseUnits(rest).parts)}`;
+    return { divide: unit.value.re, latex: `${unit.latex}${extra}` };
+  }
+  const chosen = chooseUnits(dim);
+  return { divide: chosen.factor, latex: unitsLatex(chosen.parts) };
+}
+
+const withUnit = (number: string, latex: string): string => (latex ? `${number}\\ ${latex}` : number);
 
 const matrix = (rows: string[][]): string => `\\begin{pmatrix}${rows.map((r) => r.join('&')).join('\\\\')}\\end{pmatrix}`;
 
@@ -66,17 +113,27 @@ function grid(rows: number, cols: number, cell: (i: number, j: number) => string
   return matrix(out);
 }
 
-export function formatValue(v: Value, f: NumberFormat): string {
+export function formatValue(v: Value, f: NumberFormat, unit?: DisplayUnit): string {
+  const scaled = (n: Num, u: ReturnType<typeof unitFor>): Num => ({
+    ...n,
+    re: u.offset ? (n.re - u.offset.zero) / u.divide : n.re / u.divide,
+    im: n.im / u.divide,
+    dim: NODIM,
+  });
   switch (v.t) {
-    case 'num': return `${complex(v as Num, f)}${units(v.dim)}`;
+    case 'num': {
+      const u = unitFor(v.dim, unit);
+      return withUnit(complex(scaled(v as Num, u), f), u.latex);
+    }
     case 'str': return `\\text{"${v.v.replace(/[\\{}]/g, '')}"}`;
     case 'mat': {
       const m = v as Mat;
+      const u = unitFor(m.dim, unit);
       const body = grid(m.rows, m.cols, (i, j) => {
         const el = getEl(m, i, j);
-        return el.t === 'num' ? complex(el, f) : formatValue(el, f);
+        return el.t === 'num' ? complex(scaled(el, u), f) : formatValue(el, f);
       });
-      return `${body}${units(m.dim)}`;
+      return withUnit(body, u.latex);
     }
     default: return '';
   }
@@ -89,6 +146,6 @@ export function formatStored(s: StoredResult, f: NumberFormat): string {
     if (v.k === 'str') return `\\text{"${v.v.replace(/[\\{}]/g, '')}"}`;
     return grid(v.rows, v.cols, (i, j) => one(v.items[i + j * v.rows]!));
   };
-  const u = s.units.map((x) => `\\mathrm{${x.unit}}${x.power === 1 ? '' : `^{${x.power}}`}`).join('\\cdot ');
-  return `${one(s.value)}${u ? `\\ ${u}` : ''}`;
+  const latex = unitsLatex(s.units.map((x) => ({ name: shortUnit(x.unit), power: x.power })));
+  return withUnit(one(s.value), latex);
 }

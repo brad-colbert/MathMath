@@ -3,6 +3,7 @@ import type {
   Worksheet,
 } from '../model/ast.js';
 import { DEFAULT_FORMAT, DEFAULT_PAGE } from '../model/ast.js';
+import { translateFunction } from './names.js';
 
 /** The part of the DOM used here, so the same code runs on @xmldom in Node and in a browser. */
 export interface XElement {
@@ -12,6 +13,9 @@ export interface XElement {
   childNodes: ArrayLike<XElement>;
   getAttribute(name: string): string | null;
 }
+
+/** Mathcad's picture components, identified from their stored renderings. */
+const IMAGE_VIEWERS = new Set(['01350071-1122-11db-9380-000d56c6051a', '8442da2d-08d7-45ad-a4a6-f28bee6ae06a']);
 
 const kids = (e: XElement): XElement[] => {
   const out: XElement[] = [];
@@ -83,7 +87,8 @@ function parseApply(e: XElement): Expr {
     return { k: 'derivative', varName: boundOne(vars), body: parseExpr(body) };
   }
   const args = argList(rest).map(parseExpr);
-  if (tag === 'id' || tag === 'apply' || tag === 'parens') return { k: 'call', fn: parseExpr(head), args };
+  if (tag === 'id') return { k: 'call', fn: { k: 'id', name: translateFunction(idName(head)) }, args };
+  if (tag === 'apply' || tag === 'parens') return { k: 'call', fn: parseExpr(head), args };
   return { k: 'op', op: tag, args };
 }
 
@@ -318,6 +323,21 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
         }
       }
       const rendering = kids(r).find((c) => c.localName === 'rendering')?.getAttribute('item-idref');
+      const png = rendering ? (binary.get(rendering) ?? null) : null;
+      // Picture viewers become image regions, so they show what their input computes.
+      if (name === 'component' && IMAGE_VIEWERS.has((body.getAttribute('clsid-buddy') ?? '').toLowerCase())) {
+        const input = kids(kids(body).find((c) => c.localName === 'inputs') ?? body)[0];
+        regions.push({
+          id: r.getAttribute('region-id') ?? '',
+          left: num(r, 'left'),
+          top: num(r, 'top'),
+          alignX: num(r, 'left'),
+          alignY: num(r, 'top'),
+          disabled: body.getAttribute('disable-calc') === 'true',
+          content: { k: 'image', expr: input ? parseExpr(input) : null, mode: 'gray', width: num(r, 'width'), height: num(r, 'height'), png },
+        });
+        continue;
+      }
       const items: Record<string, string> = {};
       const own = body.getAttribute('item-idref');
       if (own && binary.has(own)) items[own] = binary.get(own)!;
@@ -328,7 +348,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
         top: num(r, 'top'),
         width: num(r, 'width'),
         height: num(r, 'height'),
-        png: rendering ? (binary.get(rendering) ?? null) : null,
+        png,
         xml: serialize ? serialize(r) : null,
         items,
       });
@@ -349,6 +369,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
   const general = results ? descendants(results, 'general')[0] : undefined;
   return {
     page: readPage(root),
+    assets: {},
     format: readFormat(general) ?? DEFAULT_FORMAT,
     regions,
     texts,

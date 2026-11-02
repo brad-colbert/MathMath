@@ -17,6 +17,12 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #toolbar .sep { width: 1px; height: 18px; background: #d1d5db; margin: 0 4px; }
 #toolbar .name { margin-left: auto; color: #374151; }
 #toolbar .busy { color: #92400e; }
+#toolbar button.mode { min-width: 4.5em; font-weight: 600; letter-spacing: 0.05em; }
+#toolbar button.mode.live { background: #dcfce7; border-color: #16a34a; color: #166534; }
+#toolbar button.mode.live:hover { background: #bbf7d0; }
+#toolbar button.mode.edit { background: #fef3c7; border-color: #d97706; color: #92400e; }
+#toolbar button.mode.edit:hover { background: #fde68a; }
+.region.plot.stale, .region.image.stale { opacity: 0.5; }
 #toolbar .menu { position: relative; }
 #toolbar .menu summary { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; list-style: none; }
 #toolbar .menu > div { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
@@ -24,6 +30,29 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #sheet { --smart-fence-color: currentColor; position: relative; margin: 0 auto; background: #fff; color: var(--ink); cursor: crosshair; user-select: none; box-shadow: 0 1px 6px #0005; overflow: hidden; }
 .region { position: absolute; font-size: 10pt; line-height: 1.15; white-space: nowrap; cursor: default; }
 .region.opaque img { display: block; width: 100%; height: 100%; }
+.region.plot { white-space: normal; line-height: 1; }
+.region.plot .plot-svg { display: block; }
+.region.plot .slot { position: absolute; display: flex; align-items: center; min-height: 10pt; font-size: 8pt; cursor: text; border-radius: 2px; }
+.region.plot .slot:hover { background: #2563eb14; }
+.region.plot .slot.empty { color: #9ca3af; font-size: 6pt; }
+.region.plot .slot.editing { visibility: hidden; }
+.region.plot .slot .auto { color: #52514e; font: 6pt system-ui, sans-serif; }
+.region.plot .slot sup { font-size: 4.5pt; }
+.region.plot [data-slot^="x"], .region.plot [data-slot^="y"] { font-size: 6pt; }
+.region.plot [data-slot="x"], .region.plot [data-slot="ys"] { font-size: 8pt; }
+.region.plot [data-slot="ys"] { flex-direction: column; align-items: flex-end; justify-content: center; gap: 3pt; text-align: right; }
+.region.plot [data-slot="x"] { justify-content: center; }
+.region.plot .ylabel { display: flex; align-items: center; gap: 2pt; }
+.region.plot .readout { position: absolute; right: 12pt; top: 10pt; padding: 1pt 4pt; font: 7pt system-ui, sans-serif; color: #0b0b0b; background: #fffd; border: 1px solid #d1d5db; border-radius: 3px; pointer-events: none; }
+.region.image { white-space: normal; }
+.region.image .frame { position: absolute; left: 0; top: 0; right: 0; bottom: 12pt; display: flex; align-items: flex-start; }
+.region.image canvas, .region.image .frame img { max-width: 100%; max-height: 100%; }
+.region.image canvas.enlarged { width: 100%; height: 100%; object-fit: contain; object-position: left top; image-rendering: pixelated; }
+.region.image .frame img.stand-in { opacity: 0.55; }
+.region.image .slot { position: absolute; left: 0; bottom: 0; height: 11pt; font-size: 8pt; cursor: text; }
+.region.image .slot.empty { color: #9ca3af; font-size: 6pt; }
+.region.image.error .frame { outline: 1px solid #c00; }
+.region .handle { position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px; background: var(--select); border: 1px solid #fff; cursor: nwse-resize; }
 .region.text { font-family: Arial, Helvetica, sans-serif; white-space: pre-wrap; min-width: 1em; min-height: 1em; }
 .region.text.editing { outline: 1px solid var(--select); user-select: text; cursor: text; }
 .region.selected { outline: 1px dashed var(--select); outline-offset: 2px; }
@@ -48,5 +77,6 @@ body { display: flex; flex-direction: column; background: var(--desk); }
   .region.past-page { display: none; }
   .region.across-page { max-width: var(--room); overflow: hidden; }
   .region.selected { outline: none; }
+  .region.plot .slot.empty, .region.image .slot.empty, .region .handle, .region.plot .readout { display: none; }
   .region.draft { outline: none; }
 }

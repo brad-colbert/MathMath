@@ -2,7 +2,8 @@
 export type Dim = readonly number[];
 export const NODIM: Dim = [0, 0, 0, 0, 0, 0, 0];
 
-export type ErrorKind = 'unsupported' | 'undefined' | 'undefined-function' | 'runtime' | 'excluded';
+/** `mathcad`: a Mathcad feature that needs replacing, such as a file function, not a mistake. */
+export type ErrorKind = 'unsupported' | 'undefined' | 'undefined-function' | 'runtime' | 'excluded' | 'mathcad';
 
 /** A failed evaluation. `reason` is what the scoreboard groups by, so keep it stable and short. */
 export class EvalError extends Error {

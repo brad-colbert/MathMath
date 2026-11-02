@@ -21,7 +21,8 @@ function name(id: string): string {
   return sub ? `${b}_{\\text{${escapeText(sub)}}}` : b;
 }
 
-const escapeText = (t: string): string => t.replace(/[\\{}_%&#$^~]/g, (c) => `\\${c}`);
+/** Inside text, a backslash is written as a command: `\\\\` there would be a line break. */
+const escapeText = (t: string): string => t.replace(/[\\{}_%&#$^~]/g, (c) => (c === '\\' ? '\\textbackslash ' : `\\${c}`));
 
 function numberText(v: number): string {
   const s = String(v);
@@ -70,8 +71,12 @@ function block(s: Stmt): string {
   return program(body);
 }
 
+/**
+ * The bar is part of the array. A stretchy \\left| is symmetric about the line, so a program hanging
+ * below its first line left as much empty space above it.
+ */
 const program = (body: Stmt[]): string =>
-  `\\left|\\begin{array}{l}${body.flatMap(stmt).join('\\\\')}\\end{array}\\right.`;
+  `\\begin{array}{|l}${body.flatMap(stmt).join('\\\\')}\\end{array}`;
 
 export function target(t: Target): string {
   switch (t.k) {
@@ -138,7 +143,18 @@ export function tex(e: Expr): string {
 }
 
 // Reading back.
-type Tok = { t: 'cmd' | 'ch' | 'num'; v: string };
+type Tok = { t: 'cmd' | 'ch' | 'num' | 'text'; v: string };
+
+/** Text as written inside \\text{…}, with its escapes undone. Spaces count here. */
+function decodeText(raw: string): string {
+  return raw.replace(/\\([A-Za-z]+)(\{\}| )?|\\(.)/g, (whole, word: string | undefined, _gap, symbol: string | undefined) => {
+    if (symbol !== undefined) return symbol;
+    const cmd = `\\${word}`;
+    if (TEXT_SYMBOLS[cmd] !== undefined) return TEXT_SYMBOLS[cmd]!;
+    if (cmd === '\\degree') return '°';
+    return UNGREEK[cmd] ?? whole;
+  });
+}
 
 function lex(src: string): Tok[] {
   const out: Tok[] = [];
@@ -149,6 +165,18 @@ function lex(src: string): Tok[] {
       const m = /^\\([A-Za-z]+\*?|.)/s.exec(src.slice(i))!;
       out.push({ t: 'cmd', v: `\\${m[1]}` });
       i += m[0].length;
+      // Text is read as one token: the math lexer would drop its spaces.
+      if (m[1] === 'text' && src[i] === '{') {
+        let depth = 1;
+        let j = i + 1;
+        for (; j < src.length && depth > 0; j++) {
+          if (src[j] === '\\') j++;
+          else if (src[j] === '{') depth++;
+          else if (src[j] === '}') depth--;
+        }
+        out.push({ t: 'text', v: decodeText(src.slice(i + 1, j - 1)) });
+        i = j;
+      }
       continue;
     }
     if (/\s/.test(ch)) {
@@ -173,6 +201,11 @@ function lex(src: string): Tok[] {
 }
 
 const op = (o: string, ...args: Expr[]): Expr => ({ k: 'op', op: o, args });
+/** How the editor spells some characters in text. */
+const TEXT_SYMBOLS: Record<string, string> = {
+  '\\textbackslash': '\\', '\\textquotedbl': '"', '\\textunderscore': '_', '\\textasciitilde': '~', '\\textasciicircum': '^',
+};
+
 const TYPED_FUNCTIONS = new Set(['\\sin', '\\cos', '\\tan', '\\ln', '\\log', '\\exp', '\\max', '\\min', '\\arcsin', '\\arccos', '\\arctan']);
 const SPACING = new Set(['\\,', '\;', '\\:', '\\!', '\\ ', '\\quad', '\\qquad']);
 const REL: Record<string, string> = {
@@ -208,6 +241,7 @@ export function readTex(src: string): Expr {
     p++;
   };
   const rawBetween = (): string => {
+    if (toks[p]?.t === 'text') return toks[p++]!.v;
     eat('{');
     let depth = 1;
     let out = '';
@@ -215,7 +249,8 @@ export function readTex(src: string): Expr {
       const t = toks[p++]!;
       if (t.v === '{') depth++;
       if (t.v === '}' && --depth === 0) return out;
-      if (t.v === '\\degree') out += '°';
+      if (TEXT_SYMBOLS[t.v] !== undefined) out += TEXT_SYMBOLS[t.v];
+      else if (t.v === '\\degree') out += '°';
       else if (UNGREEK[t.v]) out += UNGREEK[t.v];
       else out += t.v.startsWith('\\') && t.v.length === 2 && !/[A-Za-z]/.test(t.v[1]!) ? t.v[1]! : t.v;
     }
@@ -250,8 +285,7 @@ export function readTex(src: string): Expr {
   };
   const identifier = (base: string): Expr => {
     if (is('_') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === '\\text') {
-      p += 2;
-      p++;
+      p += 3;
       const sub = rawBetween();
       eat('}');
       return { k: 'id', name: `${base}.${sub}` };
@@ -334,7 +368,7 @@ export function readTex(src: string): Expr {
       throw new Error(`keyword ${kw}`);
     }
     const start = p;
-    if (is('\\left') && toks[p + 1]?.v === '|') {
+    if (programStarts()) {
       const then = bodyStmt();
       return suffix(then);
     }
@@ -355,14 +389,22 @@ export function readTex(src: string): Expr {
     if (kw === 'otherwise') return { k: 'otherwise', then: s };
     throw new Error(`keyword ${kw}`);
   };
+  /** A program block: the bar as part of the array, or, as written before, as a \\left| delimiter. */
+  const programStarts = (): boolean => {
+    if (is('\\left')) return toks[p + 1]?.v === '|' && toks[p + 2]?.v === '\\begin';
+    return is('\\begin') && toks[p + 2]?.v === 'a' && toks[p + 3]?.v === 'r' && toks[p + 7]?.v === '}' && toks[p + 8]?.v === '{' && toks[p + 9]?.v === '|';
+  };
   const bodyStmt = (): Stmt => {
-    if (!(is('\\left') && toks[p + 1]?.v === '|')) return statement();
+    if (!programStarts()) return statement();
     const body = programBody();
     return body.length === 1 ? body[0]! : { k: 'block', body };
   };
   const programBody = (): Stmt[] => {
-    eat('\\left');
-    eat('|');
+    const delimited = is('\\left');
+    if (delimited) {
+      eat('\\left');
+      eat('|');
+    }
     eat('\\begin');
     eat('{');
     for (const c of 'array') eat(c);
@@ -379,8 +421,10 @@ export function readTex(src: string): Expr {
     eat('{');
     for (const c of 'array') eat(c);
     eat('}');
-    eat('\\right');
-    eat('.');
+    if (delimited) {
+      eat('\\right');
+      eat('.');
+    }
     return body;
   };
   const toTarget = (e: Expr): Target => {
@@ -445,7 +489,8 @@ export function readTex(src: string): Expr {
       }
       case '\\operatorname': return callOrId(rawBetween());
       case '\\frac': {
-        if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 5]?.v === '}') {
+        // d/dx is `\\frac{\\mathrm{d}}{…}`, with d alone. `\\frac{\\mathrm{dL}}{…}` is an ordinary fraction.
+        if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 4]?.v === '}' && toks[p + 5]?.v === '}') {
           p += 6;
           eat('{');
           const varName = differential();
@@ -487,6 +532,7 @@ export function readTex(src: string): Expr {
       }
       case '\\begin': {
         p--;
+        if (programStarts()) return { k: 'program', body: programBody() };
         const rows = env('pmatrix');
         const r = rows.length;
         const c = rows[0]!.length;
@@ -495,8 +541,9 @@ export function readTex(src: string): Expr {
         return { k: 'matrix', rows: r, cols: c, items };
       }
       case '\\text': {
+        // Quotes may come back as '' from the editor.
         const raw = rawBetween();
-        return { k: 'str', v: raw.replace(/^"|"$/g, '') };
+        return { k: 'str', v: raw.replace(/^(''|")/, '').replace(/(''|")$/, '') };
       }
       case '\\overrightarrow': return op('vectorize', group());
       case '\\lnot': return op('not', group());

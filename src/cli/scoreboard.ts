@@ -21,6 +21,7 @@ const { values: opts } = parseArgs({
 
 const tally = { match: 0, mismatch: 0, error: 0, excluded: 0 };
 const unscored = { ran: 0, failed: 0 };
+const units = { agree: 0, total: 0, misses: new Map<string, number>() };
 const reasons = new Map<string, number>();
 const unscoredReasons = new Map<string, number>();
 const bump = (m: Map<string, number>, k: string): void => void m.set(k, (m.get(k) ?? 0) + 1);
@@ -31,6 +32,9 @@ for (const { path, xml, ws } of readSheets(corpusFolder(opts.corpus), opts.sheet
   if (!opts.all && !selfContained(ws, xml)) continue;
   const s = scoreSheet(ws, opts.order as OrderKey);
   for (const k of ['match', 'mismatch', 'error', 'excluded'] as const) tally[k] += s[k];
+  units.agree += s.units.agree;
+  units.total += s.units.total;
+  for (const m of s.units.misses) bump(units.misses, m);
   unscored.ran += s.unscored.ran;
   unscored.failed += s.unscored.failed.length;
   for (const f of s.unscored.failed) {
@@ -51,6 +55,8 @@ for (const l of lines) console.log(l);
 const total = tally.match + tally.mismatch + tally.error + tally.excluded;
 console.log(`\nTOTAL ${tally.match}/${total} match, ${tally.mismatch} mismatch, ${tally.error} error, ${tally.excluded} excluded`);
 console.log(`Without a stored result: ${unscored.ran} regions ran, ${unscored.failed} failed`);
+console.log(`Units Mathcad chose: ${units.agree}/${units.total} chosen the same way`);
+for (const [k, n] of units.misses) console.log(`${String(n).padStart(5)}  ${k}`);
 const print = (title: string, m: Map<string, number>): void => {
   if (m.size === 0) return;
   console.log(`\n${title}:`);

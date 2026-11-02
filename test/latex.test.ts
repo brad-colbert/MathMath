@@ -18,6 +18,9 @@ describe('printing and reading keep the tree', () => {
     ['imaginary number', { k: 'imag', v: 0.5 }],
     ['imaginary number in a product', op('mult', V('a'), { k: 'imag', v: 1 })],
     ['long multi-letter name', V('Total')],
+    ['string with backslashes', { k: 'str', v: 'C:\\pics\\a.jpg' }],
+    ['string with spaces and braces', { k: 'str', v: 'C:\\Program Files\\{x}_1 50%' }],
+    ['subscript name', V('x.max value')],
     ['name with a subscript', V('x.max')],
     ['Greek name', V('λ')],
     ['indexed subscripted name', op('indexer', V('P.first'), V('i'))],
@@ -31,7 +34,13 @@ describe('printing and reading keep the tree', () => {
     ['integral', { k: 'bigop', op: 'integral', varName: 'x', body: op('pow', V('x'), R(2)), lo: R(0), hi: V('b') }],
     ['sum to a bound', { k: 'bigop', op: 'summation', varName: 'k', body: V('k'), lo: R(1), hi: V('n') }],
     ['derivative', { k: 'derivative', varName: 'x', body: op('mult', V('x'), V('y')) }],
+    ['fraction of names starting with d', op('div', V('dL'), V('Rad'))],
   ])('%s', (_, e) => both(e));
+
+  test('a program written the earlier way still reads', () => {
+    expect(readTex('\\left|\\begin{array}{l}a\\gets 1\\\\a\\end{array}\\right.')).toEqual(readTex('\\begin{array}{|l}a\\gets 1\\\\a\\end{array}'));
+    expect(readTex('\\begin{array}{|l}a\\gets 1\\\\a\\end{array}').k).toBe('program');
+  });
 
   test('a program, with control flow', () => {
     both({
@@ -66,6 +75,8 @@ describe('typed forms', () => {
     ['\\frac12', op('div', R(1), R(2))],
     ['x^2', op('pow', V('x'), R(2))],
     ['f(x)', { k: 'call', fn: V('f'), args: [V('x')] }],
+    ["\\text{''photo.jpg''}", { k: 'str', v: 'photo.jpg' }],
+    ['\\text{C:\\textbackslash a.jpg}', { k: 'str', v: 'C:\\a.jpg' }],
     ['\\int_0^3x^2\\,\\mathrm{dx}', { k: 'bigop', op: 'integral', varName: 'x', body: op('pow', V('x'), R(2)), lo: R(0), hi: R(3) }],
     ['\\int_0^1x\\,\\mathrm{d\\theta}', { k: 'bigop', op: 'integral', varName: 'θ', body: V('x'), lo: R(0), hi: R(1) }],
     ['\\frac{\\mathrm{d}}{\\mathrm{da}}a^3', { k: 'derivative', varName: 'a', body: op('pow', V('a'), R(3)) }],

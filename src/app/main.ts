@@ -6,7 +6,75 @@ import { TEMPLATES } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
+import type { Content } from '../model/ast.js';
 import { Doc } from './document.js';
+
+const pickFiles = (accept: string, multiple: boolean): Promise<File[]> => new Promise((resolve) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = accept;
+  input.multiple = multiple;
+  input.onchange = () => resolve([...(input.files ?? [])]);
+  input.oncancel = () => resolve([]);
+  input.click();
+});
+
+const base64 = async (file: File): Promise<string> => {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+};
+
+/** Keeps an image in the worksheet and adds a readImage region for it, ready for a variable name. */
+async function loadFromComputer(): Promise<void> {
+  const [file] = await pickFiles('image/*', false);
+  if (!file) return;
+  doc.attach([{ name: file.name, mime: file.type || 'application/octet-stream', data: await base64(file) }]);
+  paper.insertReadImage(file.name);
+}
+
+/**
+ * Fetches an image once, now, and keeps it. A worksheet never fetches anything while it calculates:
+ * a shared sheet mustn't be able to make your browser contact a site.
+ */
+async function loadFromAddress(): Promise<void> {
+  const address = window.prompt('Web address of the image (https://…)')?.trim();
+  if (!address) return;
+  if (!/^https:\/\//i.test(address)) {
+    doc.onProblem('That needs to start with https://');
+    return;
+  }
+  let response: Response;
+  try {
+    response = await fetch(address);
+  } catch {
+    doc.onProblem("That site doesn't allow loading its images from here. Download the image and load it from this computer");
+    return;
+  }
+  if (!response.ok) {
+    doc.onProblem(`The address answered ${response.status}`);
+    return;
+  }
+  const blob = await response.blob();
+  if (!blob.type.startsWith('image/')) {
+    doc.onProblem("That address isn't an image");
+    return;
+  }
+  doc.attach([{ name: address, mime: blob.type, data: await base64(new File([blob], 'image')) }]);
+  paper.insertReadImage(address);
+}
+
+/** Pictures keep their own size, in points, up to the width of the page. */
+async function insertPicture(): Promise<void> {
+  const at = paper.insertionPoint();
+  const [file] = await pickFiles('image/*', false);
+  if (!file) return;
+  const bitmap = await createImageBitmap(file);
+  const room = doc.ws.page.width - doc.ws.page.margins.left - doc.ws.page.margins.right;
+  const scale = Math.min(1, room / (bitmap.width * 0.75));
+  doc.addPicture(at.left, at.top, file.type, await base64(file), bitmap.width * 0.75 * scale, bitmap.height * 0.75 * scale);
+}
 
 const doc = new Doc();
 const toolbar = document.getElementById('toolbar')!;
@@ -113,6 +181,31 @@ button('Σ', 'Sum. Tab moves to the next blank', inEditor(TEMPLATES.sum));
 button('Π', 'Product. Tab moves to the next blank', inEditor(TEMPLATES.product));
 button('lim', 'Limit, which needs →. Tab moves to the next blank', inEditor(TEMPLATES.limit));
 button('∫ dx', 'Indefinite integral, which needs →. Tab moves to the next blank', inEditor(TEMPLATES.antiderivative));
+button('Plot', 'X-Y plot (@)', () => paper.insertPlot());
+button('Image', 'Show a matrix as an image', () => paper.insertImage());
+button('Picture…', 'Put a picture from a file on the page', () => void insertPicture());
+const files = document.createElement('details');
+files.className = 'menu';
+const filesSummary = document.createElement('summary');
+filesSummary.textContent = 'Files';
+filesSummary.title = 'Load an image for readImage';
+filesSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const filesList = document.createElement('div');
+files.append(filesSummary, filesList);
+toolbar.appendChild(files);
+for (const [label, run] of [
+  ['From this computer…', () => void loadFromComputer()],
+  ['From a web address…', () => void loadFromAddress()],
+] as const) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    files.open = false;
+    run();
+  });
+  filesList.appendChild(b);
+}
 button('Matrix', 'Insert a 2 by 2 matrix. Tab moves to the next blank', inEditor(TEMPLATES.matrix));
 separator();
 button('→', 'Evaluate symbolically (Ctrl+.)', () => {
@@ -142,11 +235,57 @@ for (const [name, takesArgument, help] of [
   });
   list.appendChild(b);
 }
+const plotMenu = document.createElement('details');
+plotMenu.className = 'menu';
+const plotSummary = document.createElement('summary');
+plotSummary.textContent = 'Format';
+plotSummary.title = 'Options for the selected plot or image';
+plotSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const plotList = document.createElement('div');
+plotMenu.append(plotSummary, plotList);
+toolbar.appendChild(plotMenu);
+const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
+  ['Log x axis', 'plot', (c) => (c.k === 'plot' ? { ...c, xAxis: { ...c.xAxis, log: !c.xAxis.log } } : c)],
+  ['Log y axis', 'plot', (c) => (c.k === 'plot' ? { ...c, yAxis: { ...c.yAxis, log: !c.yAxis.log } } : c)],
+  ['Points instead of lines', 'plot', (c) => (c.k === 'plot' ? { ...c, markers: !c.markers } : c)],
+  ['Color image (R|G|B side by side)', 'image', (c) => (c.k === 'image' ? { ...c, mode: c.mode === 'rgb' ? 'gray' : 'rgb' } : c)],
+];
+for (const [label, kind, change] of formats) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const region = paper.selectedOf(kind);
+    if (!region) {
+      doc.onProblem(`Select ${kind === 'plot' ? 'a plot' : 'an image'} first`);
+      return;
+    }
+    doc.update(region, change);
+  });
+  plotList.appendChild(b);
+}
 separator();
 button('Align left', 'Line selected regions up on the left', () => doc.align(paper.selection, 'left'));
 button('Align top', 'Line selected regions up on the top', () => doc.align(paper.selection, 'top'));
 separator();
-button('Stop', 'Stop a long calculation (Esc)', () => doc.stop());
+// LIVE calculates as you edit; EDIT calculates nothing, so a long sheet can be changed without waiting.
+const mode = document.createElement('button');
+mode.className = 'mode';
+mode.addEventListener('mousedown', (e) => e.preventDefault());
+mode.addEventListener('click', () => doc.setLive(!doc.live));
+const showMode = (live: boolean): void => {
+  mode.textContent = live ? 'LIVE' : 'EDIT';
+  mode.classList.toggle('live', live);
+  mode.classList.toggle('edit', !live);
+  mode.setAttribute('aria-pressed', String(live));
+  mode.title = live
+    ? 'LIVE: results update as you edit. Click for EDIT, which stops calculating.'
+    : 'EDIT: nothing is calculated, and results gray as they go out of date. Click for LIVE to calculate.';
+};
+doc.onMode = showMode;
+showMode(doc.live);
+toolbar.appendChild(mode);
 toolbar.append(busy, title);
 
 document.addEventListener('keydown', (e) => {
