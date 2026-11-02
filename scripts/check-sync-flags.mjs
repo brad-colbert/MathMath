@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'));
 
 if (root.includes('/Dropbox/')) {
-  const unflagged = ['node_modules', 'dist'].filter((name) => {
+  const unflagged = ['node_modules', 'dist', 'public/giac/vendor'].filter((name) => {
     const path = join(root, name);
     if (!existsSync(path)) return false;
     try {

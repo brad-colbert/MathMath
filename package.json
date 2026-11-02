@@ -13,10 +13,13 @@
     "pretest": "npm run --silent check:sync",
     "test": "vitest run",
     "prebuild": "npm run --silent check:sync",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "vite build",
     "typecheck": "tsc --noEmit",
     "scoreboard": "tsx src/cli/scoreboard.ts",
-    "bench": "tsx bench/error-diffusion.ts"
+    "bench": "tsx bench/error-diffusion.ts",
+    "roundtrip": "tsx src/cli/roundtrip.ts",
+    "dev": "vite",
+    "test:e2e": "tsx test/e2e/app.e2e.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -25,6 +28,7 @@
     "puppeteer-core": "^25.16.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
   "dependencies": {

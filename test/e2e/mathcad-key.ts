@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { DOMParser } from '@xmldom/xmldom';
 import type { Expr } from '../../src/model/ast.js';
 import { type XElement, parseExpr } from '../../src/xmcd/import.js';
-import { CASES, type Case } from './cases.js';
-import { parse } from './text.js';
+import { CASES, type Case } from './symbolic-cases.js';
+import { parse } from './infix.js';
 
 const NS = 'http://schemas.mathsoft.com/math30';
 const id = (n: string): string => `<ml:id xml:space="preserve">${n}</ml:id>`;

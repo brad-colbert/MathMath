@@ -1,6 +1,8 @@
 import type {
-  Content, Expr, Region, Stmt, StoredResult, StoredUnit, StoredValue, Target, TextRegion, Worksheet,
+  Content, Expr, NumberFormat, OpaqueRegion, PageModel, Region, Stmt, StoredResult, StoredUnit, StoredValue, Target, TextRegion,
+  Worksheet,
 } from '../model/ast.js';
+import { DEFAULT_FORMAT, DEFAULT_PAGE } from '../model/ast.js';
 
 /** The part of the DOM used here, so the same code runs on @xmldom in Node and in a browser. */
 export interface XElement {
@@ -62,8 +64,18 @@ function parseApply(e: XElement): Expr {
     const [lambda, bounds] = rest;
     const [vars, body] = lambda ? kids(lambda) : [];
     const [lo, hi] = bounds ? kids(bounds) : [];
-    if (!vars || !body || !lo || !hi) return { k: 'unsupported', tag: `${tag}:shape` };
-    return { k: 'bigop', op: tag, varName: boundOne(vars), body: parseExpr(body), lo: parseExpr(lo), hi: parseExpr(hi) };
+    if (!vars || !body) return { k: 'unsupported', tag: `${tag}:shape` };
+    return {
+      k: 'bigop', op: tag, varName: boundOne(vars), body: parseExpr(body), lo: lo ? parseExpr(lo) : null, hi: hi ? parseExpr(hi) : null,
+    };
+  }
+  if (tag === 'limit') {
+    const [lambda, to] = rest;
+    const [vars, body] = lambda ? kids(lambda) : [];
+    if (!vars || !body || !to) return { k: 'unsupported', tag: 'limit:shape' };
+    const direction = head.getAttribute('direction');
+    const side = direction === 'left' || direction === 'right' ? direction : null;
+    return { k: 'limit', varName: boundOne(vars), body: parseExpr(body), to: parseExpr(to), side };
   }
   if (tag === 'derivative') {
     const [vars, body] = rest[0] ? kids(rest[0]) : [];
@@ -111,10 +123,6 @@ export function parseExpr(e: XElement): Expr {
     case 'return':
       // A one-line program has no <program> wrapper.
       return { k: 'program', body: [parseStmt(e)] };
-    case 'symEval': {
-      const inner = kids(e)[0];
-      return inner ? { k: 'symEval', expr: parseExpr(inner) } : { k: 'unsupported', tag };
-    }
     default: return { k: 'unsupported', tag };
   }
 }
@@ -202,32 +210,89 @@ function parseEval(e: XElement): { expr: Expr; stored: StoredResult | null; unit
   };
 }
 
+function parseSym(e: XElement, target: Target | null, global: boolean): Content {
+  const cs = kids(e);
+  const body = cs.find((c) => c.localName !== 'command' && c.localName !== 'symResult');
+  if (!body) return { k: 'other', tag: 'symEval' };
+  const commands = cs.filter((c) => c.localName === 'command').map((c) => {
+    const [name, ...args] = kids(c);
+    return { name: name?.textContent?.trim() ?? '', args: args.map(parseExpr) };
+  });
+  const result = kids(cs.find((c) => c.localName === 'symResult') ?? e).find((c) => c.localName !== 'command');
+  const hasResult = cs.some((c) => c.localName === 'symResult');
+  return { k: 'sym', target, global, expr: parseExpr(body), commands, stored: hasResult && result ? parseExpr(result) : null };
+}
+
 const storedParts = ({ stored, unit }: { stored: StoredResult | null; unit: Expr | null }) => ({ stored, unit });
+
+function readFormat(general: XElement | undefined): NumberFormat | undefined {
+  if (!general) return undefined;
+  return {
+    precision: Number(general.getAttribute('precision') ?? DEFAULT_FORMAT.precision),
+    exponent: Number(general.getAttribute('exponential-threshold') ?? DEFAULT_FORMAT.exponent),
+    trailingZeros: general.getAttribute('show-trailing-zeros') === 'true',
+  };
+}
 
 function parseMath(math: XElement): Content {
   let top = kids(math).find((c) => c.localName !== 'resultFormat');
   if (top?.localName === 'provenance') {
-    top = kids(top).find((c) => ['define', 'globalDefine', 'eval'].includes(c.localName ?? '')) ?? top;
+    top = kids(top).find((c) => ['define', 'globalDefine', 'eval', 'symEval'].includes(c.localName ?? '')) ?? top;
   }
   if (!top) return { k: 'other', tag: 'empty' };
-  if (top.localName === 'eval') return { k: 'eval', ...parseEval(top) };
+  const own = kids(math).find((c) => c.localName === 'resultFormat');
+  const general = own ? descendants(own, 'general')[0] : undefined;
+  const format = readFormat(general);
+  const withFormat = format ? { format } : {};
+  if (top.localName === 'eval') return { k: 'eval', ...parseEval(top), ...withFormat };
+  if (top.localName === 'symEval') return parseSym(top, null, false);
   if (top.localName === 'define' || top.localName === 'globalDefine') {
     const [t, raw] = kids(top);
     if (!t || !raw) return { k: 'other', tag: 'define:shape' };
     const v = unwrap(raw);
     const global = top.localName === 'globalDefine';
     const target = parseTarget(t);
+    if (v.localName === 'symEval') return parseSym(v, target, global);
     if (v.localName === 'eval') {
-      return { k: 'define', target, value: parseEval(v).expr, global, ...storedParts(parseEval(v)), shown: true };
+      return { k: 'define', target, value: parseEval(v).expr, global, ...storedParts(parseEval(v)), shown: true, ...withFormat };
     }
     return { k: 'define', target, value: parseExpr(v), global, stored: null, unit: null, shown: false };
   }
-  return { k: 'other', tag: top.localName ?? '' };
+  // A bare expression: math written to be read. Unknown elements stay `other`.
+  const shown = parseExpr(top);
+  return shown.k === 'unsupported' ? { k: 'other', tag: top.localName ?? '' } : { k: 'show', expr: shown };
 }
 
-export function importWorksheet(root: XElement): Worksheet {
+function readPage(root: XElement): PageModel {
+  const model = descendants(root, 'pageModel')[0];
+  if (!model) return DEFAULT_PAGE;
+  const margins = kids(model).find((c) => c.localName === 'margins');
+  const landscape = model.getAttribute('orientation') === 'landscape';
+  return {
+    width: num(model, 'page-width') || (landscape ? DEFAULT_PAGE.height : DEFAULT_PAGE.width),
+    height: num(model, 'page-height') || (landscape ? DEFAULT_PAGE.width : DEFAULT_PAGE.height),
+    landscape,
+    margins: margins
+      ? { left: num(margins, 'left'), right: num(margins, 'right'), top: num(margins, 'top'), bottom: num(margins, 'bottom') }
+      : DEFAULT_PAGE.margins,
+  };
+}
+
+function readItems(root: XElement): Map<string, string> {
+  const items = new Map<string, string>();
+  for (const item of descendants(root, 'item')) {
+    const id = item.getAttribute('item-id');
+    if (id) items.set(id, (item.textContent ?? '').replace(/\s+/g, ''));
+  }
+  return items;
+}
+
+/** `serialize` keeps the original XML of regions this version can't edit. */
+export function importWorksheet(root: XElement, serialize?: (e: XElement) => string): Worksheet {
   const regions: Region[] = [];
   const texts: TextRegion[] = [];
+  const opaque: OpaqueRegion[] = [];
+  const binary = readItems(root);
   const otherRegions: Record<string, number> = {};
   const componentOutputs: string[] = [];
   for (const r of descendants(root, 'region')) {
@@ -252,6 +317,21 @@ export function importWorksheet(root: XElement): Worksheet {
           for (const id of descendants(out, 'id')) componentOutputs.push(idName(id));
         }
       }
+      const rendering = kids(r).find((c) => c.localName === 'rendering')?.getAttribute('item-idref');
+      const items: Record<string, string> = {};
+      const own = body.getAttribute('item-idref');
+      if (own && binary.has(own)) items[own] = binary.get(own)!;
+      opaque.push({
+        id: r.getAttribute('region-id') ?? '',
+        kind: name,
+        left: num(r, 'left'),
+        top: num(r, 'top'),
+        width: num(r, 'width'),
+        height: num(r, 'height'),
+        png: rendering ? (binary.get(rendering) ?? null) : null,
+        xml: serialize ? serialize(r) : null,
+        items,
+      });
       continue;
     }
     regions.push({
@@ -265,9 +345,14 @@ export function importWorksheet(root: XElement): Worksheet {
     });
   }
   const vars = descendants(root, 'builtInVariables')[0];
+  const results = descendants(root, 'results')[0];
+  const general = results ? descendants(results, 'general')[0] : undefined;
   return {
+    page: readPage(root),
+    format: readFormat(general) ?? DEFAULT_FORMAT,
     regions,
     texts,
+    opaque,
     otherRegions,
     componentOutputs,
     origin: vars ? num(vars, 'array-origin') : 0,

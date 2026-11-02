@@ -1,0 +1,243 @@
+/**
+ * The one math editor. It stays mounted and moves over the active region: a field created on
+ * demand loses keystrokes while it starts. Keys that behave as in Mathcad are handled here.
+ */
+import * as mathlive from 'mathlive';
+
+// MathLive's types export this class ambiguously, though it's there at runtime.
+interface Field extends HTMLElement {
+  mathVirtualKeyboardPolicy: string;
+  menuItems: unknown[];
+  smartFence: boolean;
+  inlineShortcuts: Record<string, string>;
+  mode: string;
+  position: number;
+  readonly lastOffset: number;
+  selection: { ranges: [number, number][]; direction?: string };
+  getValue(...args: unknown[]): string;
+  setValue(value: string, options?: object): void;
+  insert(value: string, options?: object): boolean;
+  executeCommand(command: string | unknown[]): boolean;
+  getElementInfo(offset: number): { depth?: number } | undefined;
+}
+type MathfieldElement = Field;
+const MathfieldElement = (mathlive as unknown as {
+  MathfieldElement: (new () => Field) & { fontsDirectory: string | null; soundsDirectory: string | null };
+}).MathfieldElement;
+
+const PROGRAM_OPEN = '\\left|\\begin{array}{l}';
+const PROGRAM_CLOSE = '\\end{array}\\right.';
+
+MathfieldElement.fontsDirectory = null;
+MathfieldElement.soundsDirectory = null;
+
+function previousChar(field: MathfieldElement): string {
+  const at = field.position;
+  return at > 0 ? field.getValue(at - 1, at, 'latex-unstyled') : '';
+}
+
+/**
+ * Space grows the selection through the expression, one level at a time.
+ * MathLive has no such command, so this walks outward by depth.
+ */
+export function growSelection(field: MathfieldElement): void {
+  const last = field.lastOffset;
+  const depthAt = (o: number): number => field.getElementInfo(o)?.depth ?? 0;
+  const [start, end] = field.selection.ranges[0]!;
+  const [a, b] = start === end ? [Math.max(0, start - 1), start] : [start, end];
+  let depth = Infinity;
+  for (let i = a + 1; i <= b; i++) depth = Math.min(depth, depthAt(i));
+  const widen = (d: number): [number, number] => {
+    let [lo, hi] = [a, b];
+    while (lo > 0 && depthAt(lo) >= d) lo--;
+    while (hi < last && depthAt(hi + 1) >= d) hi++;
+    return [lo, hi];
+  };
+  let next = widen(depth);
+  while (start !== end && next[0] === start && next[1] === end && depth > 0) next = widen(--depth);
+  const whole = start !== end && next[0] === start && next[1] === end;
+  field.selection = { ranges: [whole ? [0, last] : next], direction: 'forward' };
+}
+
+/** Math with blanks to fill in. Tab moves to the next blank. */
+export const TEMPLATES = {
+  integral: '\\int_{#?}^{#?}#?\\,\\mathrm{d}#?',
+  derivative: '\\frac{\\mathrm{d}}{\\mathrm{d}#?}#?',
+  sum: '\\sum_{#?=#?}^{#?}#?',
+  product: '\\prod_{#?=#?}^{#?}#?',
+  limit: '\\lim_{#?\\to #?}#?',
+  antiderivative: '\\int #?\\,\\mathrm{d}#?',
+  matrix: '\\begin{pmatrix}#?&#?\\\\#?&#?\\end{pmatrix}',
+};
+
+export interface EditorEvents {
+  commit: (next: 'stay' | 'below') => void;
+  startText: () => void;
+}
+
+export class Editor {
+  readonly field: MathfieldElement;
+  private open = false;
+  private baseline = '';
+  private inName = false;
+
+  constructor(parent: HTMLElement, private events: EditorEvents) {
+    const field = new MathfieldElement();
+    field.id = 'editor';
+    parent.appendChild(field);
+    field.mathVirtualKeyboardPolicy = 'manual';
+    field.menuItems = [];
+    // Off, because a smart ( wraps everything to its right, such as the dx of an integral.
+    field.smartFence = false;
+    // None at all: stale shortcut state crashes a reused field, and the defaults rewrite typing.
+    field.inlineShortcuts = {};
+    field.addEventListener('keydown', (e) => this.onKey(e), { capture: true });
+    this.field = field;
+    this.hide();
+  }
+
+  private hide(): void {
+    // Parked off the sheet, not hidden. A field shown and focused in the same tick loses the first
+    // key, and MathLive's inner elements take clicks even with pointer-events off on the host.
+    this.field.style.left = '-2000pt';
+    this.field.style.top = '0';
+  }
+
+  get isOpen(): boolean {
+    return this.open;
+  }
+
+  show(left: number, top: number, latex: string): void {
+    const f = this.field;
+    f.style.left = `${left}pt`;
+    f.style.top = `${top}pt`;
+    f.setValue(latex, { silenceNotifications: true });
+    this.baseline = f.getValue('latex-unstyled');
+    this.inName = false;
+    this.open = true;
+    f.focus();
+    f.position = f.lastOffset;
+  }
+
+  /** The math as parsed by the editor, not an echo of what was set. */
+  value(): string {
+    return this.field.getValue('latex-unstyled');
+  }
+
+  /** True once something has been edited. Opening a region must not change it. */
+  edited(): boolean {
+    return this.value() !== this.baseline;
+  }
+
+  close(): void {
+    this.open = false;
+    this.field.blur();
+    this.hide();
+  }
+
+  insert(latex: string): void {
+    this.field.insert(latex, { format: 'latex', selectionMode: 'placeholder' });
+    this.field.focus();
+  }
+
+  private consume(e: KeyboardEvent, run: () => void): void {
+    e.preventDefault();
+    e.stopPropagation();
+    run();
+  }
+
+  /** Adds a line to the program under the caret, or starts one. */
+  private programLine(): void {
+    const f = this.field;
+    const latex = this.value();
+    if (latex.includes('\\begin{array}')) {
+      f.executeCommand('addRowAfter');
+      return;
+    }
+    const split = latex.indexOf('\\coloneq');
+    const head = split >= 0 ? latex.slice(0, split + '\\coloneq'.length) : '';
+    const body = split >= 0 ? latex.slice(split + '\\coloneq'.length) : latex;
+    f.setValue(`${head}${PROGRAM_OPEN}${body.trim() || '\\placeholder{}'}\\\\\\placeholder{}${PROGRAM_CLOSE}`, { silenceNotifications: true });
+    // A new program starts on its first line. Existing math stays there, and typing moves to the next.
+    f.position = body.trim() ? f.lastOffset : 0;
+    f.executeCommand(body.trim() ? 'moveToPreviousPlaceholder' : 'moveToNextPlaceholder');
+  }
+
+  /** The value with no arrow on the end, so a keyword or arrow can go there. */
+  private atEnd(): void {
+    const f = this.field;
+    const latex = this.value();
+    const bare = latex.replace(/\\to\s*$/, '');
+    if (bare !== latex) f.setValue(bare, { silenceNotifications: true });
+    f.position = f.lastOffset;
+  }
+
+  /** Asks for a symbolic result. */
+  arrow(): void {
+    if (this.value().trim() === '') return;
+    this.atEnd();
+    this.field.insert('\\to ', { format: 'latex' });
+    this.events.commit('stay');
+  }
+
+  /** Adds a symbolic keyword. One with an argument waits for it. */
+  keyword(name: string, takesArgument: boolean): void {
+    if (this.value().trim() === '') return;
+    this.atEnd();
+    if (takesArgument) {
+      this.field.insert(`\\ \\mathbf{${name}},#?\\to `, { format: 'latex', selectionMode: 'placeholder' });
+      this.field.focus();
+      return;
+    }
+    this.field.insert(`\\ \\mathbf{${name}}\\to `, { format: 'latex' });
+    this.events.commit('stay');
+  }
+
+  /** Inside a name's literal subscript, anything but a name character ends the subscript. */
+  private endName(key: string): void {
+    if (!this.inName || key.length !== 1 || /[A-Za-z0-9]/.test(key)) return;
+    this.inName = false;
+    this.field.mode = 'math';
+    this.field.executeCommand('moveAfterParent');
+  }
+
+  private onKey(e: KeyboardEvent): void {
+    const f = this.field;
+    if ((e.ctrlKey || e.metaKey) && e.key === '.') return this.consume(e, () => this.arrow());
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    this.endName(e.key);
+    switch (e.key) {
+      case 'Escape': return this.consume(e, () => {
+        this.inName = false;
+        this.events.commit('stay');
+      });
+      case 'Enter': return this.consume(e, () => this.events.commit('below'));
+      case ' ': return this.consume(e, () => growSelection(f));
+      case '(': return this.consume(e, () => this.insert('\\left(#?\\right)'));
+      case ')': return this.consume(e, () => f.executeCommand('moveAfterParent'));
+      case ':': return this.consume(e, () => this.insert('\\coloneq '));
+      case '*': return this.consume(e, () => this.insert('\\cdot '));
+      case ';': return this.consume(e, () => this.insert('..'));
+      case '[': return this.consume(e, () => f.executeCommand('moveToSubscript'));
+      case ']': return this.consume(e, () => this.programLine());
+      case '&': return this.consume(e, () => this.insert(TEMPLATES.integral));
+      case '?': return this.consume(e, () => this.insert(TEMPLATES.derivative));
+      case '{': return this.consume(e, () => this.insert('\\gets '));
+      case '}': return this.consume(e, () => this.insert('\\ \\mathbf{if}\\ '));
+      case '"':
+        if (this.value() === '') this.consume(e, () => this.events.startText());
+        return;
+      case '.':
+        // After a letter, a period starts a name's literal subscript, as in Mathcad.
+        if (/[A-Za-z]$/.test(previousChar(f))) {
+          this.consume(e, () => {
+            f.executeCommand('moveToSubscript');
+            f.mode = 'text';
+            this.inName = true;
+          });
+        }
+        return;
+      default:
+    }
+  }
+}

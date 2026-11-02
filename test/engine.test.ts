@@ -209,9 +209,10 @@ describe('names and numbers', () => {
     expect(v.dim[0]).toBe(1);
   });
 
-  test('symbolic evaluation is represented but not run yet', () => {
-    const o = results(sheet([evaluate(stat('symEval', id('x')))]))[0]!;
-    expect(o.error?.kind).toBe('unsupported');
+  test('a limit or an indefinite integral needs symbolic evaluation', () => {
+    const lambda = `<ml:lambda><ml:boundVars>${id('x')}</ml:boundVars>${id('x')}</ml:lambda>`;
+    const o = results(sheet([evaluate(`<ml:apply><ml:integral/>${lambda}</ml:apply>`)]))[0]!;
+    expect(o.error?.reason).toContain('symbolic');
   });
 
   test('provenance wrappers are transparent', () => {
@@ -238,7 +239,7 @@ describe('comparing with stored results', () => {
     const ws = sheet([...setup, region]);
     const o = runWorksheet(ws).at(-1)!;
     const c = o.region.content;
-    if (c.k === 'other' || !c.stored || !o.value) throw new Error('no result');
+    if ((c.k !== 'define' && c.k !== 'eval') || !c.stored || !o.value) throw new Error('no result');
     return compareResult(o.value, c.stored, 1e-9, o.unit).ok;
   };
   const united = (v: number, unit: string): string =>

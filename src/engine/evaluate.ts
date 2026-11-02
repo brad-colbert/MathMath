@@ -1,4 +1,5 @@
 import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/ast.js';
+import { Defs } from '../symbolic/defs.js';
 import { makeBuiltins } from './builtins.js';
 import {
   absV, addV, compareReal, cross, divE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
@@ -30,6 +31,9 @@ export type OrderKey = 'align' | 'top';
 export interface Outcome {
   region: Region;
   value?: Value;
+  /** The result of a symbolic region. */
+  symbolic?: Expr;
+  unevaluated?: boolean;
   /** The evaluated unit override, for results shown in a sheet-defined unit. */
   unit?: Value;
   error?: EvalError;
@@ -135,7 +139,7 @@ export class Evaluator {
       case 'derivative': return this.evalDerivative(e, s);
       case 'program': return this.runProgram(e.body, s);
       case 'placeholder': throw new EvalError('runtime', 'empty placeholder');
-      case 'symEval': throw new EvalError('unsupported', 'symbolic evaluation');
+      case 'limit': throw new EvalError('unsupported', 'a limit needs symbolic evaluation');
       case 'unsupported': throw new EvalError('unsupported', `element ${e.tag}`);
     }
   }
@@ -286,6 +290,7 @@ export class Evaluator {
   }
 
   private evalBigOp(e: Extract<Expr, { k: 'bigop' }>, s: Scope): Value {
+    if (!e.lo || !e.hi) throw new EvalError('unsupported', 'an indefinite integral needs symbolic evaluation');
     const lo = requireNum(this.eval(e.lo, s), 'lower bound');
     const hi = requireNum(this.eval(e.hi, s), 'upper bound');
     if (e.op === 'integral') {
@@ -526,6 +531,8 @@ export class Evaluator {
   }
 }
 
+type Sym = Extract<Content, { k: 'sym' }>;
+
 interface ProgramState {
   value: Value | null;
   returned: boolean;
@@ -546,50 +553,113 @@ export function orderRegions(regions: Region[], key: OrderKey): Region[] {
   });
 }
 
-export function runWorksheet(ws: Worksheet, order: OrderKey = 'align'): Outcome[] {
-  const ev = new Evaluator(ws);
-  const sorted = orderRegions(ws.regions.filter((r) => !r.disabled), order);
-  const outcomes: Outcome[] = [];
-  let scope = new Scope(null);
+/** What a symbolic region came to. With no result, `error` says why. */
+export interface SymAnswer {
+  result: Expr | null;
+  error?: string;
+  /** The engine found no closed form, which isn't an error. */
+  unevaluated?: boolean;
+}
 
-  const unitOf = (unit: Expr | null): { unit?: Value } => {
+/** Works out a symbolic region, given the definitions above it. */
+export type SymSolver = (c: Sym, defs: Defs, scope: Scope, ws: Worksheet) => Promise<SymAnswer>;
+
+/** Keeps a worksheet's state as regions run in order. */
+class Run {
+  readonly ev: Evaluator;
+  readonly outcomes: Outcome[] = [];
+  scope = new Scope(null);
+  defs = new Defs();
+
+  constructor(ws: Worksheet) {
+    this.ev = new Evaluator(ws);
+  }
+
+  private unitOf(unit: Expr | null): { unit?: Value } {
     if (!unit) return {};
     try {
-      return { unit: ev.eval(unit, scope) };
+      return { unit: this.ev.eval(unit, this.scope) };
     } catch {
       return {};
     }
-  };
+  }
 
-  const run = (region: Region): void => {
+  plain(region: Region): void {
     const c = region.content;
-    if (c.k === 'other') {
-      outcomes.push({ region });
+    if (c.k === 'other' || c.k === 'draft' || c.k === 'show') {
+      this.outcomes.push({ region });
       return;
     }
+    if (c.k === 'sym') throw new Error('symbolic regions go through symbolic()');
     if (c.k === 'eval') {
       try {
-        const value = ev.evalRegionExpr(c.expr, scope);
-        outcomes.push({ region, value, ...unitOf(c.unit) });
+        const value = this.ev.evalRegionExpr(c.expr, this.scope);
+        this.outcomes.push({ region, value, ...this.unitOf(c.unit) });
       } catch (err) {
-        outcomes.push({ region, error: toEvalError(err) });
+        this.outcomes.push({ region, error: toEvalError(err) });
       }
       return;
     }
-    scope = new Scope(scope);
+    this.defs = this.defs.with(c.target, c.value, this.scope = new Scope(this.scope));
     try {
-      const value = ev.define(c, scope);
-      outcomes.push(value ? { region, value, ...unitOf(c.unit) } : { region });
+      const value = this.ev.define(c, this.scope);
+      this.outcomes.push(value ? { region, value, ...this.unitOf(c.unit) } : { region });
     } catch (err) {
       const error = toEvalError(err);
-      ev.markFailed(c.target, error, scope);
-      outcomes.push({ region, error });
+      this.ev.markFailed(c.target, error, this.scope);
+      this.outcomes.push({ region, error });
     }
-  };
+  }
 
-  for (const r of sorted) if (r.content.k === 'define' && r.content.global) run(r);
-  for (const r of sorted) if (!(r.content.k === 'define' && r.content.global)) run(r);
-  return outcomes;
+  /** An arrow on a definition defines the result, so `h(x) := d/dx x³ → 3x²` gives h(2) = 12. */
+  symbolic(region: Region, c: Sym, answer: SymAnswer): void {
+    const outcome: Outcome = { region };
+    if (answer.result) outcome.symbolic = answer.result;
+    if (answer.error) outcome.error = new EvalError('runtime', answer.error);
+    if (answer.unevaluated) outcome.unevaluated = true;
+    this.outcomes.push(outcome);
+    if (!c.target) return;
+    const value = answer.result ?? c.expr;
+    this.defs = this.defs.with(c.target, value, this.scope = new Scope(this.scope));
+    if (answer.error) {
+      this.ev.markFailed(c.target, new EvalError('runtime', answer.error), this.scope);
+      return;
+    }
+    try {
+      this.ev.define({ k: 'define', target: c.target, value, global: c.global, stored: null, unit: null, shown: false }, this.scope);
+    } catch (err) {
+      this.ev.markFailed(c.target, toEvalError(err), this.scope);
+    }
+  }
+}
+
+const isGlobal = (r: Region): boolean => (r.content.k === 'define' || r.content.k === 'sym') && r.content.global;
+
+function inOrder(ws: Worksheet, order: OrderKey): Region[] {
+  const sorted = orderRegions(ws.regions.filter((r) => !r.disabled), order);
+  return [...sorted.filter(isGlobal), ...sorted.filter((r) => !isGlobal(r))];
+}
+
+/** Numeric evaluation only. Symbolic regions use the answers stored with them. */
+export function runWorksheet(ws: Worksheet, order: OrderKey = 'align'): Outcome[] {
+  const run = new Run(ws);
+  for (const region of inOrder(ws, order)) {
+    const c = region.content;
+    if (c.k === 'sym') run.symbolic(region, c, c.stored ? { result: c.stored } : { result: null, error: 'needs symbolic evaluation' });
+    else run.plain(region);
+  }
+  return run.outcomes;
+}
+
+/** Runs a worksheet with symbolic evaluation. A region can depend on the arrow above it. */
+export async function runWithSymbolics(ws: Worksheet, solve: SymSolver, order: OrderKey = 'align'): Promise<Outcome[]> {
+  const run = new Run(ws);
+  for (const region of inOrder(ws, order)) {
+    const c = region.content;
+    if (c.k === 'sym') run.symbolic(region, c, await solve(c, run.defs, run.scope, ws));
+    else run.plain(region);
+  }
+  return run.outcomes;
 }
 
 function toEvalError(err: unknown): EvalError {

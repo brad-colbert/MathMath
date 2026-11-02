@@ -1,6 +1,6 @@
 // Prints the worksheet tree as LaTeX and reads it back. An editor built on LaTeX needs both, so its
 // size and its failures are part of what this spike measures.
-import type { Expr, Stmt, Target } from '../../src/model/ast.js';
+import type { Expr, Stmt, Target } from '../model/ast.js';
 
 const GREEK: Record<string, string> = {
   'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ε': '\\varepsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
@@ -8,6 +8,10 @@ const GREEK: Record<string, string> = {
   'τ': '\\tau', 'υ': '\\upsilon', 'ϕ': '\\phi', 'φ': '\\varphi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega', 'Δ': '\\Delta', 'Θ': '\\Theta',
   'Λ': '\\Lambda', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega', 'Γ': '\\Gamma', '∞': '\\infty',
 };
+/** Greek letters by name, so `alpha` typed in a region is α. */
+const GREEK_WORDS = Object.fromEntries(
+  Object.entries(GREEK).filter(([k]) => k !== '∞').map(([k, v]) => [v.slice(1).replace('var', ''), k]),
+);
 const UNGREEK = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
 
 function name(id: string): string {
@@ -98,9 +102,14 @@ export function tex(e: Expr): string {
     case 'call': return `${e.fn.k === 'id' ? name(e.fn.name) : paren(tex(e.fn))}\\left(${e.args.map(tex).join(',')}\\right)`;
     case 'program': return program(e.body);
     case 'bigop': {
-      if (e.op === 'integral') return `\\int_{${tex(e.lo)}}^{${tex(e.hi)}}${at(e.body, 3)}\\,\\mathrm{d}${name(e.varName)}`;
+      const bounds = e.lo && e.hi ? `_{${tex(e.lo)}}^{${tex(e.hi)}}` : ' ';
+      if (e.op === 'integral') return `\\int${bounds}${at(e.body, 3)}\\,\\mathrm{d}${name(e.varName)}`;
       const sym = e.op === 'summation' ? '\\sum' : '\\prod';
-      return `${sym}_{${name(e.varName)}=${tex(e.lo)}}^{${tex(e.hi)}}${at(e.body, 3)}`;
+      return `${sym}_{${name(e.varName)}=${tex(e.lo!)}}^{${tex(e.hi!)}}${at(e.body, 3)}`;
+    }
+    case 'limit': {
+      const side = e.side === 'left' ? '^{-}' : e.side === 'right' ? '^{+}' : '';
+      return `\\lim_{${name(e.varName)}\\to ${tex(e.to)}${side}}${at(e.body, 3)}`;
     }
     case 'derivative': return `\\frac{\\mathrm{d}}{\\mathrm{d}${name(e.varName)}}${at(e.body, 3)}`;
     case 'op': {
@@ -184,6 +193,7 @@ export function readTex(src: string): Expr {
   const toks = lex(src);
   let p = 0;
   const heads = new Map<Tok, string>();
+  let integrals = 0;
   const toksHead = (n: Tok): string => heads.get(n) ?? '';
   const skip = (): void => {
     while (toks[p] && SPACING.has(toks[p]!.v)) p++;
@@ -380,6 +390,18 @@ export function readTex(src: string): Expr {
     if (e.k === 'matrix') return { k: 'multi', targets: e.items.map(toTarget) };
     throw new Error('not a target');
   };
+  /** `dx` as loaded, or as typed, where the upright style runs on and swallows the variable. */
+  function differential(): string {
+    eat('\\mathrm');
+    const word = rawBetween();
+    return word === 'd' ? (atom() as { name: string }).name : word.slice(1);
+  }
+  /** A number followed by an upright i is an imaginary number. */
+  function imaginary(v: number): Expr {
+    if (!(is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}')) return { k: 'real', v };
+    p += 4;
+    return { k: 'imag', v };
+  }
   function atom(): Expr {
     const t = peek();
     if (!t) throw new Error('unexpected end');
@@ -389,16 +411,17 @@ export function readTex(src: string): Expr {
         p += 3;
         const power = group();
         const n = power.k === 'real' ? power.v : power.k === 'op' && power.op === 'neg' ? -(power.args[0] as { v: number }).v : NaN;
-        return { k: 'real', v: Number(`${t.v}e${n}`) };
+        return imaginary(Number(`${t.v}e${n}`));
       }
-      return { k: 'real', v: Number(t.v) };
+      return imaginary(Number(t.v));
     }
     if (t.t === 'ch') {
       if (/[A-Za-z]/.test(t.v)) {
         // Adjacent letters are one name, as in Mathcad. Multiplication is always written.
         let word = t.v;
         while (toks[p]?.t === 'ch' && /^[A-Za-z]$/.test(toks[p]!.v)) word += toks[p++]!.v;
-        return callOrId(word === 'pi' ? 'π' : word);
+        while (toks[p]?.t === 'num' && /^\d+$/.test(toks[p]!.v)) word += toks[p++]!.v;
+        return callOrId(GREEK_WORDS[word] ?? word);
       }
       if (t.v === '{') {
         const e = relation();
@@ -425,11 +448,9 @@ export function readTex(src: string): Expr {
         if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 5]?.v === '}') {
           p += 6;
           eat('{');
-          eat('\\mathrm');
-          rawBetween();
-          const v = atom();
+          const varName = differential();
           eat('}');
-          return { k: 'derivative', varName: (v as { name: string }).name, body: unary() };
+          return { k: 'derivative', varName, body: product() };
         }
         const a = group();
         return op('div', a, group());
@@ -483,16 +504,39 @@ export function readTex(src: string): Expr {
         if (is('{')) rawBetween();
         return { k: 'placeholder' };
       }
-      case '\\int': {
+      case '\\lim': {
         eat('_');
-        const lo = group();
-        eat('^');
-        const hi = group();
-        const body = additive();
-        eat('\\mathrm');
-        rawBetween();
+        eat('{');
         const v = atom();
-        return { k: 'bigop', op: 'integral', varName: (v as { name: string }).name, body, lo, hi };
+        eat('\\to');
+        // A side is written after the limit point, where an exponent would otherwise be read.
+        let close = p;
+        for (let depth = 0; depth > 0 || toks[close]?.v !== '}'; close++) {
+          if (toks[close]?.v === '{') depth++;
+          if (toks[close]?.v === '}') depth--;
+        }
+        let side: 'left' | 'right' | null = null;
+        if (toks[close - 4]?.v === '^' && toks[close - 3]?.v === '{' && toks[close - 1]?.v === '}') {
+          side = toks[close - 2]?.v === '+' ? 'right' : 'left';
+          toks.splice(close - 4, 4);
+        }
+        const to = relation();
+        eat('}');
+        return { k: 'limit', varName: (v as { name: string }).name, body: product(), to, side };
+      }
+      case '\\int': {
+        let lo: Expr | null = null;
+        let hi: Expr | null = null;
+        if (is('_')) {
+          p++;
+          lo = group();
+          eat('^');
+          hi = group();
+        }
+        integrals++;
+        const body = additive();
+        integrals--;
+        return { k: 'bigop', op: 'integral', varName: differential(), body, lo, hi };
       }
       case '\\sum':
       case '\\prod': {
@@ -505,7 +549,7 @@ export function readTex(src: string): Expr {
         eat('}');
         eat('^');
         const hi = group();
-        return { k: 'bigop', op: t.v === '\\sum' ? 'summation' : 'product', varName: (v as { name: string }).name, body: unary(), lo, hi };
+        return { k: 'bigop', op: t.v === '\\sum' ? 'summation' : 'product', varName: (v as { name: string }).name, body: product(), lo, hi };
       }
       default: throw new Error(`unknown ${t.v}`);
     }
@@ -542,8 +586,9 @@ export function readTex(src: string): Expr {
     if (t.t === 'num') return true;
     if (t.t === 'ch') return /[A-Za-z(]/.test(t.v);
     if (t.v === '\\left') return toks[p + 1]?.v === '(';
-    if (t.v === '\\mathrm' && toks[p + 2]?.v === 'd' && toks[p + 3]?.v === '}') return false;
-    return t.v === '\\mathrm' || t.v === '\\frac' || t.v === '\\sqrt' || t.v === '\\operatorname'
+    // Inside an integral, an upright word starting with d is the differential that ends it.
+    if (t.v === '\\mathrm' && toks[p + 2]?.v === 'd' && (integrals > 0 || toks[p + 3]?.v === '}')) return false;
+    return t.v === '\\mathrm' || t.v === '\\lim' || t.v === '\\frac' || t.v === '\\sqrt' || t.v === '\\operatorname'
       || TYPED_FUNCTIONS.has(t.v) || UNGREEK[t.v] !== undefined;
   };
   function unary(): Expr {
@@ -563,9 +608,6 @@ export function readTex(src: string): Expr {
       } else if (is('\\times')) {
         p++;
         a = op('crossProduct', a, unary());
-      } else if (a.k === 'real' && is('\\mathrm') && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}') {
-        unary();
-        a = { k: 'imag', v: a.v };
       } else if (startsFactor()) {
         // Typed `2x` means 2 times x. Printing always writes \cdot, so this only affects typed input.
         a = op('mult', a, unary());

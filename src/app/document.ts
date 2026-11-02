@@ -1,0 +1,257 @@
+/**
+ * The open worksheet and every change to it. All edits go through here, so views stay simple and
+ * undo can later be a snapshot rather than a rewrite.
+ */
+import { emptyWorksheet } from '../format/native.js';
+import { readRegion } from '../latex/region.js';
+import type { Content, OpaqueRegion, Region, TextRegion, Worksheet } from '../model/ast.js';
+import { Algebra } from './algebra.js';
+import type { AskAlgebra, ComputeRequest, Shown } from './compute.worker.js';
+
+export type Item =
+  | { kind: 'math'; region: Region }
+  | { kind: 'text'; region: TextRegion }
+  | { kind: 'opaque'; region: OpaqueRegion };
+
+/** The grid regions snap to, in points. */
+export const GRID = 6;
+
+/** Everything undo restores. Picture data is shared, since nothing ever changes it. */
+type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque'>;
+
+const snapshot = (ws: Worksheet): Snapshot => ({
+  regions: structuredClone(ws.regions),
+  texts: structuredClone(ws.texts),
+  opaque: ws.opaque.map((o) => ({ ...o })),
+});
+
+const HISTORY = 100;
+
+export class Doc {
+  ws: Worksheet = emptyWorksheet();
+  outcomes = new Map<string, Shown>();
+  computing = false;
+  dirty = false;
+  name = 'Untitled';
+  /** Called after anything changes, with the ids whose content must redraw, or null for all. */
+  onChange: (ids: Set<string> | null) => void = () => {};
+  /** Called when a calculation starts or ends. */
+  onBusy: (busy: boolean) => void = () => {};
+  /** Called when a calculation can't finish. */
+  onProblem: (message: string) => void = () => {};
+  private nextId = 1;
+  private worker: Worker | null = null;
+  private algebra = new Algebra();
+  private seq = 0;
+  private undoStack: Snapshot[] = [];
+  private redoStack: Snapshot[] = [];
+  private saved: Snapshot = snapshot(this.ws);
+  private batching = false;
+  private pending = false;
+
+  replace(ws: Worksheet, name: string): void {
+    this.ws = ws;
+    this.name = name;
+    this.dirty = false;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.saved = snapshot(ws);
+    const ids = this.items().map((i) => Number(i.region.id)).filter(Number.isFinite);
+    this.nextId = Math.max(0, ...ids) + 1;
+    this.recompute();
+    this.onChange(null);
+  }
+
+  items(): Item[] {
+    return [
+      ...this.ws.opaque.map((region): Item => ({ kind: 'opaque', region })),
+      ...this.ws.texts.map((region): Item => ({ kind: 'text', region })),
+      ...this.ws.regions.map((region): Item => ({ kind: 'math', region })),
+    ];
+  }
+
+  find(id: string): Item | undefined {
+    return this.items().find((i) => i.region.id === id);
+  }
+
+  /** Starts a calculation, replacing any still running. Results arrive later. */
+  recompute(): void {
+    this.stop();
+    const seq = ++this.seq;
+    const worker = new Worker(new URL('./compute.worker.ts', import.meta.url), { type: 'module' });
+    this.worker = worker;
+    this.computing = true;
+    this.onBusy(true);
+    const failed = (reason: string): void => {
+      worker.terminate();
+      this.worker = null;
+      this.computing = false;
+      this.onBusy(false);
+      this.onProblem(`Calculation failed: ${reason}`);
+      this.onChange(null);
+    };
+    worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
+    worker.onmessage = (m: MessageEvent<{ seq: number; shown: Shown[]; failure?: string } | AskAlgebra>) => {
+      if ('ask' in m.data) {
+        const { ask, id } = m.data;
+        void this.algebra.ask(ask).then((answer) => worker.postMessage({ answer, id }));
+        return;
+      }
+      if (m.data.seq !== this.seq) return;
+      if (m.data.failure) {
+        failed(m.data.failure);
+        return;
+      }
+      worker.terminate();
+      this.worker = null;
+      this.computing = false;
+      this.outcomes = new Map(m.data.shown.map((s) => [s.id, s]));
+      this.onBusy(false);
+      this.onChange(null);
+    };
+    const { regions, origin, tol, format } = this.ws;
+    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, format } };
+    worker.postMessage(request);
+  }
+
+  /** Stops a running calculation. A worker in a tight loop can only be ended from outside. */
+  stop(): void {
+    this.seq++;
+    this.worker?.terminate();
+    this.worker = null;
+    this.algebra.abort();
+    if (this.computing) {
+      this.computing = false;
+      this.onBusy(false);
+      this.onChange(null);
+    }
+  }
+
+  /** Groups changes, so one edit is one undo. */
+  batch(run: () => void): void {
+    this.batching = true;
+    this.pending = false;
+    try {
+      run();
+    } finally {
+      this.batching = false;
+      if (this.pending) this.touched();
+    }
+  }
+
+  private touched(ids: Set<string> | null = null): void {
+    if (this.batching) {
+      this.pending = true;
+      return;
+    }
+    this.dirty = true;
+    this.undoStack.push(this.saved);
+    if (this.undoStack.length > HISTORY) this.undoStack.shift();
+    this.redoStack = [];
+    this.saved = snapshot(this.ws);
+    this.recompute();
+    this.onChange(ids);
+  }
+
+  private restore(from: Snapshot[], to: Snapshot[]): void {
+    const state = from.pop();
+    if (!state) return;
+    to.push(this.saved);
+    this.saved = state;
+    Object.assign(this.ws, snapshot({ ...this.ws, ...state }));
+    this.dirty = true;
+    this.recompute();
+    this.onChange(null);
+  }
+
+  undo(): void {
+    this.restore(this.undoStack, this.redoStack);
+  }
+
+  redo(): void {
+    this.restore(this.redoStack, this.undoStack);
+  }
+
+  /** A new math region whose baseline sits at (left, y). */
+  addMath(left: number, y: number): Region {
+    const region: Region = {
+      id: String(this.nextId++), left, top: y - 8, alignX: left, alignY: y, disabled: false, content: { k: 'draft', latex: '', error: '' },
+    };
+    this.ws.regions.push(region);
+    return region;
+  }
+
+  addText(left: number, y: number): TextRegion {
+    const region: TextRegion = { id: String(this.nextId++), left, top: y - 8, width: 0, height: 0, text: '' };
+    this.ws.texts.push(region);
+    return region;
+  }
+
+  /** Reads typed math into a region. If it can't be read, it's kept exactly as typed. */
+  setMath(region: Region, latex: string): void {
+    const before: Content = region.content;
+    try {
+      region.content = readRegion(latex, before);
+    } catch (err) {
+      region.content = { k: 'draft', latex, error: (err as Error).message };
+    }
+    this.touched();
+  }
+
+  setText(region: TextRegion, text: string): void {
+    region.text = text;
+    this.touched(new Set([region.id]));
+  }
+
+  remove(ids: Set<string>): void {
+    this.ws.regions = this.ws.regions.filter((r) => !ids.has(r.id));
+    this.ws.texts = this.ws.texts.filter((r) => !ids.has(r.id));
+    this.ws.opaque = this.ws.opaque.filter((r) => !ids.has(r.id));
+    this.touched();
+  }
+
+  /** Removes a region left empty, without marking the sheet as changed. */
+  discard(id: string): void {
+    this.ws.regions = this.ws.regions.filter((r) => r.id !== id);
+    this.ws.texts = this.ws.texts.filter((r) => r.id !== id);
+  }
+
+  move(ids: Set<string>, dx: number, dy: number): void {
+    if (dx === 0 && dy === 0) return;
+    for (const item of this.items()) {
+      if (!ids.has(item.region.id)) continue;
+      item.region.left = Math.max(0, item.region.left + dx);
+      item.region.top = Math.max(0, item.region.top + dy);
+      if (item.kind === 'math') {
+        item.region.alignX += dx;
+        item.region.alignY += dy;
+      }
+    }
+    this.touched();
+  }
+
+  /** Lines regions up on one edge, keeping the rest of each position. */
+  align(ids: Set<string>, edge: 'left' | 'top'): void {
+    const chosen = this.items().filter((i) => ids.has(i.region.id));
+    if (chosen.length < 2) return;
+    const target = Math.min(...chosen.map((i) => i.region[edge]));
+    for (const item of chosen) {
+      const delta = target - item.region[edge];
+      item.region[edge] += delta;
+      if (item.kind === 'math') {
+        if (edge === 'left') item.region.alignX += delta;
+        else item.region.alignY += delta;
+      }
+    }
+    this.touched();
+  }
+
+  /** Moves regions below a grown one down by the growth, if they overlap it across the page. */
+  pushDown(id: string, bottom: number, grownBy: number, spans: (other: string) => boolean): void {
+    if (grownBy <= 0) return;
+    const below = new Set(
+      this.items().filter((i) => i.region.id !== id && i.region.top >= bottom - 1 && spans(i.region.id)).map((i) => i.region.id),
+    );
+    if (below.size > 0) this.move(below, 0, grownBy);
+  }
+}
