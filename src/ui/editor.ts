@@ -77,6 +77,9 @@ export const TEMPLATES = {
   derivative: '\\frac{\\mathrm{d}}{\\mathrm{d}#?}#?',
   sum: '\\sum_{#?=#?}^{#?}#?',
   product: '\\prod_{#?=#?}^{#?}#?',
+  /** Over every value of a range variable, with no limits written, as Mathcad's `$` and `#`. */
+  rangeSum: '\\sum_{#?}#?',
+  rangeProduct: '\\prod_{#?}#?',
   limit: '\\lim_{#?\\to #?}#?',
   antiderivative: '\\int #?\\,\\mathrm{d}#?',
   matrix: '\\begin{pmatrix}#?&#?\\\\#?&#?\\end{pmatrix}',
@@ -235,6 +238,10 @@ export class Editor {
     if ((e.ctrlKey || e.metaKey) && e.key === '.') return this.consume(e, () => this.arrow());
     // Consumed even when there's nothing to turn, so the browser's find bar doesn't open.
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyG') return this.consume(e, () => this.toggleGreek());
+    // Mathcad's keys for a sum or product with limits.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.code === 'Digit4' || e.code === 'Digit3')) {
+      return this.consume(e, () => this.insert(e.code === 'Digit4' ? TEMPLATES.sum : TEMPLATES.product));
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Inside a string every key is just text, except the quote that ends it.
     if (f.mode === 'text' && !this.inName && !['"', 'Escape', 'Enter', 'Tab'].includes(e.key)) return;
@@ -261,6 +268,8 @@ export class Editor {
       case '[': return this.consume(e, () => f.executeCommand('moveToSubscript'));
       case ']': return this.consume(e, () => this.programLine());
       case '&': return this.consume(e, () => this.insert(TEMPLATES.integral));
+      case '$': return this.consume(e, () => this.insert(TEMPLATES.rangeSum));
+      case '#': return this.consume(e, () => this.insert(TEMPLATES.rangeProduct));
       case '?': return this.consume(e, () => this.insert(TEMPLATES.derivative));
       case '{': return this.consume(e, () => this.insert('\\gets '));
       case '}': return this.consume(e, () => this.insert('\\ \\mathbf{if}\\ '));

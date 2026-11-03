@@ -84,6 +84,9 @@ describe('typed forms', () => {
     ['\\text{C:\\textbackslash a.jpg}', { k: 'str', v: 'C:\\a.jpg' }],
     ['\\int_0^3x^2\\,\\mathrm{dx}', { k: 'bigop', op: 'integral', varName: 'x', body: op('pow', V('x'), R(2)), lo: R(0), hi: R(3) }],
     ['\\int_0^1x\\,\\mathrm{d\\theta}', { k: 'bigop', op: 'integral', varName: 'θ', body: V('x'), lo: R(0), hi: R(1) }],
+    ['\\sum_{i}i^2', { k: 'bigop', op: 'summation', varName: 'i', body: op('pow', V('i'), R(2)), lo: null, hi: null }],
+    ['\\prod_{k}k', { k: 'bigop', op: 'product', varName: 'k', body: V('k'), lo: null, hi: null }],
+    ['\\sum_{n=1}^{3}n', { k: 'bigop', op: 'summation', varName: 'n', body: V('n'), lo: R(1), hi: R(3) }],
     ['\\frac{\\mathrm{d}}{\\mathrm{da}}a^3', { k: 'derivative', varName: 'a', body: op('pow', V('a'), R(3)) }],
   ])('%s', (text, e) => expect(readTex(text)).toEqual(e));
 });
@@ -134,5 +137,15 @@ describe('whole regions', () => {
   test('a region with unknown constructs is locked', () => {
     expect(isEditable({ k: 'eval', expr: { k: 'unsupported', tag: 'mystery' }, stored: null, unit: null })).toBe(false);
     expect(isEditable({ k: 'draft', latex: '1+', error: 'x' })).toBe(true);
+  });
+});
+
+describe('sums over a range variable', () => {
+  test('print with only the index under the Σ and read back the same', () => {
+    for (const text of ['\\sum_{i}i^2', '\\prod_{\\theta}\\theta', '\\sum_{i}\\sum_{j}i\\cdot j']) {
+      const e = readTex(text);
+      expect(tex(e)).not.toContain('null');
+      expect(readTex(tex(e))).toEqual(e);
+    }
   });
 });

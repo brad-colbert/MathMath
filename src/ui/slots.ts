@@ -1,11 +1,16 @@
 /**
- * Parts of a region that are edited on their own: a plot's axis expressions and limits, and a
- * result's display unit. Each reads and writes expression trees, never stored text.
+ * Parts of a region that are edited on their own: a plot's axis expressions, limits and titles, and a
+ * result's display unit. The math ones read and write expression trees, never stored text; titles are
+ * plain text.
  */
 import { readTex, tex } from '../latex/latex.js';
 import type { Content, Expr } from '../model/ast.js';
 
-export type Slot = 'ys' | 'x' | 'xmin' | 'xmax' | 'ymin' | 'ymax' | 'unit' | 'expr';
+export type Slot = 'ys' | 'x' | 'xmin' | 'xmax' | 'ymin' | 'ymax' | 'unit' | 'expr' | TitleSlot;
+
+/** A plot's titles, which are plain text, typed in place rather than in the math editor. */
+export type TitleSlot = 'title' | 'titlex' | 'titley';
+export const isTitleSlot = (s: Slot): s is TitleSlot => s === 'title' || s === 'titlex' || s === 'titley';
 
 /** Where Tab goes next in a new plot. */
 export const NEXT_SLOT: Partial<Record<Slot, Slot>> = { ys: 'x' };
@@ -73,4 +78,30 @@ export function withSlot(c: Content, slot: Slot, latex: string): Content {
   if ((c.k === 'eval' || c.k === 'define') && slot === 'unit') return { ...c, unit: optional(latex) };
   if (c.k === 'image' && slot === 'expr') return { ...c, expr: optional(latex) };
   return c;
+}
+
+export function titleText(c: Content, slot: TitleSlot): string {
+  if (c.k !== 'plot') return '';
+  return (slot === 'title' ? c.title : slot === 'titlex' ? c.xAxis.title : c.yAxis.title) ?? '';
+}
+
+export function withTitle(c: Content, slot: TitleSlot, text: string): Content {
+  if (c.k !== 'plot') return c;
+  if (slot === 'title') return { ...c, title: text };
+  return slot === 'titlex' ? { ...c, xAxis: { ...c.xAxis, title: text } } : { ...c, yAxis: { ...c.yAxis, title: text } };
+}
+
+/** Shows or removes the plot's title, or both axis titles together. */
+export function toggleTitles(c: Content, which: 'plot' | 'axes'): Content {
+  if (c.k !== 'plot') return c;
+  if (which === 'plot') {
+    const { title, ...rest } = c;
+    return title === undefined ? { ...c, title: '' } : rest;
+  }
+  const on = c.xAxis.title !== undefined || c.yAxis.title !== undefined;
+  const strip = (a: Plot['xAxis']): Plot['xAxis'] => {
+    const { title: _, ...rest } = a;
+    return on ? rest : { ...a, title: a.title ?? '' };
+  };
+  return { ...c, xAxis: strip(c.xAxis), yAxis: strip(c.yAxis) };
 }

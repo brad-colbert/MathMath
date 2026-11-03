@@ -82,6 +82,8 @@ export class Printer {
         return `limit(${p(e.body)},${this.name(e.varName)},${p(e.to)}${side})`;
       }
       case 'bigop': {
+        // Giac reads a sum with no limits as an antidifference, which isn't what a range sum means.
+        if (e.op !== 'integral' && !(e.lo && e.hi)) throw new Error(`a ${e.op === 'summation' ? 'sum' : 'product'} over a range variable has no exact form here. Give it limits, or use =`);
         const fn = { integral: 'integrate', summation: 'sum', product: 'product' }[e.op];
         const bounds = e.lo && e.hi ? `,${p(e.lo)},${p(e.hi)}` : '';
         return `${fn}(${p(e.body)},${this.name(e.varName)}${bounds})`;

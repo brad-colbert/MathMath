@@ -42,6 +42,10 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.plot [data-slot="x"], .region.plot [data-slot="ys"] { font-size: 8pt; }
 .region.plot [data-slot="ys"] { flex-direction: column; align-items: flex-end; justify-content: center; gap: 3pt; text-align: right; }
 .region.plot [data-slot="x"] { justify-content: center; }
+.region.plot [data-slot^="title"] { justify-content: center; font: 8pt system-ui, sans-serif; color: #0b0b0b; white-space: nowrap; overflow: hidden; }
+.region.plot [data-slot="title"] { font-weight: 600; }
+.region.plot [data-slot="titley"] { writing-mode: vertical-rl; transform: rotate(180deg); }
+.region.plot .slot.typing { background: #fff; outline: 1px solid #2563eb; cursor: text; overflow: visible; }
 .region.plot .ylabel { display: flex; align-items: center; gap: 2pt; }
 .region.plot .readout { position: absolute; right: 12pt; top: 10pt; padding: 1pt 4pt; font: 7pt system-ui, sans-serif; color: #0b0b0b; background: #fffd; border: 1px solid #d1d5db; border-radius: 3px; pointer-events: none; }
 .region.image { white-space: normal; }

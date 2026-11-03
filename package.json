@@ -1,6 +1,6 @@
 {
   "name": "mathmath",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Web-based engineering math application with a WYSIWYG paper interface",
   "license": "AGPL-3.0-or-later",
@@ -19,6 +19,7 @@
     "bench": "tsx bench/error-diffusion.ts",
     "roundtrip": "tsx src/cli/roundtrip.ts",
     "dev": "vite",
+    "serve": "scripts/serve.sh",
     "test:e2e": "tsx test/e2e/app.e2e.ts"
   },
   "devDependencies": {

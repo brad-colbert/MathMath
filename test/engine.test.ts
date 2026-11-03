@@ -55,6 +55,43 @@ describe('evaluation order', () => {
   });
 });
 
+describe('sums and products, as measured in Mathcad 14', () => {
+  const lam = (v: string, body: string) => `<ml:lambda><ml:boundVars>${id(v)}</ml:boundVars>${body}</ml:lambda>`;
+  const big = (kind: string, v: string, body: string, lo?: string, hi?: string) =>
+    `<ml:apply><ml:${kind}/>${lam(v, body)}${lo ? `<ml:bounds>${lo}${hi}</ml:bounds>` : ''}</ml:apply>`;
+  const u = (v: number, unit: string) => op('mult', real(v), id(unit));
+  const first = (...regions: string[]) => results(sheet(regions))[0]!;
+  const i010 = define(id('i'), stat('range', real(0), real(10)));
+
+  test('with no limits, they run over a range variable', () => {
+    expect(first(i010, evaluate(big('summation', 'i', op('pow', id('i'), real(2))))).value).toMatchObject({ re: 385 });
+    expect(first(i010, evaluate(big('product', 'i', op('plus', id('i'), real(1))))).value).toMatchObject({ re: 39916800 });
+    const t = define(id('t'), stat('range', stat('sequence', u(0, 's'), u(1, 's')), u(3, 's')));
+    expect(first(t, evaluate(big('summation', 't', id('t')))).value).toMatchObject({ re: 6, dim: [0, 0, 1, 0, 0, 0, 0] });
+    expect(first(define(id('x'), real(3)), evaluate(big('summation', 'x', id('x')))).error?.reason).toContain('range variable');
+    expect(first(i010, evaluate(big('summation', 'i', big('summation', 'i', id('i'))))).error?.kind).toBe('runtime');
+  });
+
+  test('reversed limits count down', () => {
+    expect(first(evaluate(big('summation', 'k', id('k'), real(3), real(1)))).value).toMatchObject({ re: 6 });
+    expect(first(evaluate(big('product', 'k', id('k'), real(4), real(1)))).value).toMatchObject({ re: 24 });
+    expect(first(evaluate(big('summation', 'k', id('k'), real(-2), real(2)))).value).toMatchObject({ re: 0 });
+  });
+
+  test('limits are whole numbers without units, and ∞ is refused', () => {
+    for (const [lo, hi] of [[real(0.5), real(3)], [real(1), real(3.5)], [u(1, 's'), u(3, 's')]]) {
+      expect(first(evaluate(big('summation', 'k', id('k'), lo, hi))).error?.kind).toBe('runtime');
+    }
+    expect(first(evaluate(big('summation', 'k', op('div', real(1), op('pow', id('k'), real(2))), real(1), id('∞')))).error?.reason).toContain('→');
+  });
+
+  test('Σ of a single number, or of a range variable, is an error', () => {
+    expect(first(evaluate(op('vectorSum', real(3)))).error?.reason).toContain('$');
+    expect(first(i010, evaluate(op('vectorSum', id('i')))).error?.kind).toBe('runtime');
+    expect(first(evaluate(op('vectorSum', vec(1, 2, 4)))).value).toMatchObject({ re: 7 });
+  });
+});
+
 describe('arrays', () => {
   test('range variables iterate implicitly', () => {
     const range = stat('range', real(1), real(3));

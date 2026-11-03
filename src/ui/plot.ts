@@ -105,9 +105,16 @@ function markup(latex: string): string {
 const slot = (name: string, html: string, style: string, hint: string): string =>
   `<div class="slot${html ? '' : ' empty'}" data-slot="${name}" title="${hint}" style="${style}">${html || '&#9632;'}</div>`;
 
+/** Room taken by each title, in points. The plot keeps its size, so its area shrinks to fit them. */
+const TITLE = { top: 13, left: 11, bottom: 11 };
+
 export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
   const [w, h] = [c.width, c.height];
-  const area = { x: M.left, y: M.top, w: Math.max(20, w - M.left - M.right), h: Math.max(20, h - M.top - M.bottom) };
+  const [hasTitle, hasX, hasY] = [c.title !== undefined, c.xAxis.title !== undefined, c.yAxis.title !== undefined];
+  const m = {
+    left: M.left + (hasY ? TITLE.left : 0), right: M.right, top: M.top + (hasTitle ? TITLE.top : 0), bottom: M.bottom + (hasX ? TITLE.bottom : 0),
+  };
+  const area = { x: m.left, y: m.top, w: Math.max(20, w - m.left - m.right), h: Math.max(20, h - m.top - m.bottom) };
   const traces = data?.traces ?? [];
   const sx = scaleFor(traces.map((t) => t.x), c.xAxis.log, data?.limits.xmin, data?.limits.xmax);
   const sy = scaleFor(traces.map((t) => t.y), c.yAxis.log, data?.limits.ymin, data?.limits.ymax);
@@ -171,14 +178,18 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
   const limit = (e: Plot['xAxis']['min'], auto: number | undefined): string => (e ? markup(tex(e)) : auto !== undefined ? `<span class="auto">${esc(label(auto)).replace(/10\^(-?\d+)$/, '10<sup>$1</sup>')}</span>` : '');
   const auto = (s: Scale | string): { lo?: number; hi?: number } => (typeof s === 'string' ? {} : { lo: s.lo, hi: s.hi });
   const [ax, ay] = [auto(sx), auto(sy)];
+  const below = area.y + area.h;
   const html = [
     parts.join(''),
-    slot('ys', ys, `left:0;top:${M.top}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'y values. Separate several with commas'),
-    slot('x', c.x ? markup(tex(c.x)) : '', `left:${M.left}pt;width:${area.w}pt;top:${h - 16}pt`, 'x values'),
-    slot('ymax', limit(c.yAxis.max, ay.hi), `left:${M.left - 28}pt;width:25pt;top:${M.top - 4}pt;justify-content:flex-end`, 'Top of the y axis. Leave empty to fit the data'),
-    slot('ymin', limit(c.yAxis.min, ay.lo), `left:${M.left - 28}pt;width:25pt;top:${M.top + area.h - 7}pt;justify-content:flex-end`, 'Bottom of the y axis. Leave empty to fit the data'),
-    slot('xmin', limit(c.xAxis.min, ax.lo), `left:${M.left - 4}pt;top:${M.top + area.h + 2}pt`, 'Left end of the x axis. Leave empty to fit the data'),
-    slot('xmax', limit(c.xAxis.max, ax.hi), `left:${M.left + area.w - 28}pt;top:${M.top + area.h + 2}pt;justify-content:flex-end;width:32pt`, 'Right end of the x axis. Leave empty to fit the data'),
+    slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'y values. Separate several with commas'),
+    slot('x', c.x ? markup(tex(c.x)) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + M.bottom - 16}pt`, 'x values'),
+    slot('ymax', limit(c.yAxis.max, ay.hi), `left:${area.x - 28}pt;width:25pt;top:${area.y - 4}pt;justify-content:flex-end`, 'Top of the y axis. Leave empty to fit the data'),
+    slot('ymin', limit(c.yAxis.min, ay.lo), `left:${area.x - 28}pt;width:25pt;top:${below - 7}pt;justify-content:flex-end`, 'Bottom of the y axis. Leave empty to fit the data'),
+    slot('xmin', limit(c.xAxis.min, ax.lo), `left:${area.x - 4}pt;top:${below + 2}pt`, 'Left end of the x axis. Leave empty to fit the data'),
+    slot('xmax', limit(c.xAxis.max, ax.hi), `left:${area.x + area.w - 28}pt;top:${below + 2}pt;justify-content:flex-end;width:32pt`, 'Right end of the x axis. Leave empty to fit the data'),
+    hasTitle ? slot('title', esc(c.title!), `left:${area.x}pt;width:${area.w}pt;top:0;height:${TITLE.top}pt`, 'Plot title. Click to type it; Format turns it off') : '',
+    hasX ? slot('titlex', esc(c.xAxis.title!), `left:${area.x}pt;width:${area.w}pt;top:${h - TITLE.bottom}pt;height:${TITLE.bottom}pt`, 'x axis title. Click to type it; Format turns it off') : '',
+    hasY ? slot('titley', esc(c.yAxis.title!), `left:0;width:${TITLE.left}pt;top:${area.y}pt;height:${area.h}pt`, 'y axis title. Click to type it; Format turns it off') : '',
     '<div class="readout" hidden></div>',
   ].join('');
   el.innerHTML = html;

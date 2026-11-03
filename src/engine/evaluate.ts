@@ -213,7 +213,10 @@ export class Evaluator {
       case 'nthRoot': return powE(b!, num(1 / requireReal(a)));
       case 'absval': return vec && a.t === 'mat' ? mapMat(a, (x) => magnitude(requireNum(x))) : absV(a);
       case 'transpose': return transpose(requireMat(a));
-      case 'vectorSum': return sumV(a);
+      case 'vectorSum':
+        // Mathcad 14 refuses a single number here, which also catches Σ of a range variable.
+        if (a.t !== 'mat') throw new EvalError('runtime', 'Σ with nothing under it adds up a vector. To add up over a range variable, put it under the Σ: type $');
+        return sumV(a);
       case 'crossProduct': return cross(requireMat(a), requireMat(b!));
       case 'indexer': return this.index(a, args.slice(1).map((i) => this.eval(i, s, vec)));
       case 'matcol': return this.column(requireMat(a), b!);
@@ -342,7 +345,10 @@ export class Evaluator {
   }
 
   private evalBigOp(e: Extract<Expr, { k: 'bigop' }>, s: Scope): Value {
-    if (!e.lo || !e.hi) throw new EvalError('unsupported', 'an indefinite integral needs symbolic evaluation');
+    if (!e.lo || !e.hi) {
+      if (e.op === 'integral') throw new EvalError('unsupported', 'an indefinite integral needs symbolic evaluation');
+      return this.rangeSum(e, s);
+    }
     const lo = requireNum(this.eval(e.lo, s), 'lower bound');
     const hi = requireNum(this.eval(e.hi, s), 'upper bound');
     if (e.op === 'integral') {
@@ -385,12 +391,33 @@ export class Evaluator {
       }
       return num(lo.re <= hi.re ? total : -total, dimMul(dim, xDim));
     }
-    let total: Value | null = null;
-    for (let i = lo.re; i <= hi.re + 1e-9; i += 1) {
-      const y = this.eval(e.body, this.bindAt(e.varName, num(i), s));
-      total = !total ? y : e.op === 'summation' ? addV(total, y) : mulE(total, y);
+    // As measured in Mathcad 14: the limits are whole numbers without units, and reversed limits count
+    // down. A limit of ∞ (10^307) is an error there too, rather than a sum that never ends.
+    const what = e.op === 'summation' ? 'sum' : 'product';
+    for (const b of [lo, hi]) {
+      if (!isNoDim(b.dim) || b.im !== 0) throw new EvalError('runtime', `the limits of a ${what} must be plain whole numbers, without units`);
+      if (Math.abs(b.re) >= 1e300) throw new EvalError('runtime', `a ${what} to ∞ can't be worked out term by term. Use → (Ctrl+.) for an exact answer`);
+      if (Math.abs(b.re - Math.round(b.re)) > 1e-9 * Math.max(1, Math.abs(b.re))) throw new EvalError('runtime', `the limits of a ${what} must be whole numbers`);
     }
-    return total ?? num(e.op === 'summation' ? 0 : 1);
+    const [a, z] = [Math.round(lo.re), Math.round(hi.re)];
+    const step = a <= z ? 1 : -1;
+    let total: Value | null = null;
+    for (let i = a; step > 0 ? i <= z : i >= z; i += step) total = this.accumulate(e, total, this.eval(e.body, this.bindAt(e.varName, num(i), s)));
+    return total!;
+  }
+
+  /** A range sum or product: Σ over every value of a range variable, written with no limits. */
+  private rangeSum(e: Extract<Expr, { k: 'bigop' }>, s: Scope): Value {
+    const r = s.lookup(e.varName);
+    if (!r) throw new EvalError('undefined', e.varName);
+    if (r.t !== 'range') throw new EvalError('runtime', `${e.varName} must be a range variable, as in ${e.varName} := 0..10, for a sum or product with no limits`);
+    let total: Value | null = null;
+    for (const x of this.iterate(r)) total = this.accumulate(e, total, this.eval(e.body, this.bindAt(e.varName, x as Num, s)));
+    return total!;
+  }
+
+  private accumulate(e: Extract<Expr, { k: 'bigop' }>, total: Value | null, y: Value): Value {
+    return !total ? y : e.op === 'summation' ? addV(total, y) : mulE(total, y);
   }
 
   /** Five-point central difference at the variable's current value. */

@@ -10,7 +10,7 @@ import type { Content, NumberFormat, Region, TextRegion } from '../model/ast.js'
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
 import { drawPlot } from './plot.js';
-import { NEXT_SLOT, type Slot, slotLatex, withSlot } from './slots.js';
+import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
 const DRAG_THRESHOLD = 4;
@@ -49,6 +49,8 @@ export class Paper {
   private editor: Editor;
   private editing: Editing | null = null;
   private textEdit: { region: TextRegion; el: HTMLElement } | null = null;
+  /** A plot title being typed in place. */
+  private titleEdit: { region: Region; slot: TitleSlot; el: HTMLElement } | null = null;
   private crosshair: HTMLElement;
   private marquee: HTMLElement | null = null;
   private press: Press | null = null;
@@ -93,7 +95,7 @@ export class Paper {
       }
     }
     for (const item of items) {
-      if (item.region.id === this.textEdit?.region.id) continue;
+      if (item.region.id === this.textEdit?.region.id || item.region.id === this.titleEdit?.region.id) continue;
       this.drawItem(item, ids === null || ids.has(item.region.id));
     }
     this.drawPages();
@@ -400,13 +402,14 @@ export class Paper {
 
   /** Undo acts on the sheet unless there's typing in progress for the editor to undo instead. */
   canUndo(): boolean {
-    return !this.textEdit && (!this.editor.isOpen || this.editor.value() === '');
+    return !this.textEdit && !this.titleEdit && (!this.editor.isOpen || this.editor.value() === '');
   }
 
   /** Finishes any edit in progress. */
   commitAll(): void {
     this.commit('stay');
     this.commitText();
+    this.commitTitle();
   }
 
   private placeCrosshair(x: number, y: number): void {
@@ -432,6 +435,10 @@ export class Paper {
 
   /** Edits one part of a region in place, over the part itself. */
   private openSlot(region: Region, slot: Slot): void {
+    if (isTitleSlot(slot)) {
+      this.openTitle(region, slot);
+      return;
+    }
     const el = this.views.get(region.id);
     const part = el?.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
     const sheet = this.sheet.getBoundingClientRect();
@@ -441,6 +448,37 @@ export class Paper {
     this.editing = { kind: 'slot', region, slot };
     part?.classList.add('editing');
     this.editor.show(left, top, slotLatex(region.content, slot), true);
+  }
+
+  /** A title is plain text, so it's typed right where it shows, like a text region. */
+  private openTitle(region: Region, slot: TitleSlot): void {
+    const el = this.views.get(region.id)?.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+    if (!el) return;
+    el.textContent = titleText(region.content, slot);
+    el.classList.remove('empty');
+    el.classList.add('typing');
+    el.contentEditable = 'plaintext-only';
+    this.titleEdit = { region, slot, el };
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  }
+
+  private commitTitle(): void {
+    const edit = this.titleEdit;
+    if (!edit) return;
+    this.titleEdit = null;
+    const { region, slot, el } = edit;
+    el.contentEditable = 'false';
+    el.classList.remove('typing');
+    const text = (el.innerText ?? '').replace(/\s+/g, ' ').trim();
+    const current = this.doc.find(region.id);
+    const content = current?.kind === 'math' ? current.region.content : region.content;
+    if (text !== titleText(content, slot)) this.doc.update(region, (c) => withTitle(c, slot, text));
+    else this.draw(new Set([region.id]));
   }
 
   private commitSlot(region: Region, slot: Slot, next: 'stay' | 'below' | 'next'): void {
@@ -559,6 +597,7 @@ export class Paper {
     if (target === this.editor.field) return;
     const view = target.closest<HTMLElement>('.region');
     if (view && view === this.textEdit?.el) return;
+    if (this.titleEdit && target.closest('[data-slot]') === this.titleEdit.el) return;
     e.preventDefault();
     const p = this.point(e);
     this.commitAll();
@@ -681,6 +720,13 @@ export class Paper {
   }
 
   private onKey(e: KeyboardEvent): void {
+    if (this.titleEdit) {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        this.commitTitle();
+      }
+      return;
+    }
     if (this.textEdit) {
       if (e.key === 'Escape') {
         e.preventDefault();

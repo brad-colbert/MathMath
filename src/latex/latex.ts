@@ -110,7 +110,9 @@ export function tex(e: Expr): string {
       const bounds = e.lo && e.hi ? `_{${tex(e.lo)}}^{${tex(e.hi)}}` : ' ';
       if (e.op === 'integral') return `\\int${bounds}${at(e.body, 3)}\\,\\mathrm{d}${name(e.varName)}`;
       const sym = e.op === 'summation' ? '\\sum' : '\\prod';
-      return `${sym}_{${name(e.varName)}=${tex(e.lo!)}}^{${tex(e.hi!)}}${at(e.body, 3)}`;
+      // With no limits, it runs over a range variable's values, as Mathcad's range sum does.
+      if (!e.lo || !e.hi) return `${sym}_{${name(e.varName)}}${at(e.body, 3)}`;
+      return `${sym}_{${name(e.varName)}=${tex(e.lo)}}^{${tex(e.hi)}}${at(e.body, 3)}`;
     }
     case 'limit': {
       const side = e.side === 'left' ? '^{-}' : e.side === 'right' ? '^{+}' : '';
@@ -601,12 +603,17 @@ export function readTex(src: string): Expr {
         eat('_');
         eat('{');
         const v = atom();
+        const which = t.v === '\\sum' ? 'summation' : 'product';
+        if (is('}')) {
+          eat('}');
+          return { k: 'bigop', op: which, varName: (v as { name: string }).name, body: product(), lo: null, hi: null };
+        }
         eat('=');
         const lo = relation();
         eat('}');
         eat('^');
         const hi = group();
-        return { k: 'bigop', op: t.v === '\\sum' ? 'summation' : 'product', varName: (v as { name: string }).name, body: product(), lo, hi };
+        return { k: 'bigop', op: which, varName: (v as { name: string }).name, body: product(), lo, hi };
       }
       default: throw new Error(`unknown ${t.v}`);
     }

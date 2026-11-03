@@ -79,13 +79,15 @@ async function clickAt(page: Page, left: number, top: number): Promise<void> {
   await sleep(120);
 }
 
-async function type(page: Page, left: number, top: number, ...parts: (string | { press: string; ctrl?: boolean })[]): Promise<void> {
+async function type(page: Page, left: number, top: number, ...parts: (string | { press: string; ctrl?: boolean; shift?: boolean })[]): Promise<void> {
   await clickAt(page, left, top);
   for (const p of parts) {
     if (typeof p === 'string') await keys(page, p);
     else {
       if (p.ctrl) await page.keyboard.down('Control');
+      if (p.shift) await page.keyboard.down('Shift');
       await page.keyboard.press(p.press as never);
+      if (p.shift) await page.keyboard.up('Shift');
       if (p.ctrl) await page.keyboard.up('Control');
     }
   }
@@ -143,6 +145,23 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('Ctrl+G makes Δx and θ', names[0] === 'Δx' && names[1] === 'θ', names);
   check('a name can mix Greek and Latin letters', (await shown(page)).join(' | ').replace(/\s/g, '').includes('=6'), await shown(page));
   check('Ctrl+G twice turns the letter back', names[3] === 'ab' && (await shown(page)).join('').replace(/\s/g, '').includes('=5'), names);
+  await page.close();
+}
+
+// Sums: $ over a range variable, and Mathcad's Ctrl+Shift+4 for one with limits.
+{
+  const page = await fresh();
+  const T = { press: 'Tab' };
+  await type(page, 72, 72, 'i:0;10');
+  await type(page, 72, 108, '$', 'i', T, 'i^2', R, '=');
+  await type(page, 72, 160, { press: 'Digit4', ctrl: true, shift: true }, 'n', T, '1', T, '4', T, 'n=');
+  await type(page, 72, 212, '#', 'i', T, '(i+1', R, '=');
+  const ws = await model(page);
+  const kinds = ws.regions.map((r: any) => r.content.expr?.k ?? r.content.k);
+  const text = (await shown(page)).join(' | ').replace(/\s/g, '');
+  check('$ and # make a sum and product over a range variable', kinds[1] === 'bigop' && ws.regions[1].content.expr.lo === null && kinds[3] === 'bigop', ws.regions.map((r: any) => r.content));
+  check('and they add up its values', text.includes('=385') && text.includes('=3.992×10'), text);
+  check('Ctrl+Shift+4 makes a sum with limits', ws.regions[2]?.content.expr?.lo?.v === 1 && text.includes('=10'), ws.regions[2]?.content);
   await page.close();
 }
 
@@ -631,6 +650,60 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await sleep(60);
   check('undo reverses a resize', (await model(page)).regions[1].content.width === 216);
   await page.close();
+
+  // Titles: off until Format turns them on, then typed in place as plain text.
+  const pt = await fresh();
+  await type(pt, 60, 60, 'x:0;10');
+  await plotAt(pt, 60, 96, 'x^2', 'x');
+  await idleP(pt);
+  const areaWidth = () => pt.evaluate(() => Number(document.querySelector('.region.plot rect')!.getAttribute('width')));
+  const before = await areaWidth();
+  const plotBox = await pt.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  check('a new plot has no title slots', (await pt.evaluate(() => document.querySelectorAll('.region.plot [data-slot^="title"]').length)) === 0);
+  await pt.mouse.click(plotBox.x, plotBox.y);
+  await sleep(60);
+  const menu = (label: string) => pt.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === l)!.click(), label);
+  await menu('Axis titles');
+  await menu('Plot title');
+  await idleP(pt);
+  await sleep(60);
+  check('Format shows empty title slots, and the plot area makes room', (await pt.evaluate(() => document.querySelectorAll('.region.plot [data-slot^="title"].empty').length)) === 3 && (await areaWidth()) < before);
+  const typeTitle = async (slot: string, text: string, end: string) => {
+    const at = await pt.evaluate((s) => {
+      const r = document.querySelector<HTMLElement>(`.region.plot [data-slot="${s}"]`)!.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, slot);
+    await pt.mouse.click(at.x, at.y);
+    await sleep(120);
+    await pt.keyboard.type(text);
+    await pt.keyboard.press('Backspace');
+    await pt.keyboard.press(end as never);
+    await sleep(80);
+  };
+  await typeTitle('titlex', 'Time, s!', 'Enter');
+  await typeTitle('titley', 'Height (m)?', 'Escape');
+  await typeTitle('title', 'A falling ball!', 'Tab');
+  await idleP(pt);
+  let pw = await model(pt);
+  const pc = pw.regions[1]?.content;
+  check('titles are typed in place, and Backspace edits them rather than deleting the plot', pc?.k === 'plot' && pc.xAxis.title === 'Time, s' && pc.yAxis.title === 'Height (m)' && pc.title === 'A falling ball', pc);
+  check('and they show on the plot', (await pt.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.plot [data-slot^="title"]')].map((e) => e.textContent).join('|'))) === 'A falling ball|Time, s|Height (m)');
+  const savedTitles = await pt.evaluate(() => (window as any).mathmath.save());
+  const reopened = await fresh();
+  await reopened.evaluate((t) => (window as any).mathmath.load('p.mathmath', t), savedTitles);
+  await sleep(150);
+  check('titles survive saving', (await model(reopened)).regions[1]?.content.xAxis.title === 'Time, s');
+  await reopened.close();
+  await pt.mouse.click(plotBox.x, plotBox.y);
+  await sleep(60);
+  await menu('Axis titles');
+  await sleep(80);
+  pw = await model(pt);
+  check('Format turns axis titles off again', pw.regions[1].content.xAxis.title === undefined && pw.regions[1].content.title === 'A falling ball' && !('title' in pw.regions[1].content.yAxis));
+  await pt.close();
 
   // Vectors with no x, and mismatched lengths.
   const p2 = await fresh();

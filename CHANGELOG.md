@@ -10,6 +10,44 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
+Sums over range variables, Mathcad's sum rules and keys, plot titles, and a script to run the app.
+
+### Added
+
+- Sums and products over a range variable, as in Mathcad: type `$` (or `#` for a product), then the range
+  variable and the term. With `i := 0..10`, the sum of `i²` over `i` is 385. They read from and import as
+  Mathcad's range sum and range product.
+- Mathcad's keys for a sum or product with limits: Ctrl+Shift+4 and Ctrl+Shift+3.
+- `scripts/serve.sh` (or `npm run serve`) runs the app in the terminal, reachable from other machines by this
+  machine's name, which it lets through Vite's host check without touching `vite.config.ts`. `--built` builds
+  first and serves the built app, as a deployment would. More names can be given in `MATHMATH_HOSTS`.
+- Plot titles. Format → *Axis titles* adds a title beside each axis, and *Plot title* one above the plot.
+  Click a title to type it in place, as plain text; Enter or Esc finishes. The plot keeps its size and its
+  area makes room. Empty titles show a placeholder on screen and nothing in print.
+
+### Changed
+
+- Sum and product limits follow Mathcad 14, as measured there: they must be whole numbers without units, and
+  limits given high to low count down. A limit of ∞ is refused with `=`, saying to use → for an exact answer,
+  where before the sum ran until stopped.
+- The built app, served with `vite preview`, now sends the content security policy as a header, so the
+  calculation worker is held to it too, as it would be when deployed.
+- The `.mathmath` format, still version 1, gains optional title fields on plots and their axes. Files without
+  titles save exactly as before.
+
+### Fixed
+
+- Σ over a range variable written with no limits gave the column of its values, and a sum with limits given
+  high to low gave 0. Σ of a single number or a range variable is now an error that points to `$`, as in
+  Mathcad, and reversed limits count down.
+
+### Known limits
+
+- The term of a sum or product runs over a product only, so `Σ i + 1` is `(Σ i) + 1`. Put a sum in the
+  term in parentheses.
+
 ## [0.5.0] - 2026-11-02
 
 Wider corpus tests (milestone 6): 592 of 664 stored results in the test worksheets match, up from 383.

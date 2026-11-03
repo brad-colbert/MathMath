@@ -69,6 +69,8 @@ export interface Axis {
   min: Expr | null;
   max: Expr | null;
   log: boolean;
+  /** Plain text beside the axis. Absent means no title; empty means one is shown, waiting for text. */
+  title?: string;
 }
 
 export const autoAxis = (): Axis => ({ min: null, max: null, log: false });
@@ -93,7 +95,7 @@ export type Content =
    */
   | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
   /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
-  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number }
+  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string }
   /**
    * Another worksheet's definitions, available from here on as if its regions were here. `file` is a file
    * name, matched without its extension against attached worksheets.

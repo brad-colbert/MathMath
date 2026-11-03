@@ -4,6 +4,7 @@ import '../ui/app.css';
 import { forgetFile, openFile, readAny, saveFile } from '../ui/files.js';
 import { TEMPLATES } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
+import { toggleTitles } from '../ui/slots.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
 import type { Content, Worksheet } from '../model/ast.js';
@@ -222,8 +223,8 @@ button('return', 'Return', inEditor('\\mathbf{return}\\ '));
 separator();
 button('∫', 'Integral (&). Tab moves to the next blank', inEditor(TEMPLATES.integral));
 button('d/dx', 'Derivative (?). Tab moves to the next blank', inEditor(TEMPLATES.derivative));
-button('Σ', 'Sum. Tab moves to the next blank', inEditor(TEMPLATES.sum));
-button('Π', 'Product. Tab moves to the next blank', inEditor(TEMPLATES.product));
+button('Σ', 'Sum (Ctrl+Shift+4). Tab moves to the next blank. Type $ for a sum over a range variable', inEditor(TEMPLATES.sum));
+button('Π', 'Product (Ctrl+Shift+3). Tab moves to the next blank. Type # for a product over a range variable', inEditor(TEMPLATES.product));
 button('lim', 'Limit, which needs →. Tab moves to the next blank', inEditor(TEMPLATES.limit));
 button('∫ dx', 'Indefinite integral, which needs →. Tab moves to the next blank', inEditor(TEMPLATES.antiderivative));
 button('Plot', 'X-Y plot (@)', () => paper.insertPlot());
@@ -293,6 +294,8 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Log x axis', 'plot', (c) => (c.k === 'plot' ? { ...c, xAxis: { ...c.xAxis, log: !c.xAxis.log } } : c)],
   ['Log y axis', 'plot', (c) => (c.k === 'plot' ? { ...c, yAxis: { ...c.yAxis, log: !c.yAxis.log } } : c)],
   ['Points instead of lines', 'plot', (c) => (c.k === 'plot' ? { ...c, markers: !c.markers } : c)],
+  ['Axis titles', 'plot', (c) => toggleTitles(c, 'axes')],
+  ['Plot title', 'plot', (c) => toggleTitles(c, 'plot')],
   ['Color image (R|G|B side by side)', 'image', (c) => (c.k === 'image' ? { ...c, mode: c.mode === 'rgb' ? 'gray' : 'rgb' } : c)],
 ];
 for (const [label, kind, change] of formats) {

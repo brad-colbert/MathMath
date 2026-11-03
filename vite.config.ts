@@ -22,6 +22,8 @@ export { CSP };
 export default defineConfig({
   // Nothing inlined: the policy above refuses data: fonts.
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', chunkSizeWarningLimit: 1200, assetsInlineLimit: 0 },
+  // The built app is served with the policy as a header, as a deployment would, so workers get it too.
+  preview: { headers: { 'Content-Security-Policy': CSP } },
   plugins: [{
     name: 'content-security-policy',
     apply: 'build',
