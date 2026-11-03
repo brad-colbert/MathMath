@@ -7,7 +7,7 @@ import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/as
 import type { Defs } from '../symbolic/defs.js';
 import { NotSymbolic, expand } from '../symbolic/expand.js';
 import { type GiacRequest, Printer, buildRequest, readAnswer } from '../symbolic/giac.js';
-import { axisScale, displayUnit, formatValue } from '../ui/format.js';
+import { axisScale, displayUnit, formatValue, unitLatexOf } from '../ui/format.js';
 
 export interface ComputeRequest {
   seq: number;
@@ -27,6 +27,8 @@ export interface Shown {
   unevaluated?: boolean;
   /** A reference whose sheet is attached, though it still needs other files, listed in `error`. */
   partial?: boolean;
+  /** The unit part of `value`, as LaTeX, so the page can let it be edited apart from the number. */
+  unit?: string;
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
@@ -155,7 +157,9 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
     if (o.symbolic) return { id, value: tex(o.symbolic) };
     const c = o.region.content;
     const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
-    return o.value ? { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit) } : { id };
+    if (!o.value) return { id };
+    const shownUnit = unitLatexOf(o.value, unit);
+    return { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit), ...(shownUnit ? { unit: shownUnit } : {}) };
   });
   // Point data moves to the page rather than being copied: plots can be large. Traces can share an
   // array, and a buffer listed twice makes the browser refuse the whole message.

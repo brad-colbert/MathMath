@@ -9,20 +9,73 @@ import {
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
-  needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
+  growColumn, needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
+/** Columns taken from each matrix, as long as it hasn't changed since. */
+const COLUMNS = new WeakMap<Mat, { version: number; cols: Map<number, Mat> }>();
+
+/** The scopes of one sheet's definitions, in order, and for each name the ones that define it. */
+class Line {
+  next = 0;
+  readonly holders = new Map<string, Scope[]>();
+}
+
+/**
+ * Names and their values. Each definition on a sheet opens a scope after the one before, so a sheet's scopes
+ * form one line, and a function defined partway down sees only what's above it. Walking that line for every
+ * name took time in proportion to the number of definitions, so those scopes share an index of which define
+ * each name, searched by position. Scopes opened for a call or a range value are walked as before: they're few.
+ */
 export class Scope {
   private vars = new Map<string, Value>();
+  private line: Line | null = null;
+  private serial = 0;
   constructor(public parent: Scope | null) {}
+
+  /** The next scope in a sheet's line of definitions, or the first when `before` is null. */
+  static after(before: Scope | null): Scope {
+    const s = new Scope(before);
+    if (before && !before.line) throw new Error('a definition scope must follow another');
+    s.line = before?.line ?? new Line();
+    s.serial = s.line.next++;
+    return s;
+  }
+
   lookup(name: string): Value | undefined {
-    for (let s: Scope | null = this; s; s = s.parent) {
+    let s: Scope | null = this;
+    for (; s && !s.line; s = s.parent) {
       const v = s.vars.get(name);
       if (v) return v;
     }
-    return undefined;
+    if (!s) return undefined;
+    // The last scope in the line, at or before this one, that defines the name.
+    const holders = s.line!.holders.get(name);
+    if (!holders) return undefined;
+    let lo = 0;
+    let hi = holders.length - 1;
+    let found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (holders[mid]!.serial <= s.serial) {
+        found = mid;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    return found < 0 ? undefined : holders[found]!.vars.get(name);
   }
+
   set(name: string, v: Value): void {
+    if (this.line && !this.vars.has(name)) {
+      const holders = this.line.holders.get(name);
+      if (!holders) this.line.holders.set(name, [this]);
+      else {
+        // Usually the newest scope, so the end; kept in order either way.
+        let at = holders.length;
+        while (at > 0 && holders[at - 1]!.serial > this.serial) at--;
+        holders.splice(at, 0, this);
+      }
+    }
     this.vars.set(name, v);
   }
 }
@@ -117,11 +170,34 @@ function gaussKronrod(f: (x: number) => number, a: number, b: number): { value: 
   return { value: kron * h, error: Math.abs((kron - gauss) * h) };
 }
 
-function adaptive(f: (x: number) => number, a: number, b: number, tol: number, depth = 0): number {
-  const { value, error } = gaussKronrod(f, a, b);
+/** Kronrod's 7 points, with Gauss's 3 among them for the error estimate: ± nodes, then the middle. */
+const K7_X = [0.9604912687080202, 0.7745966692414834, 0.4342437493468026];
+const K7_W = [0.1046562260264673, 0.2684880898683334, 0.4013974147759622, 0.4509165386584741];
+const G3_W = [0.5555555555555556, 0.8888888888888888];
+
+/** A cheaper rule for short pieces that are already smooth: 7 evaluations instead of 15. */
+function gaussKronrod7(f: (x: number) => number, a: number, b: number): { value: number; error: number } {
+  const c = (a + b) / 2;
+  const h = (b - a) / 2;
+  const mid = f(c);
+  let kron = K7_W[3]! * mid;
+  let gauss = G3_W[1]! * mid;
+  for (let i = 0; i < 3; i++) {
+    const dx = h * K7_X[i]!;
+    const sum = f(c - dx) + f(c + dx);
+    kron += K7_W[i]! * sum;
+    if (i === 1) gauss += G3_W[0]! * sum;
+  }
+  return { value: kron * h, error: Math.abs((kron - gauss) * h) };
+}
+
+type Rule = (f: (x: number) => number, a: number, b: number) => { value: number; error: number };
+
+function adaptive(f: (x: number) => number, a: number, b: number, tol: number, depth = 0, rule: Rule = gaussKronrod): number {
+  const { value, error } = rule(f, a, b);
   if (depth >= 40 || error <= tol) return value;
   const m = (a + b) / 2;
-  return adaptive(f, a, m, tol / 2, depth + 1) + adaptive(f, m, b, tol / 2, depth + 1);
+  return adaptive(f, a, m, tol / 2, depth + 1, rule) + adaptive(f, m, b, tol / 2, depth + 1, rule);
 }
 
 const CONSTANTS: Record<string, Num> = {
@@ -296,6 +372,18 @@ export class Evaluator {
   private column(m: Mat, b: Value): Mat {
     const j = this.position(b);
     if (j < 0 || j >= m.cols) throw new EvalError('runtime', 'column out of bounds');
+    // A function called many times often takes the same columns each time, as in linterp(D⟨0⟩, D⟨1⟩, x).
+    // Copying them once per matrix, not once per call, keeps that from costing a copy of the table per call.
+    let cached = COLUMNS.get(m);
+    if (!cached || cached.version !== (m.version ?? 0)) COLUMNS.set(m, (cached = { version: m.version ?? 0, cols: new Map() }));
+    const hit = cached.cols.get(j);
+    if (hit) return hit;
+    const out = this.copyColumn(m, j);
+    cached.cols.set(j, out);
+    return out;
+  }
+
+  private copyColumn(m: Mat, j: number): Mat {
     const out = newMat(m.rows, 1, m.dim);
     // Real numbers only: copy the column's numbers, which are stored together.
     if (!m.cells && !m.im) {
@@ -399,7 +487,9 @@ export class Evaluator {
       let total = 0;
       for (let i = 0; i + 1 < points.length; i++) {
         const [p, q] = [points[i]!, points[i + 1]!];
-        total += adaptive(f, p, q, (tol * (q - p)) / (b - a));
+        // Each piece lies between a table's points, so it's smooth and short: the 7-point rule is enough,
+        // and still subdivides when its error estimate says so.
+        total += adaptive(f, p, q, (tol * (q - p)) / (b - a), 0, gaussKronrod7);
       }
       return num(lo.re <= hi.re ? total : -total, dimMul(dim, xDim));
     }
@@ -514,10 +604,13 @@ export class Evaluator {
     let m: Mat;
     if (old?.t === 'mat') {
       m = old.owner === store ? old : cloneMat(old);
-      if (rows > m.rows || cols > m.cols) m = resized(m, Math.max(rows, m.rows), Math.max(cols, m.cols));
+      // A private vector grows in place; anything else is copied at its new size.
+      if (m.cols === 1 && cols === 1 && rows > m.rows) growColumn(m, rows);
+      else if (rows > m.rows || cols > m.cols) m = resized(m, Math.max(rows, m.rows), Math.max(cols, m.cols));
     } else m = newMat(rows, cols);
     m.owner = store;
     edit(m);
+    m.version = (m.version ?? 0) + 1;
     store.set(name, m);
   }
 
@@ -698,7 +791,7 @@ export type SymSolver = (c: Sym, defs: Defs, scope: Scope, ws: Worksheet) => Pro
 class Run {
   readonly ev: Evaluator;
   readonly outcomes: Outcome[] = [];
-  scope = new Scope(null);
+  scope = Scope.after(null);
   defs = new Defs();
   /** Worksheets being included, innermost last, to stop a sheet that includes itself. */
   private including: string[] = [];
@@ -803,7 +896,7 @@ class Run {
       }
       return;
     }
-    this.defs = this.defs.with(c.target, c.value, this.scope = new Scope(this.scope));
+    this.defs = this.defs.with(c.target, c.value, this.scope = Scope.after(this.scope));
     try {
       const value = this.ev.define(c, this.scope);
       this.outcomes.push(value ? { region, value, ...this.unitOf(c.unit) } : { region });
@@ -823,7 +916,7 @@ class Run {
     this.outcomes.push(outcome);
     if (!c.target) return;
     const value = answer.result ?? c.expr;
-    this.defs = this.defs.with(c.target, value, this.scope = new Scope(this.scope));
+    this.defs = this.defs.with(c.target, value, this.scope = Scope.after(this.scope));
     if (answer.error) {
       this.ev.markFailed(c.target, new EvalError('runtime', answer.error), this.scope);
       return;

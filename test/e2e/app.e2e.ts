@@ -830,14 +830,29 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   if (at) {
     await page.mouse.click(at.x, at.y);
     await sleep(120);
+    const opened = await page.evaluate(() => {
+      const view = document.querySelectorAll<HTMLElement>('.region')[1]!;
+      const unit = view.querySelector<HTMLElement>('[data-unitpart]');
+      return {
+        editor: ((document.getElementById('editor') as any).getValue?.('latex-unstyled') as string) ?? '',
+        numberShown: view.style.visibility !== 'hidden' && getComputedStyle(view.querySelector('[data-slot="unit"]')!).visibility !== 'hidden',
+        unitHidden: unit ? getComputedStyle(unit).visibility === 'hidden' : false,
+      };
+    });
+    check('clicking the answer keeps the number in view, and opens its unit filled in', opened.numberShown && opened.unitHidden && /m/.test(opened.editor), opened);
     await keys(page, 'cm');
     await page.keyboard.press('Escape');
     await sleep(60);
   }
   text = await answers(page);
   check('choosing cm shows the length in centimetres', text[1]?.endsWith('=300cm') === true, text[1]);
-  // Editing the math keeps the unit.
+  // Editing the math keeps the unit, and the old answer stays in view, grayed, while it's edited.
   await clickAt(page, 62, 94);
+  const ghost = await page.evaluate(() => {
+    const g = document.querySelector<HTMLElement>('.ghost-answer')!;
+    return { hidden: g.hidden, text: (g.innerText ?? '').replace(/[\s\u200b]/g, '') };
+  });
+  check('while the math is edited, its answer stays in view', !ghost.hidden && ghost.text.startsWith('300'), ghost);
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowLeft');
   await keys(page, '*2');

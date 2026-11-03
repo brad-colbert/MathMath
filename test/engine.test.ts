@@ -552,3 +552,51 @@ describe('matrix functions, as measured in Mathcad 14', () => {
     close(back.flat(), [1, 2, 3, 4, 5, 6]);
   });
 });
+
+describe('speed-ups that must not change answers', () => {
+  test('a vector filled one element at a time over a range comes out whole', () => {
+    const ws = sheet([
+      define(id('i'), stat('range', real(0), real(999))),
+      define(op('indexer', id('v'), id('i')), op('mult', id('i'), real(2))),
+      evaluate(id('v')),
+    ]);
+    const v = results(ws)[0]!.value as Mat;
+    expect([v.rows, v.re[0], v.re[500], v.re[999]]).toEqual([1000, 0, 1000, 1998]);
+  });
+
+  test('a recurrence reads the elements filled before it', () => {
+    const ws = sheet([
+      define(id('i'), stat('range', real(1), real(20))),
+      define(op('indexer', id('f'), real(0)), real(1)),
+      define(op('indexer', id('f'), id('i')), op('mult', op('indexer', id('f'), op('minus', id('i'), real(1))), real(2))),
+      evaluate(op('indexer', id('f'), real(20))),
+    ]);
+    expect(results(ws)[0]!.value).toMatchObject({ re: 2 ** 20 });
+  });
+
+  test('a column taken again after the matrix changes sees the change', () => {
+    const M = '<ml:matrix rows="2" cols="2">' + [1, 2, 3, 4].map(real).join('') + '</ml:matrix>';
+    const col0 = op('matcol', id('M'), real(0));
+    const ws = sheet([
+      define(id('M'), M),
+      define(id('a'), col0),
+      define(op('indexer', id('M'), real(1), real(0)), real(9)),
+      evaluate(col0),
+      evaluate(id('a')),
+    ]);
+    const [after, before] = results(ws).map((o) => [...(o.value as Mat).re]);
+    expect(after).toEqual([1, 9]);
+    expect(before).toEqual([1, 2]);
+  });
+
+  test('a later definition hides an earlier one, and a function sees only what was above it', () => {
+    const ws = sheet([
+      define(id('k'), real(1)),
+      fnDefine('f', ['x'], op('plus', id('x'), id('k'))),
+      define(id('k'), real(100)),
+      evaluate(call('f', real(1))),
+      evaluate(id('k')),
+    ]);
+    expect(results(ws).map((o) => (o.value as { re: number }).re)).toEqual([2, 100]);
+  });
+});
