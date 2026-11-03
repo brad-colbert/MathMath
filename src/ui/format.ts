@@ -92,6 +92,15 @@ function unitFor(dim: Dim, unit: DisplayUnit | undefined): { divide: number; lat
   return { divide: chosen.factor, latex: unitsLatex(chosen.parts) };
 }
 
+/**
+ * How a plot axis shows values of a dimension: each base-unit value v shows as (v − zero) / divide, labelled
+ * with the unit's LaTeX ('' for plain numbers). Chosen as a result's display unit is.
+ */
+export function axisScale(dim: Dim, unit: DisplayUnit | undefined): { divide: number; zero: number; latex: string } {
+  const u = unitFor(dim, unit);
+  return { divide: u.divide, zero: u.offset?.zero ?? 0, latex: u.latex };
+}
+
 const withUnit = (number: string, latex: string): string => (latex ? `${number}\\ ${latex}` : number);
 
 const matrix = (rows: string[][]): string => `\\begin{pmatrix}${rows.map((r) => r.join('&')).join('\\\\')}\\end{pmatrix}`;

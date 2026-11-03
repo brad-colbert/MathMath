@@ -174,7 +174,13 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     const dash = DASHES[n % DASHES.length]!;
     return `<svg width="14pt" height="6pt" viewBox="0 0 14 6"><line x1="0" y1="3" x2="14" y2="3" stroke="${SERIES[n % SERIES.length]}" stroke-width="1.5"${dash ? ` stroke-dasharray="${dash}"` : ''}/></svg>`;
   };
-  const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('');
+  // Each axis's unit sits after its expression: gray when it's the default, and clicked to choose another.
+  const labels = data?.labels;
+  const unit = (name: 'xunit' | 'yunit', latex: string | undefined, chosen: boolean | undefined): string => (latex
+    ? `<span class="axis-unit${chosen ? '' : ' auto'}" data-slot="${name}" title="${chosen ? 'The unit this axis shows. Clear it for the default' : 'The default unit. Click to show the axis in another, such as ft'}">(${markup(latex)})</span>`
+    : '');
+  const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('')
+    + unit('yunit', labels?.y, labels?.yChosen);
   const limit = (e: Plot['xAxis']['min'], auto: number | undefined): string => (e ? markup(tex(e)) : auto !== undefined ? `<span class="auto">${esc(label(auto)).replace(/10\^(-?\d+)$/, '10<sup>$1</sup>')}</span>` : '');
   const auto = (s: Scale | string): { lo?: number; hi?: number } => (typeof s === 'string' ? {} : { lo: s.lo, hi: s.hi });
   const [ax, ay] = [auto(sx), auto(sy)];
@@ -182,7 +188,7 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
   const html = [
     parts.join(''),
     slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'y values. Separate several with commas'),
-    slot('x', c.x ? markup(tex(c.x)) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + M.bottom - 16}pt`, 'x values'),
+    slot('x', c.x ? `${markup(tex(c.x))}${unit('xunit', labels?.x, labels?.xChosen)}` : '', `left:${area.x}pt;width:${area.w}pt;top:${below + M.bottom - 16}pt`, 'x values'),
     slot('ymax', limit(c.yAxis.max, ay.hi), `left:${area.x - 28}pt;width:25pt;top:${area.y - 4}pt;justify-content:flex-end`, 'Top of the y axis. Leave empty to fit the data'),
     slot('ymin', limit(c.yAxis.min, ay.lo), `left:${area.x - 28}pt;width:25pt;top:${below - 7}pt;justify-content:flex-end`, 'Bottom of the y axis. Leave empty to fit the data'),
     slot('xmin', limit(c.xAxis.min, ax.lo), `left:${area.x - 4}pt;top:${below + 2}pt`, 'Left end of the x axis. Leave empty to fit the data'),

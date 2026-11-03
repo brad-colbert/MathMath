@@ -7,7 +7,7 @@ import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { Algebra } from './algebra.js';
-import type { AskAlgebra, ComputeRequest, Shown } from './compute.worker.js';
+import type { AskAlgebra, ComputeRequest, Progress, Shown } from './compute.worker.js';
 
 export type Item =
   | { kind: 'math'; region: Region }
@@ -47,6 +47,8 @@ export class Doc {
   onBusy: (busy: boolean) => void = () => {};
   /** Called when the mode changes between LIVE and EDIT. */
   onMode: (live: boolean) => void = () => {};
+  /** Called as each region starts calculating, and with null when the calculation ends. */
+  onCalculating: (id: string | null) => void = () => {};
   /** Called when a calculation can't finish. */
   onProblem: (message: string) => void = () => {};
   private nextId = 1;
@@ -113,19 +115,25 @@ export class Doc {
       worker.terminate();
       this.worker = null;
       this.computing = false;
+      this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = `Not updated: the calculation failed (${reason})`;
       this.onBusy(false);
       this.onProblem(`Calculation failed: ${reason}`);
       this.onChange(null);
     };
     worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
-    worker.onmessage = (m: MessageEvent<{ seq: number; shown: Shown[]; failure?: string } | AskAlgebra>) => {
+    worker.onmessage = (m: MessageEvent<{ seq: number; shown: Shown[]; failure?: string } | AskAlgebra | Progress>) => {
       if ('ask' in m.data) {
         const { ask, id } = m.data;
         void this.algebra.ask(ask).then((answer) => worker.postMessage({ answer, id }));
         return;
       }
       if (m.data.seq !== this.seq) return;
+      if ('at' in m.data) {
+        this.onCalculating(m.data.at);
+        return;
+      }
+      this.onCalculating(null);
       if (m.data.failure) {
         failed(m.data.failure);
         return;
@@ -151,6 +159,7 @@ export class Doc {
     this.algebra.abort();
     if (this.computing) {
       this.computing = false;
+      this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = 'Calculation stopped before this was updated. Any change calculates again.';
       this.onBusy(false);
       this.onChange(null);

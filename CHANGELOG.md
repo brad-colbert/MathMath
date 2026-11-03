@@ -10,6 +10,51 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-02
+
+The calculating region's green box, units on plot axes, Mathcad's splines and remaining matrix functions, and a
+Matrix menu for typing matrix operators.
+
+### Added
+
+- While a sheet calculates, the region being worked on gets a green box, as in Mathcad. It appears only once a
+  region has taken a tenth of a second, so quick sheets don't flicker, and it isn't printed.
+- Plot axes show their unit after the axis expression: the default in gray, chosen as a result's display unit
+  is, such as `(m)` or `(s)`. Click it and type another, such as `ft` or `ms`, and the axis converts; clear it
+  to go back to the default. A limit typed with units converts too, and a bare number is in the axis's unit.
+- Mathcad's interpolating splines: `lspline`, `pspline` and `cspline` (natural, parabolic and cubic ends), in
+  1-D and on a 2-D grid, `bspline` (a piecewise polynomial of chosen degree with breaks where asked), and
+  `interp` to evaluate any of them. Outside the data, the end piece continues. `medsmooth(v, n)` takes running
+  medians over an odd window, cut short at the ends. Spline vectors are laid out as Mathcad lays them out, and
+  46 measured results from Mathcad 14 match to within 10⁻¹³.
+- Mathcad's remaining matrix functions: `lsolve`, `rank`, `rref`, `diag`, `norm1` and `norm2`, the condition
+  numbers `cond1`, `cond2`, `conde` and `condi`, `svds`, `svd` (U over V), `geninv`, `lu` (P, L and U side by
+  side, pivoting as Mathcad does), `qr`, `cholesky`, `eigenvecs` and `eigenvec`. Checked against 33 results
+  measured in Mathcad 14.
+- A Matrix menu on the toolbar, in place of the Matrix button: insert a 2×2, 3×3, column or row matrix, add a
+  row or column, and apply transpose, a column M⟨j⟩, vectorize and |M| to the selection or to what's before
+  the caret. These couldn't be typed before. Mathcad's keys work too: Ctrl+M for a matrix, Ctrl+1 transpose,
+  Ctrl+6 column and Ctrl+− vectorize, though Chrome keeps Ctrl+1 and Ctrl+6 for its tabs.
+
+### Changed
+
+- The `.mathmath` format, still version 1, gains an optional display unit on plot axes.
+
+### Fixed
+
+- `|M|` on a square matrix gave the size of the determinant, dropping its sign; it's now the determinant, as in
+  Mathcad 14 (`|(1 2; 3 4)|` is −2). Mathcad's separate determinant operator now imports as `|M|`. With units,
+  Mathcad refuses a determinant; MathMath gives it, in the matrix's unit to the power of its size.
+
+### Known limits
+
+- Eigenvectors, `svd` and `qr` are unique only up to sign, and can differ from Mathcad's in sign (`qr` always
+  makes R's diagonal positive). For some non-symmetric matrices, `eigenvals` lists the values in a different
+  order from Mathcad, and `eigenvecs` follows it.
+
+- Traces with different units on one axis share no unit, so that axis shows plain base-unit numbers with no
+  unit after it.
+
 ## [0.6.0] - 2026-11-02
 
 Sums over range variables, Mathcad's sum rules and keys, plot titles, and a script to run the app.

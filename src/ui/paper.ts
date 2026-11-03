@@ -43,12 +43,16 @@ type Editing =
 
 const MIN_PLOT = { width: 96, height: 72 };
 
+/** How long a region calculates before it gets the green box, in milliseconds. */
+const CALC_BOX_DELAY = 100;
+
 export class Paper {
   private views = new Map<string, HTMLElement>();
   private selected = new Set<string>();
   private editor: Editor;
   private editing: Editing | null = null;
   private textEdit: { region: TextRegion; el: HTMLElement } | null = null;
+  private calcTimer: ReturnType<typeof setTimeout> | undefined;
   /** A plot title being typed in place. */
   private titleEdit: { region: Region; slot: TitleSlot; el: HTMLElement } | null = null;
   private crosshair: HTMLElement;
@@ -67,6 +71,7 @@ export class Paper {
       startPlot: () => this.startPlotFromEmpty(),
     });
     doc.onChange = (ids) => this.draw(ids);
+    doc.onCalculating = (id) => this.calculating(id);
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
     window.addEventListener('mousemove', (e) => this.onMove(e));
     window.addEventListener('mouseup', (e) => this.onUp(e));
@@ -405,6 +410,17 @@ export class Paper {
     return !this.textEdit && !this.titleEdit && (!this.editor.isOpen || this.editor.value() === '');
   }
 
+  /**
+   * Outlines the region being calculated, as Mathcad does. Only once it has taken a moment, so a
+   * quick sheet doesn't flicker.
+   */
+  private calculating(id: string | null): void {
+    clearTimeout(this.calcTimer);
+    this.sheet.querySelector('.region.calculating')?.classList.remove('calculating');
+    if (id === null) return;
+    this.calcTimer = setTimeout(() => this.views.get(id)?.classList.add('calculating'), CALC_BOX_DELAY);
+  }
+
   /** Finishes any edit in progress. */
   commitAll(): void {
     this.commit('stay');
@@ -486,7 +502,7 @@ export class Paper {
     const changed = this.editor.edited();
     this.editor.close();
     this.editing = null;
-    this.views.get(region.id)?.querySelector('.slot.editing')?.classList.remove('editing');
+    this.views.get(region.id)?.querySelector('[data-slot].editing')?.classList.remove('editing');
     if (changed) {
       try {
         const content = withSlot(region.content, slot, latex);

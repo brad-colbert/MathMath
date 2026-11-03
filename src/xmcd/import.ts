@@ -119,7 +119,8 @@ function parseApply(e: XElement): Expr {
   const args = argList(rest).map(parseExpr);
   if (tag === 'id') return { k: 'call', fn: { k: 'id', name: translateFunction(idName(head)) }, args };
   if (tag === 'apply' || tag === 'parens') return { k: 'call', fn: parseExpr(head), args };
-  return { k: 'op', op: tag, args };
+  // Mathcad writes the determinant as its own operator; in MathMath, |M| on a square matrix is the determinant.
+  return { k: 'op', op: tag === 'determinant' ? 'absval' : tag, args };
 }
 
 export function parseExpr(e: XElement): Expr {

@@ -272,7 +272,8 @@ export function absV(v: Value): Value {
     }
     return num(Math.sqrt(s), v.dim);
   }
-  return magnitude(det(v));
+  // On a square matrix, |M| is the determinant, sign and all, as in Mathcad 14 (|[[1,2],[3,4]]| is −2).
+  return det(v);
 }
 
 export function sumV(v: Value): Num {

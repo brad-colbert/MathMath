@@ -72,6 +72,12 @@ export function growSelection(field: MathfieldElement): void {
 }
 
 /** Math with blanks to fill in. Tab moves to the next blank. */
+export type MatrixOp = 'transpose' | 'column' | 'vectorize' | 'bars' | 'addRow' | 'addColumn';
+
+/** An empty matrix of the given size, its elements left as blanks to fill. */
+export const matrixTemplate = (rows: number, cols: number): string =>
+  `\\begin{pmatrix}${Array.from({ length: rows }, () => Array.from({ length: cols }, () => '#?').join('&')).join('\\\\')}\\end{pmatrix}`;
+
 export const TEMPLATES = {
   integral: '\\int_{#?}^{#?}#?\\,\\mathrm{d}#?',
   derivative: '\\frac{\\mathrm{d}}{\\mathrm{d}#?}#?',
@@ -160,6 +166,29 @@ export class Editor {
     this.field.focus();
   }
 
+  /**
+   * Matrix operators, applied to the selection, or else to what's just before the caret: transpose, a
+   * column (M⟨j⟩), vectorize (the arrow), and |…|, the determinant of a square matrix or a vector's length.
+   */
+  matrixOp(kind: MatrixOp): void {
+    const f = this.field;
+    if (kind === 'addRow' || kind === 'addColumn') {
+      f.executeCommand(kind === 'addRow' ? 'addRowAfter' : 'addColumnAfter');
+      f.focus();
+      return;
+    }
+    const [start, end] = f.selection.ranges[0]!;
+    const selected = start !== end;
+    const latex = {
+      transpose: selected ? '{#@}^{\\mathsf{T}}' : '^{\\mathsf{T}}',
+      column: selected ? '{#@}^{\\langle #?\\rangle}' : '^{\\langle #?\\rangle}',
+      vectorize: selected ? '\\overrightarrow{#@}' : '\\overrightarrow{#?}',
+      bars: selected ? '\\left|#@\\right|' : '\\left|#?\\right|',
+    }[kind];
+    f.insert(latex, { format: 'latex', selectionMode: 'placeholder' });
+    f.focus();
+  }
+
   /** Ctrl+G turns the letter before the caret into its Greek letter, or back. */
   private toggleGreek(): void {
     const f = this.field;
@@ -238,6 +267,13 @@ export class Editor {
     if ((e.ctrlKey || e.metaKey) && e.key === '.') return this.consume(e, () => this.arrow());
     // Consumed even when there's nothing to turn, so the browser's find bar doesn't open.
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyG') return this.consume(e, () => this.toggleGreek());
+    // Mathcad's matrix keys. Chrome keeps Ctrl+1 and Ctrl+6 for switching tabs, so the Matrix menu has these too.
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      if (e.code === 'KeyM') return this.consume(e, () => this.insert(TEMPLATES.matrix));
+      if (e.code === 'Digit1') return this.consume(e, () => this.matrixOp('transpose'));
+      if (e.code === 'Digit6') return this.consume(e, () => this.matrixOp('column'));
+      if (e.code === 'Minus') return this.consume(e, () => this.matrixOp('vectorize'));
+    }
     // Mathcad's keys for a sum or product with limits.
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.code === 'Digit4' || e.code === 'Digit3')) {
       return this.consume(e, () => this.insert(e.code === 'Digit4' ? TEMPLATES.sum : TEMPLATES.product));

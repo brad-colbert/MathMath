@@ -8,7 +8,7 @@ import {
 } from './ops.js';
 import { UNITS } from './units.js';
 import {
-  EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
+  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
   needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
@@ -36,10 +36,22 @@ export interface Trace {
   error?: string;
 }
 
+export type LimitKey = 'xmin' | 'xmax' | 'ymin' | 'ymax';
+
 export interface PlotData {
   traces: Trace[];
   /** Limits typed on the plot. Anything missing comes from the data. */
-  limits: { xmin?: number; xmax?: number; ymin?: number; ymax?: number };
+  limits: Partial<Record<LimitKey, number>>;
+  /**
+   * For the worker, which shows each axis in a display unit. Values above are in base units. An axis's
+   * dimension is null when its traces disagree. A limit typed with units has its dimension here; one
+   * typed as a bare number is already in the axis's display unit.
+   */
+  dims?: { x: Dim | null; y: Dim | null; limits: Partial<Record<LimitKey, Dim>> };
+  /** The display units chosen for the axes, evaluated. */
+  units?: { x: Value | undefined; y: Value | undefined };
+  /** The unit each axis shows, as LaTeX, and whether it was chosen rather than the default. Set by the worker. */
+  labels?: { x: string; y: string; xChosen: boolean; yChosen: boolean };
 }
 
 /** An image region's pixels, row by row, four bytes a pixel. */
@@ -887,20 +899,27 @@ function thin(x: Float64Array, y: Float64Array): [Float64Array, Float64Array] {
 
 /** Evaluates a plot's expressions. Range variables give aligned columns, as in any region. */
 export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
-  const limit = (e: Expr | null): number | undefined => (e ? requireReal(ev.eval(e, scope), 'axis limit') : undefined);
   const limits: PlotData['limits'] = {};
-  const set = (key: keyof PlotData['limits'], e: Expr | null): void => {
-    const v = limit(e);
-    if (v !== undefined) limits[key] = v;
+  const limitDims: Partial<Record<LimitKey, Dim>> = {};
+  const set = (key: LimitKey, e: Expr | null): void => {
+    if (!e) return;
+    const v = requireNum(ev.eval(e, scope), 'axis limit');
+    limits[key] = requireReal(v, 'axis limit');
+    if (!isNoDim(v.dim)) limitDims[key] = v.dim;
   };
   set('xmin', c.xAxis.min);
   set('xmax', c.xAxis.max);
   set('ymin', c.yAxis.min);
   set('ymax', c.yAxis.max);
-  const xs = c.x ? numbers(ev.evalRegionExpr(c.x, scope), 'the x axis') : null;
+  const xv = c.x ? ev.evalRegionExpr(c.x, scope) : null;
+  const xs = xv ? numbers(xv, 'the x axis') : null;
+  let yDim: Dim | null | undefined;
   const traces = c.ys.map((y): Trace => {
     try {
-      const ys = numbers(ev.evalRegionExpr(y, scope), 'a y value');
+      const yv = ev.evalRegionExpr(y, scope);
+      const ys = numbers(yv, 'a y value');
+      const d = dimOf(yv);
+      yDim = yDim === undefined ? d : yDim && dimEq(yDim, d) ? yDim : null;
       // With no x expression, points go at 0, 1, 2…, counted from the array origin.
       let x = xs ?? Float64Array.from(ys, (_, i) => i + ev.origin);
       let yy = ys;
@@ -913,8 +932,23 @@ export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scop
       return { x: new Float64Array(0), y: new Float64Array(0), error: toEvalError(err).reason };
     }
   });
-  return { traces, limits };
+  const unit = (e: Expr | null | undefined): Value | undefined => {
+    if (!e) return undefined;
+    try {
+      return ev.eval(e, scope);
+    } catch {
+      return undefined;
+    }
+  };
+  return {
+    traces,
+    limits,
+    dims: { x: xv ? dimOf(xv) : NODIM, y: yDim ?? NODIM, limits: limitDims },
+    units: { x: unit(c.xAxis.unit), y: unit(c.yAxis.unit) },
+  };
 }
+
+const dimOf = (v: Value): Dim => (v.t === 'num' || v.t === 'mat' ? v.dim : NODIM);
 
 const isGlobal = (r: Region): boolean => (r.content.k === 'define' || r.content.k === 'sym') && r.content.global;
 
@@ -935,9 +969,12 @@ export function runWorksheet(ws: Worksheet, order: OrderKey = 'align', files?: F
 }
 
 /** Runs a worksheet with symbolic evaluation. A region can depend on the arrow above it. */
-export async function runWithSymbolics(ws: Worksheet, solve: SymSolver, order: OrderKey = 'align', files?: Files): Promise<Outcome[]> {
+export async function runWithSymbolics(
+  ws: Worksheet, solve: SymSolver, order: OrderKey = 'align', files?: Files, starting?: (region: Region) => void,
+): Promise<Outcome[]> {
   const run = new Run(ws, files);
   for (const region of inOrder(ws, order)) {
+    starting?.(region);
     const c = region.content;
     if (c.k === 'sym') run.symbolic(region, c, await solve(c, run.defs, run.scope, ws));
     else run.plain(region);

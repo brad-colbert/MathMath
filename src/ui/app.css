@@ -26,6 +26,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #toolbar .menu { position: relative; }
 #toolbar .menu summary { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; list-style: none; }
 #toolbar .menu > div { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
+#toolbar .menu > div button { white-space: nowrap; text-align: left; }
 #desk { flex: 1; overflow: auto; padding: 16px; }
 #sheet { --smart-fence-color: currentColor; position: relative; margin: 0 auto; background: #fff; color: var(--ink); cursor: crosshair; user-select: none; box-shadow: 0 1px 6px #0005; overflow: hidden; }
 .region { position: absolute; font-size: 10pt; line-height: 1.15; white-space: nowrap; cursor: default; }
@@ -42,6 +43,10 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.plot [data-slot="x"], .region.plot [data-slot="ys"] { font-size: 8pt; }
 .region.plot [data-slot="ys"] { flex-direction: column; align-items: flex-end; justify-content: center; gap: 3pt; text-align: right; }
 .region.plot [data-slot="x"] { justify-content: center; }
+.region.plot .axis-unit { margin-left: 3pt; font-size: 8pt; cursor: text; border-radius: 2px; }
+.region.plot .axis-unit:hover { background: #2563eb14; }
+.region.plot .axis-unit.auto { color: #52514e; }
+.region.plot .axis-unit.editing { visibility: hidden; }
 .region.plot [data-slot^="title"] { justify-content: center; font: 8pt system-ui, sans-serif; color: #0b0b0b; white-space: nowrap; overflow: hidden; }
 .region.plot [data-slot="title"] { font-weight: 600; }
 .region.plot [data-slot="titley"] { writing-mode: vertical-rl; transform: rotate(180deg); }
@@ -62,6 +67,8 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.selected { outline: 1px dashed var(--select); outline-offset: 2px; }
 .region.error { color: #c00; }
 .region.stale { color: #6b7280; }
+/* The region being calculated, as Mathcad shows it. */
+.region.calculating { outline: 2px solid #1baf7a; outline-offset: 2px; border-radius: 2px; }
 .region.draft { color: #b45309; outline: 1px dotted #b45309; }
 .region .ML__latex { font-size: inherit; }
 #editor {
@@ -82,5 +89,5 @@ body { display: flex; flex-direction: column; background: var(--desk); }
   .region.across-page { max-width: var(--room); overflow: hidden; }
   .region.selected { outline: none; }
   .region.plot .slot.empty, .region.image .slot.empty, .region .handle, .region.plot .readout { display: none; }
-  .region.draft { outline: none; }
+  .region.draft, .region.calculating { outline: none; }
 }

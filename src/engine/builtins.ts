@@ -1,8 +1,12 @@
 import { eigenvalues } from './eigen.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
+import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, secondDerivatives, secondDerivatives2, spline2At, splineAt } from './splines.js';
+import {
+  cholesky, eigenvector, eigenvectors, geninv, lsolve, luDecompose, matOf, norm1, norm2, norme, normi, qr, rowsOf, rref, singular, singularValues,
+} from './linalg.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
-import { absV, addV, compareReal, det, identity, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
+import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, fromValues, getEl, isNoDim, newMat, num, numbersOf,
   needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
@@ -67,6 +71,49 @@ function interpolate(xs: Float64Array, ys: Float64Array, x: number): number {
 }
 
 const sliceCol = (m: Mat, j: number): Float64Array => m.re.subarray(j * m.rows, (j + 1) * m.rows);
+
+const column = (values: ArrayLike<number>, dim: Dim = NODIM): Mat => {
+  const m = newMat(values.length, 1, dim);
+  m.re.set(values);
+  return m;
+};
+
+/** A plain numeric vector's numbers, for the spline functions. */
+function vectorOf(v: Value, what: string): Mat {
+  const m = requireMat(v, what);
+  if (m.cells || m.im) throw new EvalError('runtime', `${what} must hold real numbers`);
+  if (m.cols !== 1) throw new EvalError('runtime', `${what} must be a column vector`);
+  return m;
+}
+
+/**
+ * Mathcad's spline vector: 0, 3 and the kind (0 lspline, 1 pspline, 2 cspline), then the second
+ * derivatives. A 2-D spline takes an n×2 matrix of grid coordinates and an n×n matrix of values.
+ */
+function splineVector(kind: SplineKind, vx: Value, vy: Value): Mat {
+  const xs = requireMat(vx, 'the x values');
+  const ys = requireMat(vy, 'the y values');
+  let M: Float64Array;
+  if (xs.cols === 2) {
+    const n = xs.rows;
+    if (ys.rows !== n || ys.cols !== n) throw new EvalError('runtime', 'a 2-D spline needs an n×2 matrix of grid points and an n×n matrix of values');
+    M = secondDerivatives2(sliceCol(xs, 1), (i, j) => ys.re[i + j * n]!, n, kind);
+  } else {
+    const [x, y] = [vectorOf(vx, 'the x values'), vectorOf(vy, 'the y values')];
+    if (x.rows !== y.rows) throw new EvalError('runtime', 'the x and y vectors differ in length');
+    M = secondDerivatives(x.re, y.re, kind);
+  }
+  return column([0, 3, kind, ...M]);
+}
+
+/** A bspline as Mathcad returns it: the code 4 (whatever the degree), each interval's coefficients, and each interval's ends. */
+function bsplineValue(vx: Value, vy: Value, u: Value, n: Value): Mat {
+  const [x, y, b] = [vectorOf(vx, 'the x values'), vectorOf(vy, 'the y values'), vectorOf(u, 'the break points')];
+  if (x.rows !== y.rows) throw new EvalError('runtime', 'the x and y vectors differ in length');
+  const deg = requireReal(n, 'the degree');
+  const { coef, ends } = bsplineFit(x.re, y.re, b.re, deg);
+  return fromValues(3, 1, [num(4), column(coef), column(ends)]);
+}
 
 function sortRowsBy(m: Mat, key: Float64Array): Mat {
   const order = Array.from(key, (_, i) => i).sort((a, b) => key[a]! - key[b]!);
@@ -215,6 +262,82 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
         hooks.interpolated?.(xs.re, p.re);
         return num(interpolate(xs.re, ys.re, p.re), ys.dim);
       })(x!);
+    },
+    lsolve: (m, v) => lsolve(requireMat(m!), requireMat(v!)),
+    rank: (m) => num(rref(rowsOf(requireMat(m!))).rank),
+    rref: (m) => matOf(rref(rowsOf(requireMat(m!))).r),
+    diag: (v) => {
+      const d = vectorOf(v!, 'diag\'s argument');
+      const out = newMat(d.rows, d.rows, d.dim);
+      for (let i = 0; i < d.rows; i++) out.re[i + i * d.rows] = d.re[i]!;
+      return out;
+    },
+    norm1: (m) => num(norm1(rowsOf(requireMat(m!))), requireMat(m!).dim),
+    norm2: (m) => num(norm2(rowsOf(requireMat(m!))), requireMat(m!).dim),
+    // The condition number in each norm: ‖M‖·‖M⁻¹‖, and for the 2-norm the ratio of extreme singular values.
+    cond1: (m) => num(norm1(rowsOf(requireMat(m!))) * norm1(rowsOf(inverse(requireMat(m!))))),
+    conde: (m) => num(norme(rowsOf(requireMat(m!))) * norme(rowsOf(inverse(requireMat(m!))))),
+    condi: (m) => num(normi(rowsOf(requireMat(m!))) * normi(rowsOf(inverse(requireMat(m!))))),
+    cond2: (m) => {
+      const s = singularValues(rowsOf(requireMat(m!)));
+      return num(s[0]! / s[s.length - 1]!);
+    },
+    svds: (m) => {
+      const a = requireMat(m!);
+      const out = newMat(Math.min(a.rows, a.cols), 1, a.dim);
+      out.re.set(singularValues(rowsOf(a)));
+      return out;
+    },
+    // U stacked on V, as Mathcad returns it.
+    svd: (m) => {
+      const { U, V } = singular(rowsOf(requireMat(m!)));
+      return matOf([...U, ...V]);
+    },
+    geninv: (m) => geninv(requireMat(m!)),
+    // P, L and U side by side, with P·M = L·U.
+    lu: (m) => {
+      const a = requireMat(m!);
+      if (!isNoDim(a.dim)) throw new EvalError('runtime', 'lu needs a matrix without units');
+      const { P, L, U } = luDecompose(a);
+      return matOf(P.map((r, i) => [...r, ...L[i]!, ...U[i]!]));
+    },
+    qr: (m) => qr(requireMat(m!)),
+    cholesky: (m) => cholesky(requireMat(m!)),
+    eigenvecs: (m) => eigenvectors(requireMat(m!)),
+    eigenvec: (m, z) => eigenvector(requireMat(m!), requireNum(z!)),
+    lspline: (vx, vy) => splineVector(SPLINE_KINDS.lspline, vx!, vy!),
+    pspline: (vx, vy) => splineVector(SPLINE_KINDS.pspline, vx!, vy!),
+    cspline: (vx, vy) => splineVector(SPLINE_KINDS.cspline, vx!, vy!),
+    bspline: (vx, vy, u, n) => bsplineValue(vx!, vy!, u!, n!),
+    interp: (vs, vx, vy, x) => {
+      const s = requireMat(vs!, 'the spline');
+      const xs = requireMat(vx!, 'the x values');
+      const ys = requireMat(vy!, 'the y values');
+      // A bspline: its coefficients and interval ends are the second and third elements.
+      if (s.cells) {
+        const [coef, ends] = [requireMat(s.cells[1]!), requireMat(s.cells[2]!)];
+        return scalar((p) => {
+          // Its breaks are corners when the degree is low, so an integral splits there.
+          hooks.interpolated?.(ends.re, p.re);
+          return num(bsplineAt(coef.re, ends.re, p.re), ys.dim);
+        })(x!);
+      }
+      const kind = s.re[2] as SplineKind;
+      if (s.rows < 4 || ![0, 1, 2].includes(kind)) throw new EvalError('runtime', 'interp needs a spline from lspline, pspline, cspline or bspline');
+      const M = s.re.subarray(3);
+      if (xs.cols === 2) {
+        const n = xs.rows;
+        const p = requireMat(x!, 'the point');
+        if (p.rows * p.cols !== 2) throw new EvalError('runtime', 'a 2-D interp needs a point with two coordinates');
+        if (M.length !== n * n) throw new EvalError('runtime', "the spline doesn't match these grid points");
+        return num(spline2At(sliceCol(xs, 0), sliceCol(xs, 1), (i, j) => ys.re[i + j * n]!, M, kind, p.re[0]!, p.re[1]!), ys.dim);
+      }
+      if (M.length !== xs.rows || ys.rows !== xs.rows) throw new EvalError('runtime', "the spline doesn't match these x and y values");
+      return scalar((p) => num(splineAt(xs.re, ys.re, M, p.re), ys.dim))(x!);
+    },
+    medsmooth: (vy, n) => {
+      const y = vectorOf(vy!, 'the values');
+      return column(medianSmooth(y.re, requireReal(n!, 'the window')), y.dim);
     },
     mean: (...a) => {
       const items = flatten(a);

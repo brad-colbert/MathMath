@@ -1,5 +1,5 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
-import { type Pixels, type PlotData, type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
+import { type LimitKey, type Pixels, type PlotData, type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
 import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
@@ -7,7 +7,7 @@ import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/as
 import type { Defs } from '../symbolic/defs.js';
 import { NotSymbolic, expand } from '../symbolic/expand.js';
 import { type GiacRequest, Printer, buildRequest, readAnswer } from '../symbolic/giac.js';
-import { displayUnit, formatValue } from '../ui/format.js';
+import { axisScale, displayUnit, formatValue } from '../ui/format.js';
 
 export interface ComputeRequest {
   seq: number;
@@ -29,8 +29,41 @@ export interface Shown {
   partial?: boolean;
 }
 
+/** Sent as each region starts, so the page can show which one is calculating. */
+export interface Progress { seq: number; at: string }
+
 /** Messages to the page, which owns the long-lived algebra engine. */
 export interface AskAlgebra { ask: GiacRequest; id: number }
+
+type Plot = Extract<Content, { k: 'plot' }>;
+
+/** Puts a plot's values into each axis's display unit, and says which unit that is. */
+function inUnits(p: PlotData, c: Plot): PlotData {
+  const axis = (which: 'x' | 'y') => {
+    const dim = p.dims?.[which];
+    // Traces with different units share no unit, so the axis shows plain base-unit numbers.
+    if (dim === null || dim === undefined) return { divide: 1, zero: 0, latex: '', chosen: false };
+    const chosen = displayUnit((which === 'x' ? c.xAxis : c.yAxis).unit ?? null, p.units?.[which]);
+    return { ...axisScale(dim, chosen), chosen: chosen !== undefined };
+  };
+  const [ax, ay] = [axis('x'), axis('y')];
+  // Traces can share an array, which must be converted once.
+  const done = new Map<Float64Array, Float64Array>();
+  const convert = (a: Float64Array, s: { divide: number; zero: number }): Float64Array => {
+    if (s.divide === 1 && s.zero === 0) return a;
+    let out = done.get(a);
+    if (!out) done.set(a, (out = a.map((v) => (v - s.zero) / s.divide)));
+    return out;
+  };
+  const traces = p.traces.map((t) => ({ ...t, x: convert(t.x, ax), y: convert(t.y, ay) }));
+  const limits: PlotData['limits'] = {};
+  for (const [key, v] of Object.entries(p.limits) as [LimitKey, number][]) {
+    const s = key[0] === 'x' ? ax : ay;
+    // A limit typed with units converts; a bare number is already in the axis's unit.
+    limits[key] = p.dims?.limits[key] ? (v - s.zero) / s.divide : v;
+  }
+  return { traces, limits, labels: { x: ax.latex, y: ay.latex, xChosen: ax.chosen, yChosen: ay.chosen } };
+}
 
 const formatFor = (r: Region, fallback: NumberFormat): NumberFormat =>
   (r.content.k === 'define' || r.content.k === 'eval' ? r.content.format : undefined) ?? fallback;
@@ -104,7 +137,11 @@ async function decode(assets: Worksheet['assets']): Promise<Files> {
 async function run({ seq, sheet }: ComputeRequest): Promise<void> {
   const ws: Worksheet = { ...sheet, page: null as never, texts: [], opaque: [], otherRegions: {}, componentOutputs: [] };
   const files = await decode(sheet.assets ?? {});
-  const shown: Shown[] = (await runWithSymbolics(ws, solve, 'align', files)).map((o) => {
+  const starting = (region: Region): void => {
+    const message: Progress = { seq, at: region.id };
+    self.postMessage(message);
+  };
+  const shown: Shown[] = (await runWithSymbolics(ws, solve, 'align', files, starting)).map((o) => {
     const id = o.region.id;
     // Grayed, not red: something to replace or a file to load, not a mistake in the math.
     if (o.error) {
@@ -112,7 +149,7 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
       if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
       return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
     }
-    if (o.plot) return { id, plot: o.plot };
+    if (o.plot && o.region.content.k === 'plot') return { id, plot: inUnits(o.plot, o.region.content) };
     if (o.image) return { id, image: o.image };
     if (o.unevaluated) return { id, unevaluated: true };
     if (o.symbolic) return { id, value: tex(o.symbolic) };

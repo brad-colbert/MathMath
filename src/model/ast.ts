@@ -71,6 +71,8 @@ export interface Axis {
   log: boolean;
   /** Plain text beside the axis. Absent means no title; empty means one is shown, waiting for text. */
   title?: string;
+  /** The unit the axis shows its values in. Absent means the default, chosen as for a result. */
+  unit?: Expr | null;
 }
 
 export const autoAxis = (): Axis => ({ min: null, max: null, log: false });

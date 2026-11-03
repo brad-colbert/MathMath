@@ -6,7 +6,7 @@
 import { readTex, tex } from '../latex/latex.js';
 import type { Content, Expr } from '../model/ast.js';
 
-export type Slot = 'ys' | 'x' | 'xmin' | 'xmax' | 'ymin' | 'ymax' | 'unit' | 'expr' | TitleSlot;
+export type Slot = 'ys' | 'x' | 'xmin' | 'xmax' | 'ymin' | 'ymax' | 'xunit' | 'yunit' | 'unit' | 'expr' | TitleSlot;
 
 /** A plot's titles, which are plain text, typed in place rather than in the math editor. */
 export type TitleSlot = 'title' | 'titlex' | 'titley';
@@ -52,6 +52,8 @@ export function slotLatex(c: Content, slot: Slot): string {
       case 'xmax': return c.xAxis.max ? tex(c.xAxis.max) : '';
       case 'ymin': return c.yAxis.min ? tex(c.yAxis.min) : '';
       case 'ymax': return c.yAxis.max ? tex(c.yAxis.max) : '';
+      case 'xunit': return c.xAxis.unit ? tex(c.xAxis.unit) : '';
+      case 'yunit': return c.yAxis.unit ? tex(c.yAxis.unit) : '';
       default: return '';
     }
   }
@@ -71,6 +73,9 @@ export function withSlot(c: Content, slot: Slot, latex: string): Content {
       case 'xmax': p.xAxis.max = optional(latex); break;
       case 'ymin': p.yAxis.min = optional(latex); break;
       case 'ymax': p.yAxis.max = optional(latex); break;
+      // Cleared, the axis goes back to its default unit.
+      case 'xunit': p.xAxis.unit = optional(latex); break;
+      case 'yunit': p.yAxis.unit = optional(latex); break;
       default:
     }
     return p;

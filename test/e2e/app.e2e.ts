@@ -165,6 +165,50 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Matrices: Ctrl+M, and the Matrix menu's operators on what's before the caret.
+{
+  const page = await fresh();
+  const T = { press: 'Tab' };
+  const menu = (label: string) => page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === l)!.click(), label);
+  await type(page, 72, 72, 'A:', { press: 'KeyM', ctrl: true }, '1', T, '2', T, '3', T, '4');
+  const typeWith = async (top: number, before: string, label: string, ...after: (string | { press: string })[]) => {
+    await clickAt(page, 72, top);
+    await keys(page, before);
+    await menu(label);
+    await sleep(60);
+    for (const p of after) {
+      if (typeof p === 'string') await keys(page, p);
+      else await page.keyboard.press(p.press as never);
+    }
+    await page.keyboard.press('Escape');
+    await sleep(60);
+  };
+  await typeWith(130, 'A', 'Transpose  Mᵀ', '=');
+  await typeWith(180, 'A', 'Column  M⟨j⟩', '1', R, R, '=');
+  await typeWith(230, '', 'Vectorize (element by element)', 'A*A', R, '=');
+  await typeWith(280, '', 'Determinant or length  |M|', 'A', R, '=');
+  await clickAt(page, 300, 72);
+  await keys(page, 'B:');
+  await menu('2 × 2 matrix');
+  await keys(page, '1');
+  await menu('Add row');
+  await sleep(60);
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  const ws = await model(page);
+  const text = (await shown(page)).join(' | ').replace(/\s/g, '');
+  const ops = ws.regions.slice(1, 5).map((r: any) => r.content.expr?.op ?? r.content.expr?.k);
+  check('Ctrl+M inserts a matrix, filled with Tab', ws.regions[0]?.content.value?.k === 'matrix' && ws.regions[0].content.value.rows === 2, ws.regions[0]?.content);
+  check('the Matrix menu makes transpose, column, vectorize and |M|', JSON.stringify(ops) === JSON.stringify(['transpose', 'matcol', 'vectorize', 'absval']), ops);
+  const at = (n: number) => ws.regions[n]?.id;
+  const shownFor = async (n: number) => (await page.evaluate((id) => document.querySelector<HTMLElement>(`.region[data-id="${id}"]`)?.innerText ?? '', at(n))).replace(/[\s\u200b]/g, '');
+  check('and they calculate: Aᵀ, A⟨1⟩, A·A element by element, and det A = −2',
+    (await shownFor(1)).endsWith('(1234)') && (await shownFor(2)).endsWith('(24)') && (await shownFor(3)).endsWith('(19416)') && (await shownFor(4)).endsWith('=−2'),
+    [await shownFor(1), await shownFor(2), await shownFor(3), await shownFor(4)]);
+  check('Add row grows a matrix', ws.regions.find((r: any) => r.content.target?.name === 'B')?.content.value?.rows === 3, ws.regions.map((r: any) => r.content.value?.rows));
+  await page.close();
+}
+
 // Editing above changes what's below.
 {
   const page = await fresh();
@@ -705,6 +749,28 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('Format turns axis titles off again', pw.regions[1].content.xAxis.title === undefined && pw.regions[1].content.title === 'A falling ball' && !('title' in pw.regions[1].content.yAxis));
   await pt.close();
 
+  // Units: each axis shows its default unit, and another can be chosen by clicking it.
+  const pu = await fresh();
+  await type(pu, 60, 60, 'd:0m,1m;10m');
+  await plotAt(pu, 60, 96, 'd', 'd');
+  await idleP(pu);
+  const unitText = () => pu.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.plot .axis-unit')].map((e) => `${e.dataset.slot}:${e.textContent}:${e.classList.contains('auto')}`));
+  check('each axis shows its default unit, in gray', JSON.stringify(await unitText()) === JSON.stringify(['yunit:(m):true', 'xunit:(m):true']), await unitText());
+  const yu = await pu.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot [data-slot="yunit"]')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await pu.mouse.click(yu.x, yu.y);
+  await sleep(120);
+  await keys(pu, 'cm');
+  await pu.keyboard.press('Escape');
+  await idleP(pu);
+  await sleep(80);
+  const uc = (await model(pu)).regions[1]?.content;
+  const top = await pu.evaluate(() => document.querySelector<HTMLElement>('.region.plot [data-slot="ymax"]')!.textContent);
+  check('a chosen unit converts the axis', uc?.yAxis.unit?.name === 'cm' && top === '1000' && (await unitText())[0] === 'yunit:(cm):false', { unit: uc?.yAxis.unit, top, labels: await unitText() });
+  await pu.close();
+
   // Vectors with no x, and mismatched lengths.
   const p2 = await fresh();
   await p2.evaluate(() => {
@@ -825,7 +891,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await clickAt(page, 62, 58);
   await page.keyboard.press('End');
   await page.evaluate(() => {
-    [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Matrix')!.click();
+    [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === '2 × 2 matrix')!.click();
   });
   await sleep(40);
   for (const v of ['0', '100', '200', '255']) {
@@ -1167,6 +1233,23 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('an answer shows as provisional during a calculation', during === 1, during);
   await idle(page);
   check('and as current once it finishes', (await page.evaluate(() => document.querySelectorAll('.region.stale').length)) === 0);
+  await page.close();
+}
+
+// The region being calculated gets a green box, once it has taken a moment, and loses it after.
+{
+  const page = await fresh();
+  const T = { press: 'Tab' };
+  await type(page, 72, 72, 'a:1');
+  await idle(page);
+  await type(page, 72, 108, { press: 'Digit4', ctrl: true, shift: true }, 'n', T, '1', T, '2000000', T, '1/n^2', R, '=');
+  const boxed = await page.waitForSelector('.region.calculating', { timeout: 8000 }).then((h) => h?.evaluate((e) => (e as HTMLElement).dataset.id)).catch(() => null);
+  if (shots) await page.screenshot({ path: `${shots}/calculating.png` as `${string}.png`, clip: { x: 0, y: 0, width: 700, height: 300 } });
+  const ws = await model(page);
+  check('the slow region gets the green box while it calculates', boxed === ws.regions[1]?.id, { boxed, ids: ws.regions.map((r: any) => r.id) });
+  await page.waitForFunction('!window.mathmath.doc.computing', { timeout: 60000 });
+  check('and loses it when the calculation ends', (await page.evaluate(() => document.querySelectorAll('.region.calculating').length)) === 0);
+  check('with the right answer', (await shown(page)).join('').replace(/\s/g, '').includes('=1.645'), await shown(page));
   await page.close();
 }
 

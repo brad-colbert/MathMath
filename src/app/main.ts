@@ -2,7 +2,7 @@ import 'mathlive/fonts.css';
 import 'mathlive/static.css';
 import '../ui/app.css';
 import { forgetFile, openFile, readAny, saveFile } from '../ui/files.js';
-import { TEMPLATES } from '../ui/editor.js';
+import { TEMPLATES, matrixTemplate } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
 import { toggleTitles } from '../ui/slots.js';
 import { saveWorksheet } from '../format/native.js';
@@ -252,7 +252,40 @@ for (const [label, run] of [
   });
   filesList.appendChild(b);
 }
-button('Matrix', 'Insert a 2 by 2 matrix. Tab moves to the next blank', inEditor(TEMPLATES.matrix));
+// Matrices: insert one, grow it, and the matrix operators, which act on the selection or what's before the caret.
+const matrixMenu = document.createElement('details');
+matrixMenu.className = 'menu';
+const matrixSummary = document.createElement('summary');
+matrixSummary.textContent = 'Matrix';
+matrixSummary.title = 'Insert a matrix (Ctrl+M), and matrix operators';
+matrixSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const matrixList = document.createElement('div');
+matrixMenu.append(matrixSummary, matrixList);
+toolbar.appendChild(matrixMenu);
+const matrixItems: [string, string, () => void][] = [
+  ['2 × 2 matrix', 'Ctrl+M. Tab moves to the next blank', () => paper.mathEditor.insert(matrixTemplate(2, 2))],
+  ['3 × 3 matrix', 'Tab moves to the next blank', () => paper.mathEditor.insert(matrixTemplate(3, 3))],
+  ['3 × 1 column vector', 'Tab moves to the next blank', () => paper.mathEditor.insert(matrixTemplate(3, 1))],
+  ['1 × 3 row vector', 'Tab moves to the next blank', () => paper.mathEditor.insert(matrixTemplate(1, 3))],
+  ['Add row', 'Adds a row below the one the caret is in', () => paper.mathEditor.matrixOp('addRow')],
+  ['Add column', 'Adds a column right of the one the caret is in', () => paper.mathEditor.matrixOp('addColumn')],
+  ['Transpose  Mᵀ', 'Ctrl+1 where the browser allows it', () => paper.mathEditor.matrixOp('transpose')],
+  ['Column  M⟨j⟩', 'Ctrl+6 where the browser allows it', () => paper.mathEditor.matrixOp('column')],
+  ['Vectorize (element by element)', 'Puts an arrow over the selection, so operations act element by element (Ctrl+−)', () => paper.mathEditor.matrixOp('vectorize')],
+  ['Determinant or length  |M|', 'A square matrix\'s determinant, a vector\'s length, a number\'s size', () => paper.mathEditor.matrixOp('bars')],
+];
+for (const [label, help, run] of matrixItems) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.title = help;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    matrixMenu.open = false;
+    if (paper.mathEditor.isOpen) run();
+    else doc.onProblem('Click into some math first');
+  });
+  matrixList.appendChild(b);
+}
 separator();
 button('→', 'Evaluate symbolically (Ctrl+.)', () => {
   if (paper.mathEditor.isOpen) paper.mathEditor.arrow();

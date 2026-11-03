@@ -428,3 +428,127 @@ describe('scoring', () => {
     expect([s.match, s.mismatch]).toEqual([1, 1]);
   });
 });
+
+describe('determinant', () => {
+  test('|M| on a square matrix is the signed determinant, as in Mathcad 14', () => {
+    const A = '<ml:matrix rows="2" cols="2">' + [1, 3, 2, 4].map(real).join('') + '</ml:matrix>';
+    expect(results(sheet([evaluate(op('absval', A))]))[0]!.value).toMatchObject({ re: -2 });
+    expect(results(sheet([evaluate(op('determinant', A))]))[0]!.value).toMatchObject({ re: -2 });
+    expect(results(sheet([evaluate(op('absval', vec(3, -4)))]))[0]!.value).toMatchObject({ re: 5 });
+  });
+});
+
+describe('splines and smoothing, as measured in Mathcad 14', () => {
+  const vx = vec(0, 1, 2, 3, 4, 5);
+  const vy = vec(0, 1, 0, 2, 1, 3);
+  const xs = vec(-0.5, 0.3, 2.5, 4.7, 5, 6);
+  const run = (expr: string) => results(sheet([evaluate(expr)]))[0]!;
+  const nums = (expr: string): number[] => {
+    const o = run(expr);
+    if (o.error) throw new Error(o.error.reason);
+    const v = o.value!;
+    return v.t === 'num' ? [v.re] : [...(v as Mat).re];
+  };
+  const close = (got: number[], want: number[]) => {
+    expect(got.length).toBe(want.length);
+    got.forEach((g, i) => expect(Math.abs(g - want[i]!)).toBeLessThan(1e-12 * Math.max(1, Math.abs(want[i]!))));
+  };
+
+  test('lspline, pspline and cspline differ at the ends, and interp continues the end cubic', () => {
+    close(nums(call('lspline', vx, vy)), [0, 3, 0, 0, -4.937799043062201, 7.751196172248805, -8.066985645933015, 6.516746411483254, 0]);
+    close(nums(call('pspline', vx, vy)), [0, 3, 1, -3.875, -3.875, 7.375, -7.625, 5.125, 5.125]);
+    close(nums(call('cspline', vx, vy)), [0, 3, 2, -10.733333333333334, -2, 6.733333333333333, -6.933333333333334, 3, 12.933333333333334]);
+    close(nums(call('interp', call('lspline', vx, vy), vx, vy, xs)), [-0.80861244019138745, 0.52466985645933006, 1.0197368421052631, 2.1034880382775123, 3, 5]);
+    close(nums(call('interp', call('cspline', vx, vy), vx, vy, xs)), [-3.979166666666667, 1.0296333333333334, 1.0125, 1.4939666666666673, 3, 17.933333333333337]);
+  });
+
+  test('cspline runs the curvature on linearly in x, when points are uneven', () => {
+    const ux = vec(0, 0.5, 2, 3, 4.5, 7);
+    const m = nums(call('cspline', ux, vy)).slice(3);
+    expect(m[0]! - m[1]!).toBeCloseTo(((m[1]! - m[2]!) * 0.5) / 1.5, 12);
+  });
+
+  test('bspline passes through the data with breaks where asked, stored as Mathcad stores it', () => {
+    const u2 = vec(0, 1.25, 2.5, 3.75, 5);
+    const b = run(call('bspline', vx, vy, u2, real(2))).value as Mat;
+    expect([b.rows, b.cols, (b.cells![0] as { re: number }).re]).toEqual([3, 1, 4]);
+    close([...(b.cells![2] as Mat).re], [0, 1.25, 1.25, 2.5, 2.5, 3.75, 3.75, 5]);
+    close(nums(call('interp', call('bspline', vx, vy, u2, real(2)), vx, vy, xs)), [-2.1857954545454557, 0.77202272727272758, 1.0028409090909136, 1.7800227272727085, 3, 10.904545454545456]);
+    close(nums(call('interp', call('bspline', vx, vy, vx, real(1)), vx, vy, xs)), [-0.5, 0.3, 1, 2.4, 3, 5]);
+    expect(run(call('bspline', vx, vy, vx, real(2))).error?.reason).toContain('fewer break points');
+  });
+
+  test('medsmooth takes running medians, with the window cut short at the ends', () => {
+    const w = vec(5, 1, 4, 2, 8, 3, 7, 6, 0, 9);
+    close(nums(call('medsmooth', w, real(3))), [3, 4, 2, 4, 3, 7, 6, 6, 6, 4.5]);
+    close(nums(call('medsmooth', w, real(5))), [4, 3, 4, 3, 4, 6, 6, 6, 6.5, 6]);
+    expect(run(call('medsmooth', w, real(4))).error?.reason).toContain('odd');
+  });
+
+  test('2-D splines interpolate on a grid', () => {
+    const grid = '<ml:matrix rows="4" cols="2">' + [0, 1, 2, 3, 0, 1, 2, 3].map(real).join('') + '</ml:matrix>';
+    const z = '<ml:matrix rows="4" cols="4">' + [0, 1, 4, 9, 1, 2, 5, 10, 4, 5, 8, 13, 9, 10, 13, 18.5].map(real).join('') + '</ml:matrix>';
+    close(nums(call('interp', call('lspline', grid, z), grid, z, vec(1.5, 2.25))), [7.31265625]);
+    close(nums(call('interp', call('pspline', grid, z), grid, z, vec(0.4, 2.9))), [8.58265625]);
+    close(nums(call('interp', call('cspline', grid, z), grid, z, vec(1.5, 2.25))), [7.308837890625]);
+  });
+});
+
+describe('matrix functions, as measured in Mathcad 14', () => {
+  const m = (rows: number[][]) => `<ml:matrix rows="${rows.length}" cols="${rows[0]!.length}">${rows[0]!.map((_, j) => rows.map((r) => real(r[j]!)).join('')).join('')}</ml:matrix>`;
+  const A = m([[1, 2], [3, 4]]);
+  const S = m([[4, 1, 2], [1, 3, 0], [2, 0, 5]]);
+  const R = m([[1, 2], [3, 4], [5, 6]]);
+  const Z = m([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+  const P = m([[2, 1, 1], [4, -6, 0], [-2, 7, 2]]);
+  const get = (expr: string): number[] => {
+    const o = results(sheet([evaluate(expr)]))[0]!;
+    if (o.error) throw new Error(o.error.reason);
+    const v = o.value!;
+    return v.t === 'num' ? [v.re] : [...(v as Mat).re];
+  };
+  const close = (got: number[], want: number[], tol = 1e-12) => {
+    expect(got.length).toBe(want.length);
+    got.forEach((g, i) => expect(Math.abs(g - want[i]!)).toBeLessThan(tol * Math.max(1, Math.abs(want[i]!))));
+  };
+
+  test('solving, rank and reduced row echelon form', () => {
+    close(get(call('lsolve', S, vec(1, 2, 3))), [-0.302325581395349, 0.767441860465116, 0.72093023255814]);
+    close(get(call('rank', Z)), [2]);
+    close(get(call('rref', Z)), [1, 0, 0, 0, 1, 0, -1, 2, 0]);
+    close(get(call('diag', vec(1, 2, 3))), [1, 0, 0, 0, 2, 0, 0, 0, 3]);
+  });
+
+  test('norms and condition numbers', () => {
+    close(['norm1', 'norm2', 'norme', 'normi'].flatMap((f) => get(call(f, A))), [6, 5.4649857042190435, 5.477225575051661, 7]);
+    close(['cond1', 'cond2', 'conde', 'condi'].flatMap((f) => get(call(f, A))), [21, 14.933034373659259, 15, 21]);
+  });
+
+  test('singular values, svd as U over V, and the generalized inverse', () => {
+    close(get(call('svds', R)), [9.525518091565107, 0.514300580658644]);
+    close(get(call('svd', A)), [0.40455358483375703, 0.91451429567730447, 0.57604843676632056, 0.81741556047036334, 0.91451429567730447, -0.40455358483375703, -0.81741556047036334, 0.57604843676632056]);
+    close(get(call('geninv', R)), [-1.3333333333333326, 1.0833333333333333, -0.33333333333333404, 0.33333333333333409, 0.666666666666667, -0.41666666666666707]);
+  });
+
+  test('lu pivots as Mathcad does, weighing each row by its largest element', () => {
+    close(get(call('lu', A)), [0, 1, 1, 0, 1, 1 / 3, 0, 1, 3, 0, 4, 2 / 3]);
+    // P's first row wins on its own scale, though 4 is larger than 2.
+    expect(get(call('lu', P)).slice(0, 9)).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    close(get(call('cholesky', S)), [2, 0.5, 1, 0, 1.6583123951777, -0.30151134457776363, 0, 0, 1.9771421064483223]);
+  });
+
+  test('eigenvectors are unit columns in eigenvals order, with Mathcad\'s signs where measured', () => {
+    close(get(call('eigenvecs', A)), [-0.824564840132394, 0.565767464968992, -0.415973557919284, -0.909376709132124], 1e-10);
+    close(get(call('eigenvecs', S)), [-0.631179, -0.172027, -0.75632, -0.679313, 0.593233, 0.431981, -0.374362, -0.786436, 0.491296], 1e-5);
+    close(get(call('eigenvec', A, real(5.37228132326901))), [0.415973557919284, 0.909376709132124], 1e-9);
+    expect(results(sheet([evaluate(call('eigenvec', S, real(2)))]))[0]!.error?.reason).toContain("isn't an eigenvalue");
+  });
+
+  test('qr gives Q·R = M with an orthogonal Q', () => {
+    const qrA = get(call('qr', R));
+    const Q = [0, 1, 2].map((i) => [0, 1, 2].map((j) => qrA[i + 3 * j]!));
+    const Rr = [0, 1, 2].map((i) => [0, 1].map((j) => qrA[i + 3 * (3 + j)]!));
+    const back = [0, 1, 2].map((i) => [0, 1].map((j) => Q[i]!.reduce((t, q, k) => t + q * Rr[k]![j]!, 0)));
+    close(back.flat(), [1, 2, 3, 4, 5, 6]);
+  });
+});
