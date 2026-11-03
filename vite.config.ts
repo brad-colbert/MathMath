@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+
+/** Shown in the app, so a deployed build says which version it is. */
+const VERSION = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
 /**
  * No generated code runs in the app, so production can refuse it outright. The one exception is
@@ -20,6 +24,7 @@ const CSP = [
 export { CSP };
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(VERSION) },
   // Nothing inlined: the policy above refuses data: fonts.
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', chunkSizeWarningLimit: 1200, assetsInlineLimit: 0 },
   // The built app is served with the policy as a header, as a deployment would, so workers get it too.

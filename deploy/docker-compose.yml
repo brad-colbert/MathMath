@@ -1,0 +1,14 @@
+# The deployed app. deploy/deploy.sh unpacks a committed version into <REMOTE_DIR>/app and runs this from
+# there; certificates live beside it in <REMOTE_DIR>/certs, which is never part of the deploy.
+name: mathmath
+services:
+  mathmath:
+    build:
+      context: ..
+    image: mathmath:latest
+    container_name: mathmath
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-8888}:443"
+    volumes:
+      - ../../certs:/etc/nginx/certs:ro

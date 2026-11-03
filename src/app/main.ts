@@ -367,7 +367,11 @@ const showMode = (live: boolean): void => {
 doc.onMode = showMode;
 showMode(doc.live);
 toolbar.appendChild(mode);
-toolbar.append(busy, title);
+// The version, so a deployed copy says which one it is.
+const version = document.createElement('span');
+version.className = 'version';
+version.textContent = `MathMath ${__APP_VERSION__}`;
+toolbar.append(busy, title, version);
 
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;

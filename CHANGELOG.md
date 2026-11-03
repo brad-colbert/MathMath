@@ -10,6 +10,23 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-03
+
+Deployment (milestone 7).
+
+### Added
+
+- `deploy/`: a Docker image that builds the app and serves it with nginx over HTTPS, and `deploy/deploy.sh`,
+  which deploys a committed version (the latest tag by default) to a server over ssh, builds there and checks
+  the result. Only files git tracks are sent. Host, port and certificate names come from a `deploy/.env` that
+  git ignores. `--working` deploys the working copy instead, for trying a change before committing it.
+- `deploy/make-certs.sh` signs the server's certificate with a private CA on the server, creating the CA the
+  first time.
+- `npm run test:deployed` checks a deployed copy in a real browser: a numeric answer, symbolic answers, a plot,
+  saving, a secure context, no console errors or policy violations, and the security policy arriving as a
+  header with both the page and the calculation worker's script.
+- The toolbar shows the app's version, so a deployed copy says which one it is.
+
 ## [0.7.0] - 2026-11-02
 
 The calculating region's green box, units on plot axes, Mathcad's splines and remaining matrix functions, and a
