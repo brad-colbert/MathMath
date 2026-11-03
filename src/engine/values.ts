@@ -2,15 +2,19 @@
 export type Dim = readonly number[];
 export const NODIM: Dim = [0, 0, 0, 0, 0, 0, 0];
 
-/** `mathcad`: a Mathcad feature that needs replacing, such as a file function, not a mistake. */
-export type ErrorKind = 'unsupported' | 'undefined' | 'undefined-function' | 'runtime' | 'excluded' | 'mathcad';
+/** `mathcad`: a Mathcad feature to replace. `needs-file`: a file the sheet reads isn't attached. */
+export type ErrorKind = 'unsupported' | 'undefined' | 'undefined-function' | 'runtime' | 'excluded' | 'mathcad' | 'needs-file';
 
 /** A failed evaluation. `reason` is what the scoreboard groups by, so keep it stable and short. */
 export class EvalError extends Error {
-  constructor(public kind: ErrorKind, public reason: string) {
+  constructor(public kind: ErrorKind, public reason: string, public needs: string[] = []) {
     super(`${kind}: ${reason}`);
   }
 }
+
+/** A file to load, named so a reference can list everything its sheet still needs. */
+export const needsFile = (name: string): EvalError =>
+  new EvalError('needs-file', `${name} isn't attached to this worksheet. Load it with Files on the toolbar`, [name]);
 
 export interface Num { t: 'num'; re: number; im: number; dim: Dim }
 export interface Str { t: 'str'; v: string }

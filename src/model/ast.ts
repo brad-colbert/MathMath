@@ -38,7 +38,9 @@ export type Stmt =
 
 export type StoredScalar =
   | { k: 'num'; re: number; im: number }
-  | { k: 'str'; v: string };
+  | { k: 'str'; v: string }
+  /** A function, which Mathcad shows by its type, such as `ƒ(Unitless) → Unitless`. */
+  | { k: 'fn'; type: string };
 
 export type StoredValue = StoredScalar | { k: 'mat'; rows: number; cols: number; items: StoredValue[] };
 
@@ -92,6 +94,11 @@ export type Content =
   | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
   /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
   | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number }
+  /**
+   * Another worksheet's definitions, available from here on as if its regions were here. `file` is a file
+   * name, matched without its extension against attached worksheets.
+   */
+  | { k: 'include'; file: string }
   /** Typed math that couldn't be read. Kept exactly as typed, so nothing is ever lost. */
   | { k: 'draft'; latex: string; error: string }
   | { k: 'other'; tag: string };
@@ -164,6 +171,13 @@ export interface Worksheet {
   opaque: OpaqueRegion[];
   origin: number;
   tol: number;
+  /**
+   * Whether comparisons are exact. When not, as Mathcad's "exact equality" option off, numbers within a
+   * relative 10⁻¹² of each other are equal, so `<` and `>` are false between them.
+   */
+  exactCompare: boolean;
+  /** Whether 0/0 is 0, element by element, as Mathcad's zero-over-zero option allows. Anything else over 0 is still an error. */
+  zeroOverZero: boolean;
   /** Count of non-math regions by element name, such as `reference` or `plot`. */
   otherRegions: Record<string, number>;
   /** Variables produced by embedded components. */

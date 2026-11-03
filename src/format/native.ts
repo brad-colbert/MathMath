@@ -34,6 +34,6 @@ export function loadWorksheet(text: string): Worksheet {
 
 export function emptyWorksheet(): Worksheet {
   return {
-    page: DEFAULT_PAGE, format: DEFAULT_FORMAT, assets: {}, regions: [], texts: [], opaque: [], origin: 0, tol: 0.001, otherRegions: {}, componentOutputs: [],
+    page: DEFAULT_PAGE, format: DEFAULT_FORMAT, assets: {}, regions: [], texts: [], opaque: [], origin: 0, tol: 0.001, exactCompare: true, zeroOverZero: false, otherRegions: {}, componentOutputs: [],
   };
 }

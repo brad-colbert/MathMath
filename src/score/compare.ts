@@ -25,6 +25,7 @@ interface Scale { factor: number; offset: number; dim: Dim; tol: number; size: n
 
 function compareValue(v: Value, s: StoredValue, u: Scale): Verdict {
   if (s.k === 'str') return v.t === 'str' && v.v === s.v ? pass : fail('string differs');
+  if (s.k === 'fn') return v.t === 'fn' ? pass : fail(`expected a function, got ${v.t}`);
   if (s.k === 'mat') {
     if (v.t === 'num' && s.rows === 1 && s.cols === 1) return compareValue(v, s.items[0]!, u);
     if (v.t !== 'mat') return fail(`expected ${s.rows}x${s.cols} array, got ${v.t}`);
@@ -38,6 +39,8 @@ function compareValue(v: Value, s: StoredValue, u: Scale): Verdict {
   }
   if (v.t === 'mat' && v.rows === 1 && v.cols === 1) return compareValue(getEl(v, 0, 0), s, u);
   if (v.t !== 'num') return fail(`expected number, got ${v.t}`);
+  // Zero is zero in any unit, such as a 0 shown in a display unit it doesn't share.
+  if (v.re === 0 && v.im === 0 && s.re === 0 && s.im === 0) return pass;
   if (!dimEq(v.dim, u.dim)) return fail(`units differ: [${v.dim.join(',')}] vs [${u.dim.join(',')}]`);
   const [re, im] = [(v.re - u.offset) / u.factor, v.im / u.factor];
   if (!close(re, s.re, u.tol, u.size) || !close(im, s.im, u.tol, u.size)) return fail(`got ${re}, stored ${s.re}`);

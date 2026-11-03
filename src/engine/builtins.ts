@@ -1,10 +1,11 @@
 import { eigenvalues } from './eigen.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
+import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, fromValues, getEl, isNoDim, newMat, num, numbersOf,
-  requireMat, requireNum, requireReal, resized, setEl, str,
+  needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
@@ -91,7 +92,12 @@ function imageMatrix(img: DecodedImage): Mat {
   return m;
 }
 
-export function makeBuiltins(origin: number, files: Files = NO_FILES): Map<string, Fn> {
+/** Lets an integral learn where an interpolated table has corners, so it can split there. */
+export interface Hooks {
+  interpolated?(xs: Float64Array, at: number): void;
+}
+
+export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
   const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - origin;
 
   const table: Record<string, Impl> = {
@@ -206,6 +212,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES): Map<strin
       if (xs.rows !== ys.rows) throw new EvalError('runtime', 'linterp vectors differ in length');
       return scalar((p) => {
         if (!isNoDim(xs.dim) || !isNoDim(p.dim)) compareReal(p, num(0, xs.dim));
+        hooks.interpolated?.(xs.re, p.re);
         return num(interpolate(xs.re, ys.re, p.re), ys.dim);
       })(x!);
     },
@@ -236,6 +243,52 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES): Map<strin
       const img = files.image(fileKey(name));
       if (!img) throw new EvalError('runtime', `${name} isn't attached to this worksheet. Load it with Files on the toolbar`);
       return imageMatrix(img);
+    },
+    readTable: (source) => {
+      if (source?.t !== 'str') throw new EvalError('runtime', 'readTable needs a file name in quotes');
+      const name = source.v;
+      if (/[\\/]/.test(name)) throw new EvalError('runtime', 'readTable takes the name of an attached file, not a folder path');
+      const text = files.table(fileKey(name));
+      if (text === undefined) throw needsFile(name);
+      if (/\.xlsx?$/i.test(name)) throw new EvalError('unsupported', 'readTable reads text: save the spreadsheet as CSV and load that');
+      return parseTable(text);
+    },
+    // A value on a boundary counts in the interval to its left; with a count of intervals, the smallest
+    // value counts in the first. Mathcad 14's rules.
+    hist: (bounds, data) => {
+      const edges = flatten([requireMat(bounds)]).map((x) => x.re);
+      const counts = new Float64Array(Math.max(0, edges.length - 1));
+      for (const v of flatten([data!])) {
+        for (let i = 0; i + 1 < edges.length; i++) {
+          if (v.re > edges[i]! && v.re <= edges[i + 1]!) {
+            counts[i]!++;
+            break;
+          }
+        }
+      }
+      const out = newMat(counts.length, 1);
+      out.re.set(counts);
+      return out;
+    },
+    histogram: (count, data) => {
+      const n = Math.trunc(requireReal(count, 'number of intervals'));
+      if (n < 1) throw new EvalError('runtime', 'histogram needs at least one interval');
+      const values = flatten([data!]);
+      const xs = values.map((v) => v.re);
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const x of xs) {
+        if (x < lo) lo = x;
+        if (x > hi) hi = x;
+      }
+      const width = (hi - lo) / n;
+      const counts = new Array<number>(n).fill(0);
+      for (const x of xs) counts[width > 0 ? Math.min(n - 1, Math.max(0, Math.ceil((x - lo) / width) - 1)) : 0]!++;
+      const dim = values[0]?.dim;
+      const cells: Value[] = [];
+      for (let i = 0; i < n; i++) cells.push(num(lo + (i + 0.5) * width, dim));
+      for (let i = 0; i < n; i++) cells.push(num(counts[i]!));
+      return fromValues(n, 2, cells);
     },
     concat: (...a) => str(a.map((s) => (s.t === 'str' ? s.v : '')).join('')),
     strlen: (s) => num(s.t === 'str' ? s.v.length : 0),

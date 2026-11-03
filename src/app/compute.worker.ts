@@ -1,6 +1,7 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
 import { type Pixels, type PlotData, type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
-import { type DecodedImage, type Files, fileKey } from '../engine/files.js';
+import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
+import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/ast.js';
 import type { Defs } from '../symbolic/defs.js';
@@ -10,7 +11,7 @@ import { displayUnit, formatValue } from '../ui/format.js';
 
 export interface ComputeRequest {
   seq: number;
-  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'format' | 'assets'>;
+  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'exactCompare' | 'zeroOverZero' | 'format' | 'assets'>;
 }
 
 /** What the page needs for one region. Values can't cross to the page, so they travel as LaTeX. */
@@ -24,6 +25,8 @@ export interface Shown {
   error?: string;
   /** Symbolic evaluation found no closed form. */
   unevaluated?: boolean;
+  /** A reference whose sheet is attached, though it still needs other files, listed in `error`. */
+  partial?: boolean;
 }
 
 /** Messages to the page, which owns the long-lived algebra engine. */
@@ -65,11 +68,24 @@ const solve: SymSolver = async (c: Extract<Content, { k: 'sym' }>, defs: Defs): 
   }
 };
 
-/** Decodes attached images up front, so reading one during evaluation needs no waiting. */
+/** Decodes attached files up front, so reading one during evaluation needs no waiting. */
 async function decode(assets: Worksheet['assets']): Promise<Files> {
   const images = new Map<string, DecodedImage>();
+  const tables = new Map<string, string>();
+  const sheets = new Map<string, Worksheet>();
+  const utf8 = new TextDecoder();
   for (const [name, asset] of Object.entries(assets)) {
-    if (!asset.mime.startsWith('image/')) continue;
+    if (!asset.mime.startsWith('image/')) {
+      const text = utf8.decode(Uint8Array.from(atob(asset.data), (ch) => ch.charCodeAt(0)));
+      if (asset.mime === SHEET_MIME || isSheetName(name)) {
+        try {
+          sheets.set(sheetKey(name), loadWorksheet(text));
+        } catch {
+          // An unreadable worksheet reads as missing, and the reference to it says so.
+        }
+      } else tables.set(fileKey(name), text);
+      continue;
+    }
     try {
       const bytes = Uint8Array.from(atob(asset.data), (ch) => ch.charCodeAt(0));
       const bitmap = await createImageBitmap(new Blob([bytes], { type: asset.mime }));
@@ -82,7 +98,7 @@ async function decode(assets: Worksheet['assets']): Promise<Files> {
       // An unreadable image reads as missing, and the region that asks for it says so.
     }
   }
-  return { image: (name) => images.get(name) };
+  return { image: (name) => images.get(name), table: (name) => tables.get(name), sheet: (name) => sheets.get(name) };
 }
 
 async function run({ seq, sheet }: ComputeRequest): Promise<void> {
@@ -90,7 +106,12 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
   const files = await decode(sheet.assets ?? {});
   const shown: Shown[] = (await runWithSymbolics(ws, solve, 'align', files)).map((o) => {
     const id = o.region.id;
-    if (o.error) return o.error.kind === 'mathcad' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
+    // Grayed, not red: something to replace or a file to load, not a mistake in the math.
+    if (o.error) {
+      const c = o.region.content;
+      if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
+      return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
+    }
     if (o.plot) return { id, plot: o.plot };
     if (o.image) return { id, image: o.image };
     if (o.unevaluated) return { id, unevaluated: true };

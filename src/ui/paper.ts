@@ -233,6 +233,15 @@ export class Paper {
     if (c.k === 'show') return { latex: regionLatex(c), state: 'ok', note: '' };
     if (c.k === 'plot' || c.k === 'image') return { latex: '', state: 'ok', note: '' };
     if (c.k === 'sym') return this.symView(region, c);
+    if (c.k === 'include') {
+      const outcome = this.doc.outcomes.get(region.id);
+      const failed = outcome?.error;
+      const name = (c.file || '(no file)').replace(/[\\{}_%&#$^~]/g, (ch) => (ch === '\\' ? '\\textbackslash ' : `\\${ch}`));
+      const shown = `\\text{Reference: ${name}}`;
+      // Found, though it needs more files: shown as found, as Mathcad does, with what's missing on hover.
+      if (failed && outcome.partial) return { latex: shown, state: 'ok', note: failed };
+      return failed ? { latex: shown, state: 'stale', note: failed } : { latex: shown, state: 'ok', note: `Definitions from ${c.file} hold from here on` };
+    }
     const outcome = this.doc.outcomes.get(region.id);
     const math = display(regionLatex(c)).replace(/=$/, '');
     const shows = c.k === 'eval' || (c.k === 'define' && c.shown);
@@ -363,12 +372,12 @@ export class Paper {
   }
 
   /** Adds `■ := readImage("name")` for a file just loaded, with the name to type selected. */
-  insertReadImage(source: string): void {
+  insertReadImage(source: string, fn = 'readImage'): void {
     const at = this.insertionPoint();
     const region = this.doc.addMath(at.left, at.top + 8);
     const quoted = source.replace(/[\\{}_%&#$^~]/g, (ch) => (ch === '\\' ? '\\textbackslash ' : `\\${ch}`));
     this.open(region, true);
-    this.editor.field.setValue(`\\placeholder{}\\coloneq \\mathrm{readImage}\\left(\\text{"${quoted}"}\\right)`, { silenceNotifications: true });
+    this.editor.field.setValue(`\\placeholder{}\\coloneq \\mathrm{${fn}}\\left(\\text{"${quoted}"}\\right)`, { silenceNotifications: true });
     this.editor.field.position = 0;
     this.editor.field.executeCommand('moveToNextPlaceholder');
   }

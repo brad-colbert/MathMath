@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { type Outcome, runWorksheet } from '../src/engine/evaluate.js';
-import type { Mat, Num, Value } from '../src/engine/values.js';
+import { type Mat, type Num, type Value, getEl } from '../src/engine/values.js';
+
+const getElNum = (m: Mat, i: number, j: number): number => (getEl(m, i, j) as Num).re;
 import type { Worksheet } from '../src/model/ast.js';
 import { compareResult } from '../src/score/compare.js';
 import { call, define, evaluate, fnDefine, id, math, op, real, sheet, stat, vec } from './helpers.js';
@@ -58,6 +60,23 @@ describe('arrays', () => {
     const range = stat('range', real(1), real(3));
     const ws = sheet([define(id('i'), range), evaluate(op('pow', id('i'), real(2)))]);
     expect(list(ws)).toEqual([1, 4, 9]);
+  });
+
+  test('ranges with units follow Mathcad 14', () => {
+    // Measured: a second value is required, units must match, and a 0 goes with any unit.
+    const u = (v: number, unit: string) => op('mult', real(v), id(unit));
+    const seq = (a: string, b: string) => stat('sequence', a, b);
+    const run = (range: string) => results(sheet([define(id('q'), range), evaluate(id('q'))]))[0]!;
+    expect(run(stat('range', seq(real(0), u(0.5, 's')), u(2, 's'))).value).toMatchObject({ rows: 5, dim: [0, 0, 1, 0, 0, 0, 0] });
+    expect(list(sheet([define(id('q'), stat('range', seq(u(0, 'cm'), u(1, 'cm')), u(3, 'cm'))), evaluate(id('q'))]))).toEqual([0, 0.01, 0.02, 0.03]);
+    for (const bad of [
+      stat('range', u(0, 'cm'), u(3, 'cm')),
+      stat('range', real(0), u(3, 'm')),
+      stat('range', seq(real(1), u(1.5, 'm')), u(2, 'm')),
+      stat('range', seq(u(0, 's'), u(0.5, 's')), real(2)),
+      stat('range', seq(u(0, 's'), real(0.5)), u(2, 's')),
+      stat('range', seq(u(0, 'm'), u(1, 's')), u(3, 'm')),
+    ]) expect(run(bad).error?.kind).toBe('runtime');
   });
 
   test('defining a plain variable from a range variable is an error', () => {
@@ -267,5 +286,108 @@ describe('comparing with stored results', () => {
   test('a sheet-defined display unit divides the value', () => {
     const setup = [define(id('Q'), real(4))];
     expect(check(evaluate(real(8), real(2), id('Q')), setup)).toBe(true);
+  });
+});
+
+describe('comparison with exact equality off', () => {
+  const cmp = (a: number, b: number, exact: boolean) => {
+    const ws = sheet([evaluate(op('lessThan', real(a), real(b))), evaluate(op('equal', real(a), real(b)))]);
+    ws.exactCompare = exact;
+    return runWorksheet(ws).map((o) => (o.value as { re: number }).re);
+  };
+
+  test('is exact by default', () => {
+    expect(cmp(1, 1 + 1e-13, true)).toEqual([1, 0]);
+  });
+
+  test('takes numbers within a relative 1e-12 as equal, as Mathcad 14 does', () => {
+    expect(cmp(1, 1.00000000000099, false)).toEqual([0, 1]);
+    expect(cmp(1, 1.00000000000101, false)).toEqual([1, 0]);
+    expect(cmp(-3.7e5, -370000.00000036636, false)).toEqual([0, 1]);
+    expect(cmp(0, 1e-300, false)).toEqual([1, 0]);
+  });
+
+  test('is read from the sheet', () => {
+    const on = sheet([]);
+    expect(on.exactCompare).toBe(true);
+  });
+});
+
+describe('global definitions', () => {
+  test('a call written as a function with bound variables, as Mathcad saves some, is a call', () => {
+    const rhs = `<ml:function>${id('max')}<ml:boundVars>${real(2)}${real(7)}</ml:boundVars></ml:function>`;
+    const ws = sheet([math(`<ml:globalDefine>${id('m')}${rhs}</ml:globalDefine>`), evaluate(id('m'))]);
+    expect((results(ws)[0]!.value as Num).re).toBe(7);
+  });
+});
+
+describe('Mathcad calling conventions', () => {
+  test('fewer arguments than parameters give a function of the rest', () => {
+    const ws = sheet([
+      fnDefine('f', ['a', 'b', 'c'], op('plus', op('mult', real(100), id('a')), op('plus', op('mult', real(10), id('b')), id('c')))),
+      define(id('g'), call('f', real(1), real(2))),
+      evaluate(call('g', real(3))),
+      evaluate(call('f', real(1), real(2))),
+    ]);
+    const out = results(ws);
+    expect((out[0]!.value as Num).re).toBe(123);
+    expect(out[1]!.value?.t).toBe('fn');
+  });
+
+  test('a derivative at a range is taken at each value', () => {
+    const d = `<ml:apply><ml:derivative/><ml:lambda><ml:boundVars>${id('x')}</ml:boundVars><ml:apply><ml:pow/>${id('x')}${real(2)}</ml:apply></ml:lambda></ml:apply>`;
+    const ws = sheet([math(`<ml:define>${id('x')}<ml:range>${real(1)}${real(3)}</ml:range></ml:define>`), evaluate(d)]);
+    const m = results(ws)[0]!.value as Mat;
+    expect(m.rows).toBe(3);
+    expect([...m.re].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([2, 4, 6]);
+  });
+});
+
+describe("Mathcad's zero-over-zero option", () => {
+  const run = (on: boolean, a: string, b: string) => {
+    const ws = sheet([evaluate(op('div', a, b))]);
+    ws.zeroOverZero = on;
+    return results(ws)[0]!;
+  };
+
+  test('is off by default, so 0/0 is an error', () => {
+    expect(sheet([]).zeroOverZero).toBe(false);
+    expect(run(false, real(0), real(0)).error?.reason).toContain('division by zero');
+  });
+
+  test('makes 0/0 zero, element by element, and leaves 1/0 an error', () => {
+    expect((run(true, real(0), real(0)).value as Num).re).toBe(0);
+    expect([...(run(true, vec(0, 4), vec(0, 2)).value as Mat).re]).toEqual([0, 2]);
+    expect(run(true, real(1), real(0)).error?.reason).toContain('division by zero');
+  });
+});
+
+describe('histograms', () => {
+  test('histogram(n, data) gives midpoints and counts; the smallest value counts in the first interval', () => {
+    const ws = sheet([evaluate(call('histogram', real(2), vec(0, 1, 2, 3, 4)))]);
+    const m = results(ws)[0]!.value as Mat;
+    expect([m.rows, m.cols]).toEqual([2, 2]);
+    expect([0, 1].map((i) => (getElNum(m, i, 0)))).toEqual([1, 3]);
+    expect([0, 1].map((i) => (getElNum(m, i, 1)))).toEqual([3, 2]);
+  });
+
+  test('hist(bounds, data) counts a boundary value in the interval to its left', () => {
+    const ws = sheet([evaluate(call('hist', vec(0, 2, 4), vec(0, 1, 2, 3, 4)))]);
+    expect([...(results(ws)[0]!.value as Mat).re]).toEqual([2, 2]);
+  });
+});
+
+describe('scoring', () => {
+  test('a result that depends on an integral, at any remove, gets the looser tolerance', async () => {
+    const { scoreSheet } = await import('../src/score/sheet.js');
+    const integral = `<ml:apply><ml:integral/><ml:lambda><ml:boundVars>${id('x')}</ml:boundVars>${id('x')}</ml:lambda><ml:bounds>${real(0)}${real(1)}</ml:bounds></ml:apply>`;
+    const ws = sheet([
+      define(id('a'), integral),
+      define(id('b'), op('mult', real(2), id('a'))),
+      evaluate(id('b'), real(1.001)),
+      evaluate(op('mult', real(2), real(0.5)), real(1.001)),
+    ]);
+    const s = scoreSheet(ws);
+    expect([s.match, s.mismatch]).toEqual([1, 1]);
   });
 });

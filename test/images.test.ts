@@ -1,3 +1,4 @@
+import { NO_FILES } from '../src/engine/files.js';
 import { describe, expect, test } from 'vitest';
 import { Evaluator, Scope, pixels } from '../src/engine/evaluate.js';
 import { type Mat, fromValues, num, str } from '../src/engine/values.js';
@@ -35,7 +36,7 @@ describe('matrices as images', () => {
 
 describe('reading images', () => {
   const tiny = { width: 2, height: 1, rgba: Uint8ClampedArray.from([255, 0, 0, 255, 0, 0, 255, 255]) };
-  const files = { image: (name: string) => (name === 'tiny.png' ? tiny : undefined) };
+  const files = { ...NO_FILES, image: (name: string) => (name === 'tiny.png' ? tiny : undefined) };
   const ev = new Evaluator({ origin: 0, tol: 0.001 }, files);
   const read = (path: string) => ev.eval({ k: 'call', fn: { k: 'id', name: 'readImage' }, args: [{ k: 'str', v: path }] }, new Scope(null)) as Mat;
 

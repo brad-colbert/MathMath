@@ -4,6 +4,8 @@ import type {
 } from '../model/ast.js';
 import { DEFAULT_FORMAT, DEFAULT_PAGE } from '../model/ast.js';
 import { translateFunction } from './names.js';
+import { gunzip } from './inflate.js';
+import { baseName } from '../engine/files.js';
 
 /** The part of the DOM used here, so the same code runs on @xmldom in Node and in a browser. */
 export interface XElement {
@@ -16,6 +18,34 @@ export interface XElement {
 
 /** Mathcad's picture components, identified from their stored renderings. */
 const IMAGE_VIEWERS = new Set(['01350071-1122-11db-9380-000d56c6051a', '8442da2d-08d7-45ad-a4a6-f28bee6ae06a']);
+
+/**
+ * Mathcad's components that read a data file into a variable: the File Input, the Data Import Wizard, and
+ * the Excel component, whose spreadsheet readTable asks to have saved as CSV.
+ */
+const FILE_READERS = new Set(['01350083-1122-11db-9380-000d56c6051a', '577d93c8-ea65-4d05-b631-401168b146e4', '01350081-1122-11db-9380-000d56c6051a']);
+
+/**
+ * The data file a reading component names. Its gzip data holds the path as UTF-16 or plain text, often
+ * twice, and some copies are cut short at the front, so the longest gives the whole file name.
+ */
+function componentFile(base64: string | undefined): string | null {
+  if (!base64) return null;
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = gunzip(bytes);
+  } catch {
+    return null;
+  }
+  const latin1 = new TextDecoder('latin1').decode(bytes.subarray(0, 1 << 16));
+  const wide: string[] = [];
+  for (const m of latin1.matchAll(/(?:[\x20-\x7e]\x00){5,}/g)) wide.push(m[0].replace(/\x00/g, ''));
+  const narrow = [...latin1.matchAll(/[\x20-\x7e]{5,}/g)].map((m) => m[0]);
+  const paths = [...wide, ...narrow].filter((t) => /\.(txt|csv|dat|prn|xls|xlsx)$/i.test(t));
+  if (paths.length === 0) return null;
+  return baseName(paths.reduce((a, b) => (b.length > a.length ? b : a)));
+}
 
 const kids = (e: XElement): XElement[] => {
   const out: XElement[] = [];
@@ -116,6 +146,13 @@ export function parseExpr(e: XElement): Expr {
       return { k: 'range', first: parseExpr(a), second: null, last: parseExpr(last) };
     }
     case 'apply': return parseApply(e);
+    // On the right of a global definition, Mathcad writes a call f(a, b) as a function with its
+    // arguments as bound variables.
+    case 'function': {
+      const [name, vars] = kids(e);
+      if (name?.localName !== 'id' || vars?.localName !== 'boundVars') return { k: 'unsupported', tag };
+      return { k: 'call', fn: { k: 'id', name: translateFunction(idName(name)) }, args: kids(vars).map(parseExpr) };
+    }
     case 'program': return { k: 'program', body: kids(e).map(parseStmt) };
     case 'provenance': {
       const inner = kids(e).filter((c) => !PROVENANCE_META.has(c.localName ?? '')).at(-1);
@@ -183,6 +220,7 @@ function parseStoredValue(e: XElement): StoredValue {
     return { k: 'num', re: parseNumber(re?.textContent ?? '0'), im: parseNumber(im?.textContent ?? '0') };
   }
   if (tag === 'str') return { k: 'str', v: e.textContent ?? '' };
+  if (tag === 'id' && (e.textContent ?? '').startsWith('ƒ')) return { k: 'fn', type: e.textContent ?? '' };
   if (tag === 'matrix') {
     return { k: 'mat', rows: num(e, 'rows'), cols: num(e, 'cols'), items: kids(e).map(parseStoredValue) };
   }
@@ -322,6 +360,41 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
           for (const id of descendants(out, 'id')) componentOutputs.push(idName(id));
         }
       }
+      // A data-reading component becomes a readTable definition of its output, found by file name.
+      const clsid = (body.getAttribute('clsid-buddy') ?? '').toLowerCase();
+      const output = kids(kids(body).find((c) => c.localName === 'outputs') ?? body).find((c) => c.localName === 'id');
+      const file = name === 'component' && FILE_READERS.has(clsid) && output ? componentFile(binary.get(body.getAttribute('item-idref') ?? '')) : null;
+      if (file && output) {
+        regions.push({
+          id: r.getAttribute('region-id') ?? '',
+          left: num(r, 'left'),
+          top: num(r, 'top'),
+          alignX: num(r, 'align-x'),
+          alignY: num(r, 'align-y'),
+          disabled: body.getAttribute('disable-calc') === 'true',
+          content: {
+            k: 'define', target: { k: 'var', name: idName(output) },
+            value: { k: 'call', fn: { k: 'id', name: 'readTable' }, args: [{ k: 'str', v: file }] },
+            global: false, stored: null, unit: null, shown: false,
+          },
+        });
+        continue;
+      }
+      // A reference includes another worksheet, found by its file name.
+      if (name === 'reference') {
+        // Saved by Mathcad 12 and later, the path is in originRef; converted from .mcd, in a link beside it.
+        const href = descendants(body, 'originRef')[0]?.getAttribute('href') || kids(r).find((c) => c.localName === 'link')?.getAttribute('href') || '';
+        regions.push({
+          id: r.getAttribute('region-id') ?? '',
+          left: num(r, 'left'),
+          top: num(r, 'top'),
+          alignX: num(r, 'align-x'),
+          alignY: num(r, 'align-y'),
+          disabled: false,
+          content: { k: 'include', file: href ? baseName(href) : '' },
+        });
+        continue;
+      }
       const rendering = kids(r).find((c) => c.localName === 'rendering')?.getAttribute('item-idref');
       const png = rendering ? (binary.get(rendering) ?? null) : null;
       // Picture viewers become image regions, so they show what their input computes.
@@ -378,5 +451,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
     componentOutputs,
     origin: vars ? num(vars, 'array-origin') : 0,
     tol: vars ? Number(vars.getAttribute('convergence-tolerance') ?? 0.001) : 0.001,
+    exactCompare: descendants(root, 'calculationBehavior')[0]?.getAttribute('exact-boolean') !== 'false',
+    zeroOverZero: descendants(root, 'calculationBehavior')[0]?.getAttribute('zero-over-zero') === '0',
   };
 }

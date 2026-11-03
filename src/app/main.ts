@@ -6,7 +6,8 @@ import { TEMPLATES } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
-import type { Content } from '../model/ast.js';
+import type { Content, Worksheet } from '../model/ast.js';
+import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { Doc } from './document.js';
 
 const pickFiles = (accept: string, multiple: boolean): Promise<File[]> => new Promise((resolve) => {
@@ -26,13 +27,48 @@ const base64 = async (file: File): Promise<string> => {
   return btoa(text);
 };
 
-/** Keeps an image in the worksheet and adds a readImage region for it, ready for a variable name. */
+/**
+ * Keeps a file in the worksheet. An image or a data file adds a readImage or readTable region for it,
+ * ready for a variable name. A worksheet is kept for references to find, in MathMath's own format.
+ */
 async function loadFromComputer(): Promise<void> {
-  const [file] = await pickFiles('image/*', false);
-  if (!file) return;
-  doc.attach([{ name: file.name, mime: file.type || 'application/octet-stream', data: await base64(file) }]);
-  paper.insertReadImage(file.name);
+  const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.xmcd,.mathmath', true);
+  if (picked.length === 0) return;
+  const attached: { name: string; mime: string; data: string }[] = [];
+  const carried: { name: string; mime: string; data: string }[] = [];
+  for (const file of picked) {
+    if (!isSheetName(file.name)) {
+      attached.push({ name: file.name, mime: file.type || 'application/octet-stream', data: await base64(file) });
+      continue;
+    }
+    let ws: Worksheet;
+    try {
+      ws = readAny(file.name, await file.text());
+    } catch (err) {
+      fail(err);
+      return;
+    }
+    attached.push({ name: file.name, mime: SHEET_MIME, data: utf8Base64(saveWorksheet(ws)) });
+    // Files the sheet had attached come with it, so it works here as it did there.
+    for (const [name, asset] of Object.entries(ws.assets)) carried.push({ name, ...asset });
+  }
+  // What was picked wins over a copy that came inside a sheet.
+  doc.attach([...carried, ...attached]);
+  const [only] = picked;
+  if (picked.length === 1 && only && !isSheetName(only.name)) {
+    paper.insertReadImage(only.name, only.type.startsWith('image/') ? 'readImage' : 'readTable');
+    return;
+  }
+  const names = picked.map((f) => f.name);
+  doc.onProblem(`Attached ${names.join(', ')}. ${picked.some((f) => isSheetName(f.name)) ? 'References find worksheets by name.' : ''}`);
 }
+
+const utf8Base64 = (text: string): string => {
+  const bytes = new TextEncoder().encode(text);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
 
 /**
  * Fetches an image once, now, and keeps it. A worksheet never fetches anything while it calculates:
@@ -96,11 +132,20 @@ doc.onChange = (ids) => {
 
 const busy = document.createElement('span');
 busy.className = 'busy';
+// A notice, such as what was just attached, outlasts the calculation it starts, for a few seconds.
+let notice = '';
+let noticeTimer = 0;
 doc.onBusy = (on) => {
-  busy.textContent = on ? 'Calculating… (Esc stops)' : '';
+  busy.textContent = on ? 'Calculating… (Esc stops)' : notice;
 };
 doc.onProblem = (message) => {
+  notice = message;
   busy.textContent = message;
+  window.clearTimeout(noticeTimer);
+  noticeTimer = window.setTimeout(() => {
+    notice = '';
+    if (!doc.computing && busy.textContent === message) busy.textContent = '';
+  }, 8000);
 };
 
 function fail(err: unknown): void {

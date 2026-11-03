@@ -1,11 +1,13 @@
 import { type OrderKey, runWorksheet } from '../engine/evaluate.js';
 import { EvalError } from '../engine/values.js';
+import { type Files, sheetKey } from '../engine/files.js';
 import type { Content, Worksheet } from '../model/ast.js';
 import { chooseUnits } from '../engine/display-units.js';
 import { shortUnit } from '../engine/units.js';
 import { compareResult } from './compare.js';
 
-export type Bucket = 'match' | 'mismatch' | 'error' | 'excluded';
+/** `needs`: a missing file or a Mathcad feature to replace stands in the way, so the engine isn't at fault. */
+export type Bucket = 'match' | 'mismatch' | 'error' | 'excluded' | 'needs';
 
 export interface Row { region: string; bucket: Bucket; detail: string }
 
@@ -14,6 +16,7 @@ export interface SheetScore {
   mismatch: number;
   error: number;
   excluded: number;
+  needs: number;
   /** Regions with nothing to compare against, which can still fail to run. */
   unscored: { ran: number; failed: { region: string; reason: string }[] };
   rows: Row[];
@@ -26,11 +29,59 @@ export const selfContained = (ws: Worksheet, xml: string): boolean =>
   !ws.otherRegions.reference && ws.componentOutputs.length === 0 && !/>(READRGB|READBIN|READPRN|READ|WRITERGB)</.test(xml);
 
 const storedOf = (c: Content) => (c.k === 'define' || c.k === 'eval' ? c.stored : null);
-const tolFor = (c: Content): number => (/"(bigop|derivative)"/.test(JSON.stringify(c)) ? 5e-3 : 1e-9);
+const APPROXIMATE = /"(bigop|derivative)"/;
+const namesIn = (json: string): string[] => [...json.matchAll(/"k":"id","name":"([^"]+)"/g)].map((m) => m[1]!);
 
-export function scoreSheet(ws: Worksheet, order: OrderKey = 'align'): SheetScore {
-  const score: SheetScore = { match: 0, mismatch: 0, error: 0, excluded: 0, unscored: { ran: 0, failed: [] }, rows: [], units: { agree: 0, total: 0, misses: [] } };
-  for (const o of runWorksheet(ws, order)) {
+/**
+ * Names whose values come, at any remove, from an integral or derivative, which Mathcad computes only to
+ * its tolerance. Definitions in referenced sheets count too.
+ */
+function approximateNames(ws: Worksheet, files?: Files): Set<string> {
+  const defs = new Map<string, string>();
+  const seen = new Set<string>();
+  const visit = (sheet: Worksheet): void => {
+    for (const r of sheet.regions) {
+      const c = r.content;
+      if (c.k === 'include' && files) {
+        const key = sheetKey(c.file);
+        const other = seen.has(key) ? undefined : files.sheet(key);
+        seen.add(key);
+        if (other) visit(other);
+      }
+      if (c.k !== 'define' && c.k !== 'sym') continue;
+      const value = JSON.stringify(c.k === 'define' ? c.value : c.expr);
+      const target = c.target;
+      if (!target) continue;
+      for (const m of JSON.stringify(target).matchAll(/"name":"([^"]+)"/g)) defs.set(m[1]!, `${defs.get(m[1]!) ?? ''}${value}`);
+    }
+  };
+  visit(ws);
+  const approx = new Set([...defs].filter(([, v]) => APPROXIMATE.test(v)).map(([k]) => k));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [name, v] of defs) {
+      if (!approx.has(name) && namesIn(v).some((n) => approx.has(n))) {
+        approx.add(name);
+        grew = true;
+      }
+    }
+  }
+  return approx;
+}
+
+const tolFor = (c: Content, approx: Set<string>): number => {
+  const json = JSON.stringify(c);
+  return APPROXIMATE.test(json) || namesIn(json).some((n) => approx.has(n)) ? 5e-3 : 1e-9;
+};
+
+export function scoreSheet(ws: Worksheet, order: OrderKey = 'align', files?: Files): SheetScore {
+  const score: SheetScore = { match: 0, mismatch: 0, error: 0, excluded: 0, needs: 0, unscored: { ran: 0, failed: [] }, rows: [], units: { agree: 0, total: 0, misses: [] } };
+  const outcomes = runWorksheet(ws, order, files);
+  const approx = approximateNames(ws, files);
+  // With a referenced sheet missing, an undefined name is most likely one it would have defined.
+  const missing = outcomes.find((o) => o.region.content.k === 'include' && o.error?.kind === 'needs-file')?.region.content;
+  const missingFile = missing?.k === 'include' ? missing.file : null;
+  for (const o of outcomes) {
     const c = o.region.content;
     const stored = storedOf(c);
     if (!stored) {
@@ -42,14 +93,15 @@ export function scoreSheet(ws: Worksheet, order: OrderKey = 'align'): SheetScore
     let bucket: Bucket;
     let detail = '';
     if (o.error) {
-      bucket = o.error.kind === 'excluded' ? 'excluded' : 'error';
-      detail = `${o.error.kind}: ${o.error.reason}`;
+      const blamed = missingFile && (o.error.kind === 'undefined' || o.error.kind === 'undefined-function');
+      bucket = o.error.kind === 'excluded' ? 'excluded' : o.error.kind === 'needs-file' || o.error.kind === 'mathcad' || blamed ? 'needs' : 'error';
+      detail = blamed ? `needs-file: ${missingFile}, which a reference names, probably defines it (${o.error.reason})` : `${o.error.kind}: ${o.error.reason}`;
     } else if (!o.value) {
       bucket = 'error';
       detail = 'runtime: no value produced';
     } else {
       try {
-        const verdict = compareResult(o.value, stored, tolFor(c), o.unit);
+        const verdict = compareResult(o.value, stored, tolFor(c, approx), o.unit);
         bucket = verdict.ok ? 'match' : 'mismatch';
         if (!verdict.ok) detail = verdict.reason;
       } catch (err) {

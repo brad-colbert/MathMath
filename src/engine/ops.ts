@@ -72,10 +72,44 @@ export function zip(a: Value, b: Value, f: (x: Value, y: Value) => Value): Value
 const scalarZip = (f: (x: Num, y: Num) => Value) => (a: Value, b: Value): Value =>
   zip(a, b, (x, y) => (x.t === 'mat' || y.t === 'mat' ? scalarZip(f)(x, y) : f(requireNum(x), requireNum(y))));
 
-export const addV = scalarZip(add);
-export const subV = scalarZip(sub);
-export const mulE = scalarZip(mul);
-export const divE = scalarZip(div);
+const plainMat = (v: Value): v is Mat => v.t === 'mat' && v.cells === null && v.im === null;
+const realNum = (v: Value): v is Num => v.t === 'num' && v.im === 0;
+
+/**
+ * `scalarZip` with a fast path for real numbers and real arrays, working on their numbers directly. One
+ * call of `f` on a sample gives the result's unit, and checks the units agree. A division by zero takes
+ * the general path, so it still reports, or follows the zero-over-zero option.
+ */
+function realZip(f: (x: Num, y: Num) => Num, k: (x: number, y: number) => number, divides = false) {
+  const general = scalarZip(f);
+  return (a: Value, b: Value): Value => {
+    const am = plainMat(a);
+    const bm = plainMat(b);
+    if (!(am || bm) || !(am || realNum(a)) || !(bm || realNum(b))) return general(a, b);
+    const shape = (am ? a : b) as Mat;
+    if (am && bm && (a.rows !== b.rows || a.cols !== b.cols)) throw new EvalError('runtime', 'array sizes do not match');
+    const n = shape.rows * shape.cols;
+    const xs = am ? a.re : null;
+    const ys = bm ? b.re : null;
+    const x0 = am ? 0 : (a as Num).re;
+    const y0 = bm ? 0 : (b as Num).re;
+    if (divides && (ys ? ys.includes(0) : y0 === 0)) return general(a, b);
+    const unit = f(num(1, a.dim), num(1, b.dim)).dim;
+    const out = newMat(shape.rows, shape.cols, unit);
+    const r = out.re;
+    for (let i = 0; i < n; i++) r[i] = k(xs ? xs[i]! : x0, ys ? ys[i]! : y0);
+    return out;
+  };
+}
+
+export const addV = realZip(add, (x, y) => x + y);
+export const subV = realZip(sub, (x, y) => x - y);
+export const mulE = realZip(mul, (x, y) => x * y);
+export const divE = realZip(div, (x, y) => x / y, true);
+
+/** Division with Mathcad's zero-over-zero option on: 0/0 is 0, measured in Mathcad 14. */
+export const divZeroE = scalarZip((a: Num, b: Num): Num =>
+  a.re === 0 && a.im === 0 && b.re === 0 && b.im === 0 ? num(0, dimDiv(a.dim, b.dim)) : div(a, b));
 export const powE = scalarZip(pow);
 
 export function neg(v: Value): Value {
@@ -260,5 +294,12 @@ export function cross(a: Mat, b: Mat): Mat {
 export function compareReal(a: Num, b: Num): number {
   sameDim(a, b);
   return a.re - b.re;
+}
+
+/** Mathcad's comparison with exact equality off: equal within a relative 10⁻¹², measured in Mathcad 14. */
+export function compareClose(a: Num, b: Num): number {
+  sameDim(a, b);
+  const d = a.re - b.re;
+  return Math.abs(d) <= 1e-12 * Math.max(Math.abs(a.re), Math.abs(b.re)) ? 0 : d;
 }
 

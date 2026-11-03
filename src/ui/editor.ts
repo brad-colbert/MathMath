@@ -25,6 +25,18 @@ const MathfieldElement = (mathlive as unknown as {
   MathfieldElement: (new () => Field) & { fontsDirectory: string | null; soundsDirectory: string | null };
 }).MathfieldElement;
 
+/**
+ * Ctrl+G pairs, as in Mathcad, which follows the Symbol font: q is θ, f is φ, j is ϕ, c is χ.
+ * Only letters the reader knows are listed, so capitals that look like Latin letters are left out.
+ */
+const TO_GREEK: Record<string, string> = {
+  a: '\\alpha', b: '\\beta', c: '\\chi', d: '\\delta', e: '\\varepsilon', f: '\\varphi', g: '\\gamma', h: '\\eta',
+  i: '\\iota', j: '\\phi', k: '\\kappa', l: '\\lambda', m: '\\mu', n: '\\nu', p: '\\pi', q: '\\theta', r: '\\rho',
+  s: '\\sigma', t: '\\tau', u: '\\upsilon', w: '\\omega', x: '\\xi', y: '\\psi', z: '\\zeta',
+  D: '\\Delta', F: '\\Phi', G: '\\Gamma', L: '\\Lambda', P: '\\Pi', Q: '\\Theta', S: '\\Sigma', W: '\\Omega', Y: '\\Psi',
+};
+const FROM_GREEK = Object.fromEntries(Object.entries(TO_GREEK).map(([k, v]) => [v, k]));
+
 const PROGRAM_OPEN = '\\begin{array}{|l}';
 const PROGRAM_CLOSE = '\\end{array}';
 
@@ -145,6 +157,18 @@ export class Editor {
     this.field.focus();
   }
 
+  /** Ctrl+G turns the letter before the caret into its Greek letter, or back. */
+  private toggleGreek(): void {
+    const f = this.field;
+    const [start, end] = f.selection.ranges[0]!;
+    if (f.mode !== 'math' || start !== end) return;
+    const prev = previousChar(f).trim();
+    const swap = TO_GREEK[prev] ?? FROM_GREEK[prev];
+    if (!swap) return;
+    f.executeCommand('deleteBackward');
+    f.insert(swap, { format: 'latex' });
+  }
+
   private consume(e: KeyboardEvent, run: () => void): void {
     e.preventDefault();
     e.stopPropagation();
@@ -209,6 +233,8 @@ export class Editor {
   private onKey(e: KeyboardEvent): void {
     const f = this.field;
     if ((e.ctrlKey || e.metaKey) && e.key === '.') return this.consume(e, () => this.arrow());
+    // Consumed even when there's nothing to turn, so the browser's find bar doesn't open.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyG') return this.consume(e, () => this.toggleGreek());
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Inside a string every key is just text, except the quote that ends it.
     if (f.mode === 'text' && !this.inName && !['"', 'Escape', 'Enter', 'Tab'].includes(e.key)) return;

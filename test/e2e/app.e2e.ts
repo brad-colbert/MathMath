@@ -79,17 +79,22 @@ async function clickAt(page: Page, left: number, top: number): Promise<void> {
   await sleep(120);
 }
 
-async function type(page: Page, left: number, top: number, ...parts: (string | { press: string })[]): Promise<void> {
+async function type(page: Page, left: number, top: number, ...parts: (string | { press: string; ctrl?: boolean })[]): Promise<void> {
   await clickAt(page, left, top);
   for (const p of parts) {
     if (typeof p === 'string') await keys(page, p);
-    else await page.keyboard.press(p.press as never);
+    else {
+      if (p.ctrl) await page.keyboard.down('Control');
+      await page.keyboard.press(p.press as never);
+      if (p.ctrl) await page.keyboard.up('Control');
+    }
   }
   await page.keyboard.press('Escape');
   await sleep(50);
 }
 
 const R = { press: 'ArrowRight' };
+const G = { press: 'KeyG', ctrl: true };
 const idle = (page: Page) => page.waitForFunction('!window.mathmath.doc.computing', { timeout: 15000 });
 const shown = async (page: Page) => (await idle(page), page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => (e.innerText ?? '').replace(/\s+/g, ' ').trim())));
 const model = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify((window as any).mathmath.doc.ws)));
@@ -122,6 +127,22 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   for (const want of ['9.5', '= 6', '= 10', '= 4', '= 0']) check(`shows ${want}`, text.replace(/\s/g, '').includes(want.replace(/\s/g, '')), text);
   check('new regions sit on the snap grid', ws.regions.every((r: any) => r.alignX % 6 === 0 && r.alignY % 6 === 0));
   if (shots) await page.screenshot({ path: `${shots}/typing.png` as `${string}.png` });
+  await page.close();
+}
+
+// Ctrl+G turns the letter before the caret Greek, or back, as in Mathcad.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'D', G, 'x:2');
+  await type(page, 72, 108, 'q', G, ':3');
+  await type(page, 72, 144, 'D', G, 'x*q', G, '=');
+  await type(page, 72, 180, 'a', G, G, 'b:5');
+  await type(page, 72, 216, 'ab=');
+  const ws = await model(page);
+  const names = ws.regions.map((r: any) => r.content.target?.name ?? r.content.expr?.k);
+  check('Ctrl+G makes Δx and θ', names[0] === 'Δx' && names[1] === 'θ', names);
+  check('a name can mix Greek and Latin letters', (await shown(page)).join(' | ').replace(/\s/g, '').includes('=6'), await shown(page));
+  check('Ctrl+G twice turns the letter back', names[3] === 'ab' && (await shown(page)).join('').replace(/\s/g, '').includes('=5'), names);
   await page.close();
 }
 
@@ -847,6 +868,66 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const look = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => ({ stale: e.classList.contains('stale'), error: e.classList.contains('error'), title: e.title })));
   check('a Mathcad file function is grayed, with advice to use Files and readImage', look[0]?.stale === true && !look[0].error && look[0].title.includes('Files') && look[0].title.includes('readImage'), look[0]);
   check('and so is what depends on it', look[1]?.stale === true && look[1].title.includes('READRGB'), look[1]);
+  await page.close();
+}
+
+// Data files and references: loaded with Files, found by name.
+{
+  const page = await fresh();
+  const folder = mkdtempSync(join(tmpdir(), 'mathmath-data-'));
+  writeFileSync(join(folder, 'points.csv'), '1,10\r\n2,20\r\n');
+  const other = { format: 'mathmath', version: 1, worksheet: { regions: [
+    { id: '1', left: 60, top: 60, alignX: 60, alignY: 68, disabled: false, content: { k: 'define', target: { k: 'var', name: 'gk' }, value: { k: 'real', v: 9.5 }, global: false, stored: null, unit: null, shown: false } },
+    { id: '2', left: 60, top: 90, alignX: 60, alignY: 98, disabled: false, content: { k: 'define', target: { k: 'var', name: 'T' }, value: { k: 'call', fn: { k: 'id', name: 'readTable' }, args: [{ k: 'str', v: 'extra.csv' }] }, global: false, stored: null, unit: null, shown: false } },
+  ] } };
+  writeFileSync(join(folder, 'Constants.mathmath'), JSON.stringify(other));
+  const fromComputer = async (file: string) => {
+    const [chooser] = await Promise.all([page.waitForFileChooser(), page.evaluate(() => {
+      [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'From this computer…')!.click();
+    })]);
+    await chooser.accept([join(folder, file)]);
+    await sleep(300);
+  };
+  await clickAt(page, 60, 60);
+  await fromComputer('points.csv');
+  await keys(page, 'D');
+  await page.keyboard.press('Escape');
+  await type(page, 60, 120, 'D[1,1', R, '=');
+  await idle(page);
+  await sleep(80);
+  const made = (await model(page)).regions[0]?.content;
+  check('loading a data file adds readTable, assigned to the variable typed', made?.k === 'define' && made.value.fn?.name === 'readTable' && made.value.args[0]?.v === 'points.csv', made);
+  const read = (await shown(page)).map((t) => t.replace(/[\s\u200b]/g, ''));
+  const notes = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => e.title));
+  check('an attached data file reads as a matrix', read.some((t) => t.endsWith('=20')), { read, notes });
+  // A reference to a sheet that isn't attached is grayed, with what to do.
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const ws = JSON.parse(m.save()).worksheet;
+    ws.regions = [
+      { id: '1', left: 60, top: 30, alignX: 60, alignY: 38, disabled: false, content: { k: 'include', file: 'Constants.mcd' } },
+      { id: '2', left: 60, top: 80, alignX: 60, alignY: 88, disabled: false, content: { k: 'eval', expr: { k: 'id', name: 'gk' }, stored: null, unit: null } },
+    ];
+    m.load('refs.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: ws }));
+  });
+  await idle(page);
+  await sleep(80);
+  const before = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => ({ stale: e.classList.contains('stale'), title: e.title, text: e.textContent })));
+  const ref = before.find((r) => (r.text ?? '').includes('Reference'));
+  check('a reference shows its file name, grayed until the sheet is attached', ref?.stale === true && ref.title.includes('Files') && (ref.text ?? '').includes('Constants'), before);
+  await fromComputer('Constants.mathmath');
+  await idle(page);
+  await sleep(80);
+  const after = (await shown(page)).map((t) => t.replace(/[\s\u200b]/g, ''));
+  check("once attached, the other sheet's definitions hold", after.some((t) => t.endsWith('=9.5')), after);
+  const partial = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].filter((e) => (e.textContent ?? '').includes('Reference')).map((e) => ({ stale: e.classList.contains('stale'), title: e.title }))[0]);
+  check('a found sheet that needs more files shows as found, naming them', partial?.stale === false && partial.title.includes('is attached, but it needs extra.csv'), partial);
+  // A reference can't be typed into, so clicking it leaves it as it is.
+  await clickAt(page, 70, 38);
+  await page.keyboard.press('Escape');
+  await sleep(80);
+  const kept = (await model(page)).regions.find((r: { content: { k: string } }) => r.content.k === 'include');
+  check('clicking a reference leaves it intact', kept?.content.file === 'Constants.mcd', (await model(page)).regions);
   await page.close();
 }
 

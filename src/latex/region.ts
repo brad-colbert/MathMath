@@ -33,6 +33,7 @@ export function regionLatex(c: Content): string {
     // Plots are edited through their slots, not as one line of math.
     case 'plot':
     case 'image':
+    case 'include':
     case 'other': return '';
   }
 }

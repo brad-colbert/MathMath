@@ -5,7 +5,7 @@ import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import type { OrderKey } from '../engine/evaluate.js';
 import { scoreSheet, selfContained } from '../score/sheet.js';
-import { corpusFolder, readSheets } from './corpus.js';
+import { type Found, corpusFiles, corpusFolder, readSheets } from './corpus.js';
 
 const { values: opts } = parseArgs({
   options: {
@@ -16,10 +16,17 @@ const { values: opts } = parseArgs({
     report: { type: 'string' },
     verbose: { type: 'boolean', short: 'v', default: false },
     top: { type: 'string', default: '25' },
+    // More worksheets that references can find, searched before the corpus: sheets converted from .mcd.
+    also: { type: 'string', multiple: true, default: [] },
+    // Sheets to leave out, by part of their path, such as ones that take minutes.
+    skip: { type: 'string', multiple: true, default: [] },
   },
 });
 
-const tally = { match: 0, mismatch: 0, error: 0, excluded: 0 };
+const tally = { match: 0, mismatch: 0, error: 0, excluded: 0, needs: 0 };
+const corpus = corpusFolder(opts.corpus);
+const filesFor = corpusFiles(corpus, opts.also ?? []);
+const guesses = new Map<string, string>();
 const unscored = { ran: 0, failed: 0 };
 const units = { agree: 0, total: 0, misses: new Map<string, number>() };
 const reasons = new Map<string, number>();
@@ -28,10 +35,16 @@ const bump = (m: Map<string, number>, k: string): void => void m.set(k, (m.get(k
 const lines: string[] = [];
 const rows: unknown[] = [];
 
-for (const { path, xml, ws } of readSheets(corpusFolder(opts.corpus), opts.sheet)) {
+for (const { path, xml, ws } of readSheets(corpus, opts.sheet)) {
   if (!opts.all && !selfContained(ws, xml)) continue;
-  const s = scoreSheet(ws, opts.order as OrderKey);
-  for (const k of ['match', 'mismatch', 'error', 'excluded'] as const) tally[k] += s[k];
+  if (opts.skip?.some((k) => path.includes(k))) {
+    console.log(`  skipped  ${path}`);
+    continue;
+  }
+  const found = new Map<string, Found>();
+  const s = scoreSheet(ws, opts.order as OrderKey, filesFor(path, found));
+  for (const [what, f] of found) if (f.how === 'guess') guesses.set(`${path}: ${what}`, f.path);
+  for (const k of ['match', 'mismatch', 'error', 'excluded', 'needs'] as const) tally[k] += s[k];
   units.agree += s.units.agree;
   units.total += s.units.total;
   for (const m of s.units.misses) bump(units.misses, m);
@@ -43,17 +56,18 @@ for (const { path, xml, ws } of readSheets(corpusFolder(opts.corpus), opts.sheet
   }
   for (const r of s.rows) {
     if (r.bucket === 'error') bump(reasons, r.detail);
+    if (r.bucket === 'needs') bump(reasons, `needs: ${r.detail.replace(/^[\w-]+: /, '').split(/[.:] /)[0]}`);
     if (r.bucket === 'mismatch') bump(reasons, `mismatch: ${r.detail.replace(/-?\d[\d.e+-]*/g, '#').slice(0, 60)}`);
     rows.push({ sheet: path, ...r });
     if (opts.verbose) lines.push(`    ${path} #${r.region} ${r.bucket}: ${r.detail}`);
   }
-  const total = s.match + s.mismatch + s.error + s.excluded;
+  const total = s.match + s.mismatch + s.error + s.excluded + s.needs;
   console.log(`${String(s.match).padStart(4)}/${String(total).padEnd(4)} ${path}`);
 }
 
 for (const l of lines) console.log(l);
-const total = tally.match + tally.mismatch + tally.error + tally.excluded;
-console.log(`\nTOTAL ${tally.match}/${total} match, ${tally.mismatch} mismatch, ${tally.error} error, ${tally.excluded} excluded`);
+const total = tally.match + tally.mismatch + tally.error + tally.excluded + tally.needs;
+console.log(`\nTOTAL ${tally.match}/${total} match, ${tally.mismatch} mismatch, ${tally.error} error, ${tally.excluded} excluded, ${tally.needs} need a file`);
 console.log(`Without a stored result: ${unscored.ran} regions ran, ${unscored.failed} failed`);
 console.log(`Units Mathcad chose: ${units.agree}/${units.total} chosen the same way`);
 for (const [k, n] of units.misses) console.log(`${String(n).padStart(5)}  ${k}`);
@@ -62,6 +76,10 @@ const print = (title: string, m: Map<string, number>): void => {
   console.log(`\n${title}:`);
   for (const [k, n] of [...m].sort((a, b) => b[1] - a[1]).slice(0, Number(opts.top))) console.log(`${String(n).padStart(5)}  ${k}`);
 };
+if (guesses.size > 0) {
+  console.log('\nFiles found by guessing among several with the same name:');
+  for (const [k, v] of guesses) console.log(`  ${k} -> ${v}`);
+}
 print('Failure reasons', reasons);
 print('Failures without a stored result', unscoredReasons);
 if (opts.report) writeFileSync(opts.report, JSON.stringify({ tally, rows }, null, 2));

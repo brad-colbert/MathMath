@@ -138,8 +138,8 @@ export class Doc {
       this.onBusy(false);
       this.onChange(null);
     };
-    const { regions, origin, tol, format, assets } = this.ws;
-    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, format, assets } };
+    const { regions, origin, tol, exactCompare, zeroOverZero, format, assets } = this.ws;
+    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets } };
     worker.postMessage(request);
   }
 

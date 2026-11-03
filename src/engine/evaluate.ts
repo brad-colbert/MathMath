@@ -1,15 +1,15 @@
 import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/ast.js';
 import { Defs } from '../symbolic/defs.js';
-import type { Files } from './files.js';
+import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import {
-  absV, addV, compareReal, cross, divE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
+  absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
   transpose, zip,
 } from './ops.js';
 import { UNITS } from './units.js';
 import {
-  EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimMul, fromValues, getEl, isNoDim, newMat, num,
-  requireMat, requireNum, requireReal, resized, setEl, str,
+  EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
+  needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
 export class Scope {
@@ -118,8 +118,14 @@ const CONSTANTS: Record<string, Num> = {
 
 export class Evaluator {
   private builtins: Map<string, Fn>;
-  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'>, files?: Files) {
-    this.builtins = makeBuiltins(ws.origin, files);
+  /** While an integral samples its integrand: tables interpolated at the integration variable. */
+  private corners: { at: number; tables: Set<Float64Array> } | null = null;
+  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { exactCompare?: boolean; zeroOverZero?: boolean }, files?: Files) {
+    this.builtins = makeBuiltins(ws.origin, files, {
+      interpolated: (xs, at) => {
+        if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
+      },
+    });
   }
 
   get origin(): number {
@@ -175,8 +181,21 @@ export class Evaluator {
     const first = requireNum(this.eval(e.first, s), 'range start');
     const last = requireNum(this.eval(e.last, s), 'range end');
     const second = e.second ? requireNum(this.eval(e.second, s), 'range step') : null;
-    const step = second ? second.re - first.re : first.re <= last.re ? 1 : -1;
-    return { t: 'range', first: first.re, step, last: last.re, dim: first.dim };
+    // As measured in Mathcad 14: a range with units must give its second value, so the step can't
+    // default to 1 of a base unit, and all three values share one unit, except that a 0 goes with any.
+    if (!second) {
+      if (!isNoDim(first.dim) || !isNoDim(last.dim)) {
+        throw new EvalError('runtime', 'a range with units needs its second value, as in 0s, 0.5s..3s');
+      }
+      return { t: 'range', first: first.re, step: first.re <= last.re ? 1 : -1, last: last.re, dim: NODIM };
+    }
+    let unit: Num | null = null;
+    for (const v of [second, first, last]) {
+      if (v.re === 0 && v.im === 0) continue;
+      if (!unit) unit = v;
+      else if (!dimEq(unit.dim, v.dim)) throw new EvalError('runtime', 'units do not match: every value in a range needs the same unit, though a 0 can go without');
+    }
+    return { t: 'range', first: first.re, step: second.re - first.re, last: last.re, dim: unit?.dim ?? second.dim };
   }
 
   private evalOp(op: string, args: Expr[], s: Scope, vec: boolean): Value {
@@ -226,7 +245,7 @@ export class Evaluator {
 
   private divide(a: Value, b: Value, vec: boolean): Value {
     if (!vec && b.t === 'mat' && b.rows === b.cols && b.rows > 1) return mulV(a, inverse(b));
-    return divE(a, b);
+    return this.ws.zeroOverZero ? divZeroE(a, b) : divE(a, b);
   }
 
   private compare(a: Value, b: Value, test: (c: number) => boolean): Value {
@@ -235,7 +254,8 @@ export class Evaluator {
         const [p, q] = [x.t === 'str' ? x.v : '', y.t === 'str' ? y.v : ''];
         return bool(test(p < q ? -1 : p > q ? 1 : 0));
       }
-      return bool(test(compareReal(requireNum(x), requireNum(y))));
+      const [p, q] = [requireNum(x), requireNum(y)];
+      return bool(test(this.ws.exactCompare === false ? compareClose(p, q) : compareReal(p, q)));
     });
   }
 
@@ -262,6 +282,11 @@ export class Evaluator {
     const j = this.position(b);
     if (j < 0 || j >= m.cols) throw new EvalError('runtime', 'column out of bounds');
     const out = newMat(m.rows, 1, m.dim);
+    // Real numbers only: copy the column's numbers, which are stored together.
+    if (!m.cells && !m.im) {
+      out.re.set(m.re.subarray(j * m.rows, (j + 1) * m.rows));
+      return out;
+    }
     for (let i = 0; i < m.rows; i++) setEl(out, i, 0, getEl(m, i, j));
     return out;
   }
@@ -332,9 +357,33 @@ export class Evaluator {
         dim = y.dim;
         return y.re;
       };
-      const coarse = gaussKronrod(f, lo.re, hi.re).value;
+      // Sampling the integrand finds any table it interpolates at the integration variable. Splitting at
+      // the table's points leaves smooth pieces, which converge at once; a corner inside a piece would
+      // otherwise be halved down to the tolerance.
+      const outer = this.corners;
+      const probe = { at: NaN, tables: new Set<Float64Array>() };
+      this.corners = probe;
+      let coarse: number;
+      try {
+        coarse = gaussKronrod((x) => {
+          probe.at = x;
+          return f(x);
+        }, lo.re, hi.re).value;
+      } finally {
+        this.corners = outer;
+      }
       const tol = Math.max(Math.abs(coarse) * 1e-10, 1e-300);
-      return num(adaptive(f, lo.re, hi.re, tol), dimMul(dim, xDim));
+      const [a, b] = lo.re <= hi.re ? [lo.re, hi.re] : [hi.re, lo.re];
+      const cuts = new Set<number>();
+      for (const xs of probe.tables) for (const x of xs) if (x > a && x < b) cuts.add(x);
+      if (cuts.size === 0 || cuts.size > 5000) return num(adaptive(f, lo.re, hi.re, tol), dimMul(dim, xDim));
+      const points = [a, ...[...cuts].sort((p, q) => p - q), b];
+      let total = 0;
+      for (let i = 0; i + 1 < points.length; i++) {
+        const [p, q] = [points[i]!, points[i + 1]!];
+        total += adaptive(f, p, q, (tol * (q - p)) / (b - a));
+      }
+      return num(lo.re <= hi.re ? total : -total, dimMul(dim, xDim));
     }
     let total: Value | null = null;
     for (let i = lo.re; i <= hi.re + 1e-9; i += 1) {
@@ -346,7 +395,16 @@ export class Evaluator {
 
   /** Five-point central difference at the variable's current value. */
   private evalDerivative(e: Extract<Expr, { k: 'derivative' }>, s: Scope): Value {
-    const at = requireNum(this.eval({ k: 'id', name: e.varName }, s), 'derivative point');
+    // At a range or vector of points, the derivative at each one, as a vector.
+    const point = this.eval({ k: 'id', name: e.varName }, s);
+    if (point.t === 'range' || (point.t === 'mat' && point.rows * point.cols > 1)) {
+      const values = [...this.iterate(point)].map((v) => this.derivativeAt(e, requireNum(v, 'derivative point'), s));
+      return fromValues(values.length, 1, values);
+    }
+    return this.derivativeAt(e, requireNum(point, 'derivative point'), s);
+  }
+
+  private derivativeAt(e: Extract<Expr, { k: 'derivative' }>, at: Num, s: Scope): Value {
     const h = Math.max(Math.abs(at.re), 1e-3) * 1e-3;
     const f = (x: number): Num => requireNum(this.eval(e.body, this.bindAt(e.varName, num(x, at.dim), s)));
     const parts = [f(at.re - 2 * h), f(at.re - h), f(at.re + h), f(at.re + 2 * h)];
@@ -360,6 +418,12 @@ export class Evaluator {
       name,
       arity: params.length,
       call: (args) => {
+        // Given fewer arguments, as in Mathcad, the result is a function of the rest.
+        if (args.length > 0 && args.length < params.length) {
+          const frame = new Scope(scope);
+          params.slice(0, args.length).forEach((p, i) => frame.set(p, args[i]!));
+          return this.closure(name, params.slice(args.length), body, frame);
+        }
         if (args.length !== params.length) throw new EvalError('runtime', `${name} takes ${params.length} arguments`);
         const frame = new Scope(scope);
         params.forEach((p, i) => frame.set(p, args[i]!));
@@ -597,9 +661,54 @@ class Run {
   readonly outcomes: Outcome[] = [];
   scope = new Scope(null);
   defs = new Defs();
+  /** Worksheets being included, innermost last, to stop a sheet that includes itself. */
+  private including: string[] = [];
 
-  constructor(ws: Worksheet, files?: Files) {
+  constructor(ws: Worksheet, private files: Files = NO_FILES) {
     this.ev = new Evaluator(ws, files);
+  }
+
+  /**
+   * Runs another worksheet's regions here, in its own order, so its definitions hold from here on.
+   * Its results aren't shown: they belong to that sheet. Symbolic regions use their saved answers.
+   */
+  private include(file: string): void {
+    if (!file.trim()) throw new EvalError('runtime', 'This reference names no file');
+    const key = sheetKey(file);
+    if (this.including.includes(key)) throw new EvalError('runtime', `${file} includes itself, through ${this.including.join(', ')}`);
+    if (this.including.length >= 16) throw new EvalError('runtime', 'References are nested too deeply');
+    const sheet = this.files.sheet(key);
+    if (!sheet) throw needsFile(file);
+    const shown = this.outcomes.length;
+    this.including.push(key);
+    // Problems inside are reported on this reference, where they can be seen, but the rest of the sheet
+    // still runs, as in Mathcad. Files it needs, here or in references of its own, are listed together.
+    let inner: unknown = null;
+    const needs = new Set<string>();
+    try {
+      for (const region of inOrder(sheet, 'align')) {
+        const c = region.content;
+        if (c.k === 'include') {
+          try {
+            this.include(c.file);
+          } catch (err) {
+            if (err instanceof EvalError && err.needs.length > 0) err.needs.forEach((n) => needs.add(n));
+            else inner ??= err;
+          }
+        } else if (c.k === 'sym') this.symbolic(region, c, c.stored ? { result: c.stored } : { result: null, error: 'needs symbolic evaluation' });
+        else this.plain(region);
+      }
+      for (const o of this.outcomes.slice(shown)) for (const n of o.error?.needs ?? []) needs.add(n);
+    } finally {
+      this.including.pop();
+      this.outcomes.length = shown;
+    }
+    if (needs.size > 0) {
+      const list = [...needs];
+      const named = list.length === 1 ? list[0]! : `${list.slice(0, -1).join(', ')} and ${list.at(-1)!}`;
+      throw new EvalError('needs-file', `${file} is attached, but it needs ${named} too. Load ${list.length === 1 ? 'it' : 'them'} with Files on the toolbar`, list);
+    }
+    if (inner) throw inner;
   }
 
   /** The value of a display unit. Units resolve before functions here, so `°C` isn't a function. */
@@ -627,6 +736,15 @@ class Run {
     if (c.k === 'plot') {
       try {
         this.outcomes.push({ region, plot: plotData(this.ev, c, this.scope) });
+      } catch (err) {
+        this.outcomes.push({ region, error: toEvalError(err) });
+      }
+      return;
+    }
+    if (c.k === 'include') {
+      try {
+        this.include(c.file);
+        this.outcomes.push({ region });
       } catch (err) {
         this.outcomes.push({ region, error: toEvalError(err) });
       }
@@ -779,8 +897,8 @@ function inOrder(ws: Worksheet, order: OrderKey): Region[] {
 }
 
 /** Numeric evaluation only. Symbolic regions use the answers stored with them. */
-export function runWorksheet(ws: Worksheet, order: OrderKey = 'align'): Outcome[] {
-  const run = new Run(ws);
+export function runWorksheet(ws: Worksheet, order: OrderKey = 'align', files?: Files): Outcome[] {
+  const run = new Run(ws, files);
   for (const region of inOrder(ws, order)) {
     const c = region.content;
     if (c.k === 'sym') run.symbolic(region, c, c.stored ? { result: c.stored } : { result: null, error: 'needs symbolic evaluation' });

@@ -144,6 +144,7 @@ export function formatStored(s: StoredResult, f: NumberFormat): string {
   const one = (v: StoredValue): string => {
     if (v.k === 'num') return complex(v, f);
     if (v.k === 'str') return `\\text{"${v.v.replace(/[\\{}]/g, '')}"}`;
+    if (v.k === 'fn') return `\\text{${v.type.replace(/[\\{}]/g, '')}}`;
     return grid(v.rows, v.cols, (i, j) => one(v.items[i + j * v.rows]!));
   };
   const latex = unitsLatex(s.units.map((x) => ({ name: shortUnit(x.unit), power: x.power })));

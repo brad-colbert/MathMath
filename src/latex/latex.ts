@@ -296,6 +296,22 @@ export function readTex(src: string): Expr {
     }
     return { k: 'id', name: base };
   };
+  /**
+   * Adjacent letters are one name, as in Mathcad, Greek ones included (Δx, αβ). Multiplication is
+   * always written. A whole name spelled as a Greek letter (alpha) is that letter.
+   */
+  const word = (first: string): string => {
+    let w = first;
+    for (;;) {
+      const t = toks[p];
+      if (t?.t === 'ch' && /^[A-Za-z]$/.test(t.v)) w += t.v;
+      else if (t && t.v !== '\\infty' && UNGREEK[t.v]) w += UNGREEK[t.v];
+      else break;
+      p++;
+    }
+    while (toks[p]?.t === 'num' && /^\d+$/.test(toks[p]!.v)) w += toks[p++]!.v;
+    return GREEK_WORDS[w] ?? w;
+  };
   const callOrId = (base: string): Expr => {
     const id = identifier(base);
     if (is('\\left') && toks[p + 1]?.v === '(') {
@@ -460,13 +476,7 @@ export function readTex(src: string): Expr {
       return imaginary(Number(t.v));
     }
     if (t.t === 'ch') {
-      if (/[A-Za-z]/.test(t.v)) {
-        // Adjacent letters are one name, as in Mathcad. Multiplication is always written.
-        let word = t.v;
-        while (toks[p]?.t === 'ch' && /^[A-Za-z]$/.test(toks[p]!.v)) word += toks[p++]!.v;
-        while (toks[p]?.t === 'num' && /^\d+$/.test(toks[p]!.v)) word += toks[p++]!.v;
-        return callOrId(GREEK_WORDS[word] ?? word);
-      }
+      if (/[A-Za-z]/.test(t.v)) return callOrId(word(t.v));
       if (t.v === '{') {
         const e = relation();
         eat('}');
@@ -479,7 +489,7 @@ export function readTex(src: string): Expr {
       }
       throw new Error(`unexpected ${t.v}`);
     }
-    if (UNGREEK[t.v]) return callOrId(UNGREEK[t.v]!);
+    if (UNGREEK[t.v]) return callOrId(t.v === '\\infty' ? '∞' : word(UNGREEK[t.v]!));
     if (TYPED_FUNCTIONS.has(t.v)) return callOrId(t.v.slice(1));
     switch (t.v) {
       case '\\mathrm': {

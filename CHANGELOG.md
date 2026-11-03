@@ -10,6 +10,66 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-02
+
+Wider corpus tests (milestone 6): 592 of 664 stored results in the test worksheets match, up from 383.
+References, data files, Ctrl+G for Greek letters, and ranges with units checked as Mathcad checks them.
+
+### Added
+
+- References. A Mathcad reference region imports as an `include` region that shows only the file name.
+  It runs the other worksheet's regions at that point, so their definitions hold from there on, without
+  showing their results. A reference to an `.mcd` file finds the same sheet saved as `.xmcd`. A missing sheet
+  is grayed with a note to load it with Files; a sheet that includes itself stops with a message.
+- `readTable("name")` reads an attached text file of numbers and words, split on commas, tabs or spaces, into
+  a matrix. Words stay strings, and an empty cell is 0, as Mathcad reads it.
+- Mathcad's data-reading components (File Input, the Data Import Wizard and the Excel component) import as
+  `Name := readTable("file")`, using only the file's name from the component. readTable reads text, so a
+  spreadsheet needs saving as CSV.
+- Files → *From this computer…* also takes data files, which add a readTable region, and worksheets
+  (`.xmcd` or `.mathmath`), which references then find by name. Several files can be picked at once, and an
+  attached `.mathmath` sheet brings the files attached to it.
+- `histogram(n, data)` and `hist(bounds, data)`.
+- Ctrl+G turns the letter before the caret into its Greek letter, as in Mathcad (`q` is θ, `f` is φ, `D` is Δ),
+  and pressing it again turns it back. Typing a letter's name, such as `alpha`, still works too.
+- Mathcad's zero-over-zero option, read from imported sheets: with it on, 0/0 is 0, element by element.
+- Calling a function with fewer arguments than it takes gives a function of the rest, as in Mathcad.
+- The scoreboard can score sheets that read files and reference others: `--also <folder>` adds worksheets to
+  find references in, before the corpus, and `--skip` leaves sheets out. Results held up by a missing file
+  or a Mathcad function to replace are counted apart, as needing a file.
+
+### Changed
+
+- The `.mathmath` format, still version 1 before 1.0, gains the `include` region kind and two sheet settings,
+  `exactCompare` and `zeroOverZero`. Older files open unchanged; a file with a reference in it needs this
+  version.
+- Comparisons follow the sheet's "exact equality" setting. With it off, as in some Mathcad sheets, numbers
+  within a relative 10⁻¹² of each other are equal, as measured in Mathcad 14. New sheets compare exactly.
+
+- Integrals split at the points of any table interpolated at the integration variable, so each piece is
+  smooth. Integrals of tabulated data are far faster (one color integral went from 2.6 s to 44 ms) and more
+  accurate.
+- Arithmetic on arrays of real numbers works on the numbers directly, about three times faster.
+- The scoreboard compares a result that depends on an integral or derivative, at any remove and through
+  references, with the looser tolerance integrals get, because Mathcad computes them only to its tolerance.
+  With a referenced sheet missing, a name left undefined counts as needing that file.
+
+### Fixed
+
+- A call on the right of a global definition (`≡`), which Mathcad saves in a different form, failed to read.
+- A name mixing Greek and Latin letters, such as `Δx` or `αβ`, failed to read when typed. Adjacent letters,
+  Greek ones included, are now one name, as in Mathcad.
+- Ranges with units now follow Mathcad 14's rules, as measured there. A range with units must give its second
+  value (`0s, 0.5s..3s`); without it the step would be 1 of a base unit, so `0cm..3cm` gave only 0. Every value
+  must have the same unit, though a 0 can go without one. Before, `0m..3s` quietly gave metres and
+  `0, 0.5m..2m` lost its unit.
+- A derivative at a range or vector of points failed; it's now taken at each point.
+- A stored zero now matches a computed zero whatever its display unit.
+- An attached sheet that needs more files (references of its own, or data files) kept its reference grayed,
+  saying only that some other file wasn't attached, so it looked as if attaching hadn't worked. The reference
+  now shows as found, and its note lists every file the sheet still needs, at any depth.
+- The note confirming an attached file vanished as soon as the sheet recalculated. It now stays a few seconds.
+
 ## [0.4.0] - 2026-11-02
 
 Plots, display units, images and a LIVE / EDIT mode (milestone 5).
