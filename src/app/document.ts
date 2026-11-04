@@ -7,7 +7,7 @@ import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { Algebra } from './algebra.js';
-import type { AskAlgebra, ComputeRequest, Progress, Shown } from './compute.worker.js';
+import type { AskAlgebra, ComputeRequest, Done, Progress, Shown } from './compute.worker.js';
 
 export type Item =
   | { kind: 'math'; region: Region }
@@ -41,6 +41,8 @@ export class Doc {
   behind = '';
   dirty = false;
   name = 'Untitled';
+  /** The regions the last calculation actually ran, for tests and for showing what was recalculated. */
+  lastRan: string[] = [];
   /** Called after anything changes, with the ids whose content must redraw, or null for all. */
   onChange: (ids: Set<string> | null) => void = () => {};
   /** Called when a calculation starts or ends. */
@@ -73,6 +75,7 @@ export class Doc {
     // Results belong to the sheet they came from: ids repeat between sheets.
     this.outcomes = new Map();
     this.behind = '';
+    this.restart();
     this.recompute();
     this.onChange(null);
   }
@@ -99,21 +102,33 @@ export class Doc {
     this.onChange(null);
   }
 
-  /** Starts a calculation, replacing any still running. Results arrive later. In EDIT mode, marks them out of date. */
+  /**
+   * Starts a calculation. Results arrive later. The worker stays between calculations and remembers the
+   * last one, so it recalculates only from the first change down, and only what depends on it; a newer
+   * request stops an older one at its next region rather than ending the worker. In EDIT mode nothing
+   * runs, and the answers are marked out of date.
+   */
   recompute(): void {
-    this.stop();
     if (!this.live) {
+      if (this.computing) this.stop();
       if (this.outcomes.size > 0) this.behind = 'Not recalculated in EDIT mode. Switch to LIVE to calculate.';
       return;
     }
     const seq = ++this.seq;
-    const worker = new Worker(new URL('./compute.worker.ts', import.meta.url), { type: 'module' });
-    this.worker = worker;
+    const worker = this.worker ?? this.startWorker();
     this.computing = true;
     this.onBusy(true);
+    const { regions, origin, tol, exactCompare, zeroOverZero, format, assets } = this.ws;
+    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets } };
+    worker.postMessage(request);
+  }
+
+  private startWorker(): Worker {
+    const worker = new Worker(new URL('./compute.worker.ts', import.meta.url), { type: 'module' });
+    this.worker = worker;
     const failed = (reason: string): void => {
       worker.terminate();
-      this.worker = null;
+      if (this.worker === worker) this.worker = null;
       this.computing = false;
       this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = `Not updated: the calculation failed (${reason})`;
@@ -122,12 +137,13 @@ export class Doc {
       this.onChange(null);
     };
     worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
-    worker.onmessage = (m: MessageEvent<{ seq: number; shown: Shown[]; failure?: string } | AskAlgebra | Progress>) => {
+    worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress>) => {
       if ('ask' in m.data) {
         const { ask, id } = m.data;
         void this.algebra.ask(ask).then((answer) => worker.postMessage({ answer, id }));
         return;
       }
+      // Anything from a calculation since overtaken is stale.
       if (m.data.seq !== this.seq) return;
       if ('at' in m.data) {
         this.onCalculating(m.data.at);
@@ -138,32 +154,39 @@ export class Doc {
         failed(m.data.failure);
         return;
       }
-      worker.terminate();
-      this.worker = null;
       this.computing = false;
+      this.lastRan = m.data.ran;
       this.outcomes = new Map(m.data.shown.map((s) => [s.id, s]));
       this.behind = '';
       this.onBusy(false);
       this.onChange(null);
     };
-    const { regions, origin, tol, exactCompare, zeroOverZero, format, assets } = this.ws;
-    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets } };
-    worker.postMessage(request);
+    return worker;
   }
 
-  /** Stops a running calculation. A worker in a tight loop can only be ended from outside. */
+  /**
+   * Stops a running calculation. A worker in a tight loop can only be ended from outside, which loses what
+   * it remembered, so the next calculation runs the whole sheet.
+   */
   stop(): void {
     this.seq++;
-    this.worker?.terminate();
-    this.worker = null;
     this.algebra.abort();
     if (this.computing) {
+      this.worker?.terminate();
+      this.worker = null;
       this.computing = false;
       this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = 'Calculation stopped before this was updated. Any change calculates again.';
       this.onBusy(false);
       this.onChange(null);
     }
+  }
+
+  /** Forgets the last calculation, for a sheet opened in place of another. */
+  private restart(): void {
+    this.stop();
+    this.worker?.terminate();
+    this.worker = null;
   }
 
   /** Groups changes, so one edit is one undo. */

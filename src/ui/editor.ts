@@ -164,9 +164,13 @@ export class Editor {
     return this.value() !== this.baseline;
   }
 
-  close(): void {
+  /**
+   * `reopening` keeps the focus, for when the editor opens again at once, on the next slot or a new region
+   * below. Blurring there lost the focus a moment later, so the next keys typed went nowhere.
+   */
+  close(reopening = false): void {
     this.open = false;
-    this.field.blur();
+    if (!reopening) this.field.blur();
     this.hide();
     this.events.closed?.();
   }

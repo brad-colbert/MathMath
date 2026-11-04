@@ -65,6 +65,22 @@ export class Scope {
     return found < 0 ? undefined : holders[found]!.vars.get(name);
   }
 
+  /** The names this scope itself sets, not its parents'. */
+  own(): IterableIterator<[string, Value]> {
+    return this.vars.entries();
+  }
+
+  /**
+   * Forgets every definition scope after this one in its line, so a run can pick up again from here.
+   * Serials keep counting up, so a scope from the forgotten part can never pass for a new one.
+   */
+  forgetAfter(): void {
+    if (!this.line) throw new Error('only a definition scope can be resumed from');
+    for (const holders of this.line.holders.values()) {
+      while (holders.length > 0 && holders[holders.length - 1]!.serial > this.serial) holders.pop();
+    }
+  }
+
   set(name: string, v: Value): void {
     if (this.line && !this.vars.has(name)) {
       const holders = this.line.holders.get(name);
@@ -136,7 +152,7 @@ function rangeCount(r: Range): number {
 }
 
 /** Identifiers used in a tree, and those bound inside it. */
-function collectIds(node: unknown, used: Set<string>, bound: Set<string>): void {
+export function collectIds(node: unknown, used: Set<string>, bound: Set<string>): void {
   if (Array.isArray(node)) {
     for (const n of node) collectIds(n, used, bound);
     return;
@@ -787,17 +803,27 @@ export interface SymAnswer {
 /** Works out a symbolic region, given the definitions above it. */
 export type SymSolver = (c: Sym, defs: Defs, scope: Scope, ws: Worksheet) => Promise<SymAnswer>;
 
+/** Where a run picks up: the evaluator, and the scope and definitions as they stood. */
+export interface RunStart { ev: Evaluator; scope: Scope; defs: Defs }
+
 /** Keeps a worksheet's state as regions run in order. */
-class Run {
+export class Run {
   readonly ev: Evaluator;
   readonly outcomes: Outcome[] = [];
-  scope = Scope.after(null);
-  defs = new Defs();
+  scope: Scope;
+  defs: Defs;
   /** Worksheets being included, innermost last, to stop a sheet that includes itself. */
   private including: string[] = [];
 
-  constructor(ws: Worksheet, private files: Files = NO_FILES) {
-    this.ev = new Evaluator(ws, files);
+  constructor(ws: Worksheet, private files: Files = NO_FILES, start?: RunStart) {
+    this.ev = start?.ev ?? new Evaluator(ws, files);
+    this.scope = start?.scope ?? Scope.after(null);
+    this.defs = start?.defs ?? new Defs();
+  }
+
+  /** The value of a display unit, evaluated where the region stands. */
+  unitAt(unit: Expr | null): { unit?: Value } {
+    return this.unitOf(unit);
   }
 
   /**
@@ -1045,7 +1071,7 @@ const dimOf = (v: Value): Dim => (v.t === 'num' || v.t === 'mat' ? v.dim : NODIM
 
 const isGlobal = (r: Region): boolean => (r.content.k === 'define' || r.content.k === 'sym') && r.content.global;
 
-function inOrder(ws: Worksheet, order: OrderKey): Region[] {
+export function inOrder(ws: Worksheet, order: OrderKey): Region[] {
   const sorted = orderRegions(ws.regions.filter((r) => !r.disabled), order);
   return [...sorted.filter(isGlobal), ...sorted.filter((r) => !isGlobal(r))];
 }

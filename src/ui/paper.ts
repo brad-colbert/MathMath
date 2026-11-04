@@ -550,7 +550,8 @@ export class Paper {
   private commitSlot(region: Region, slot: Slot, next: 'stay' | 'below' | 'next'): void {
     const latex = this.editor.value();
     const changed = this.editor.edited();
-    this.editor.close();
+    const following = NEXT_SLOT[slot];
+    this.editor.close(next === 'next' && Boolean(following));
     this.editing = null;
     this.views.get(region.id)?.querySelector('[data-slot].editing, [data-unitpart].editing')?.classList.remove('editing');
     if (changed) {
@@ -561,7 +562,6 @@ export class Paper {
         this.doc.onProblem(`Can't read that: ${(err as Error).message}`);
       }
     }
-    const following = NEXT_SLOT[slot];
     if (next === 'next' && following) this.openSlot(region, following);
   }
 
@@ -589,7 +589,7 @@ export class Paper {
     const latex = this.editor.value();
     const changed = this.editor.edited();
     const height = this.editor.field.offsetHeight / PT;
-    this.editor.close();
+    this.editor.close(next === 'below');
     this.editing = null;
     this.crosshair.hidden = true;
     const el = this.views.get(region.id);

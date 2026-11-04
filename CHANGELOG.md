@@ -10,6 +10,31 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-03
+
+Recalculating only what changed.
+
+### Changed
+
+- A change recalculates from the first region it affects, downward, and only the regions that depend on it.
+  Everything above is reused, and below it a region runs again only when it changed or reads something that
+  did, directly or through a function. Editing near the bottom of a long sheet takes moments instead of the
+  whole sheet's time. A function defined above a change can't see it, as before, so its callers stay put.
+- Changing only how an answer looks, such as its display unit or a plot's title, calculates nothing.
+- The calculation worker stays between calculations and remembers the sheet. A newer change stops an older
+  calculation between regions instead of ending the worker, so typing during a long calculation keeps what
+  was done. Stopping a calculation that's running, with Esc or by switching to EDIT, ends the worker, as does a
+  failure, and the next calculation then runs the whole sheet, as do opening a sheet, changing its settings
+  and attaching files. Switching to EDIT when nothing is running keeps what the worker remembers.
+- The green box visits only the regions being recalculated.
+- An element or column definition, such as `v_3 := 9`, counts as reading the matrix it extends, so a change
+  to that matrix above reaches it.
+
+### Fixed
+
+- Keys typed straight after Tab (moving to a plot's next slot) or Enter (starting a new region below) could be
+  lost: the editor lost its focus for a moment as it reopened.
+
 ## [0.9.0] - 2026-11-03
 
 Speed on large sheets, and answers that stay in view while their unit or math is edited.
