@@ -29,7 +29,11 @@ fi
 echo ">> Deploying $LABEL to $REMOTE:$REMOTE_DIR"
 ssh "$REMOTE" "rm -rf '$REMOTE_DIR/app.new' && mkdir -p '$REMOTE_DIR/app.new'"
 pack | ssh "$REMOTE" "tar -x -C '$REMOTE_DIR/app.new'"
-echo "$LABEL, deployed $(date -Iseconds)" | ssh "$REMOTE" "cat > '$REMOTE_DIR/app.new/DEPLOYED'"
+# Giac goes from here, checked against its pinned hash, so a deploy doesn't depend on the site it comes from
+# being up. The build checks the hash again and only downloads when the file is missing.
+node scripts/fetch-giac.mjs
+ssh "$REMOTE" "mkdir -p '$REMOTE_DIR/app.new/public/giac/vendor'"
+scp -q public/giac/vendor/giacwasm.js "$REMOTE:$REMOTE_DIR/app.new/public/giac/vendor/giacwasm.js"
 ssh "$REMOTE" "rm -rf '$REMOTE_DIR/app' && mv '$REMOTE_DIR/app.new' '$REMOTE_DIR/app'"
 
 echo ">> Certificate"
@@ -44,5 +48,7 @@ ssh "$REMOTE" "for i in \$(seq 1 30); do curl -sk -o /dev/null https://localhost
   csp=\$(curl -skI https://localhost:$HTTPS_PORT/ | grep -ci '^content-security-policy:')
   echo \"page: HTTP \$code, security policy header: \$csp\"
   [ \"\$code\" = 200 ] && [ \"\$csp\" = 1 ]"
+# Written only once it's running, so the marker never names a build that failed.
+echo "$LABEL, deployed $(date -Iseconds)" | ssh "$REMOTE" "cat > '$REMOTE_DIR/app/DEPLOYED'"
 FIRST=$(echo "$HOSTNAMES" | cut -d, -f1)
 echo ">> Done: https://$FIRST:$HTTPS_PORT/  ($LABEL)"

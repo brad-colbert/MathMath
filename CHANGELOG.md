@@ -10,6 +10,18 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-04
+
+Deploys no longer depend on the algebra engine's download site.
+
+### Fixed
+
+- A deploy downloaded the algebra engine from the site that publishes it, so it failed whenever that site was
+  down. It now sends the copy already set up here, checked against its pinned hash, and the build only
+  downloads when that copy is missing.
+- The deploy marker on the server was written before the build, so a failed build left it naming a version
+  that wasn't running. It's now written once the new version answers.
+
 ## [0.11.0] - 2026-11-04
 
 Random numbers.
