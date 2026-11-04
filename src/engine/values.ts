@@ -30,6 +30,8 @@ export interface Mat {
   cells: Value[] | null;
   /** The scope allowed to change this matrix in place. */
   owner?: unknown;
+  /** Counts changes made in place, so anything cached from the matrix can tell it's out of date. */
+  version?: number;
 }
 export interface Range { t: 'range'; first: number; step: number; last: number; dim: Dim }
 export interface Fn { t: 'fn'; name: string; call: (args: Value[]) => Value; arity?: number }
@@ -105,6 +107,32 @@ export function resized(m: Mat, rows: number, cols: number): Mat {
     }
   }
   return c;
+}
+
+const ROOMY = new WeakSet<ArrayBufferLike>();
+
+/**
+ * Lengthens a column vector in place, to `rows`. Its numbers sit at the start of a buffer with room to spare,
+ * which doubles when it fills, so filling a vector one element at a time costs about as much as filling it at
+ * once rather than copying it every time. New elements are zero.
+ */
+export function growColumn(m: Mat, rows: number): void {
+  if (m.cols !== 1 || rows <= m.rows) throw new Error('growColumn lengthens a column vector');
+  const grow = (a: Float64Array): Float64Array => {
+    // Only room this made: a buffer from anywhere else might hold another array's numbers past this one's.
+    if (ROOMY.has(a.buffer) && a.byteOffset === 0 && a.buffer.byteLength >= rows * 8) return new Float64Array(a.buffer, 0, rows);
+    const buffer = new ArrayBuffer(Math.max(rows, 2 * a.length, 16) * 8);
+    ROOMY.add(buffer);
+    const room = new Float64Array(buffer, 0, rows);
+    room.set(a);
+    return room;
+  };
+  if (m.cells) {
+    for (let i = m.rows; i < rows; i++) m.cells.push(num(0));
+  }
+  m.re = grow(m.re);
+  if (m.im) m.im = grow(m.im);
+  m.rows = rows;
 }
 
 export function fromValues(rows: number, cols: number, items: Value[]): Mat {

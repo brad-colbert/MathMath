@@ -96,6 +96,9 @@ export interface EditorEvents {
   commit: (next: 'stay' | 'below' | 'next') => void;
   startText: () => void;
   startPlot: () => void;
+  /** After each change to the math, and when the editor closes. */
+  changed?: () => void;
+  closed?: () => void;
 }
 
 export class Editor {
@@ -117,6 +120,7 @@ export class Editor {
     // None at all: stale shortcut state crashes a reused field, and the defaults rewrite typing.
     field.inlineShortcuts = {};
     field.addEventListener('keydown', (e) => this.onKey(e), { capture: true });
+    field.addEventListener('input', () => this.events.changed?.());
     this.field = field;
     this.hide();
   }
@@ -151,14 +155,24 @@ export class Editor {
   }
 
   /** True once something has been edited. Opening a region must not change it. */
+  /** Selects everything, so typing replaces it. */
+  selectAll(): void {
+    this.field.executeCommand('selectAll');
+  }
+
   edited(): boolean {
     return this.value() !== this.baseline;
   }
 
-  close(): void {
+  /**
+   * `reopening` keeps the focus, for when the editor opens again at once, on the next slot or a new region
+   * below. Blurring there lost the focus a moment later, so the next keys typed went nowhere.
+   */
+  close(reopening = false): void {
     this.open = false;
-    this.field.blur();
+    if (!reopening) this.field.blur();
     this.hide();
+    this.events.closed?.();
   }
 
   insert(latex: string): void {

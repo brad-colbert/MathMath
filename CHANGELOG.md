@@ -10,6 +10,53 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-03
+
+Recalculating only what changed.
+
+### Changed
+
+- A change recalculates from the first region it affects, downward, and only the regions that depend on it.
+  Everything above is reused, and below it a region runs again only when it changed or reads something that
+  did, directly or through a function. Editing near the bottom of a long sheet takes moments instead of the
+  whole sheet's time. A function defined above a change can't see it, as before, so its callers stay put.
+- Changing only how an answer looks, such as its display unit or a plot's title, calculates nothing.
+- The calculation worker stays between calculations and remembers the sheet. A newer change stops an older
+  calculation between regions instead of ending the worker, so typing during a long calculation keeps what
+  was done. Stopping a calculation that's running, with Esc or by switching to EDIT, ends the worker, as does a
+  failure, and the next calculation then runs the whole sheet, as do opening a sheet, changing its settings
+  and attaching files. Switching to EDIT when nothing is running keeps what the worker remembers.
+- The green box visits only the regions being recalculated.
+- An element or column definition, such as `v_3 := 9`, counts as reading the matrix it extends, so a change
+  to that matrix above reaches it.
+
+### Fixed
+
+- Keys typed straight after Tab (moving to a plot's next slot) or Enter (starting a new region below) could be
+  lost: the editor lost its focus for a moment as it reopened.
+
+## [0.9.0] - 2026-11-03
+
+Speed on large sheets, and answers that stay in view while their unit or math is edited.
+
+### Changed
+
+- Looking up a name no longer takes longer with every definition above it. A sheet's definitions now share an
+  index of which define each name, so a sheet with hundreds of them runs about as fast per step as a short one.
+- Integrals that split at a table's points (see 0.5.0) use a 7-point rule on each piece instead of 15, still
+  subdividing whenever the error estimate asks. Results agree with the old rule to about 10⁻¹².
+- A vector defined element by element over a range grows in place, instead of being copied once per element.
+- Taking a column of a matrix, `M⟨j⟩`, copies it once per matrix rather than on every use, so a function that
+  interpolates in a table's columns doesn't copy the table on every call.
+
+### Fixed
+
+- Clicking an answer to choose its unit covered the number with an empty box, so the answer seemed to vanish.
+  Now the number stays in view and only the unit opens, filled in with the unit shown and selected, so typing
+  replaces it.
+- Clicking into math with an answer hid the answer while editing. It now stays in view, grayed, just after the
+  math, until the sheet calculates again, as in Mathcad.
+
 ## [0.8.0] - 2026-11-03
 
 Deployment (milestone 7).

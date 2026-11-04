@@ -38,6 +38,9 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.plot .slot:hover { background: #2563eb14; }
 .region.plot .slot.empty { color: #9ca3af; font-size: 6pt; }
 .region.plot .slot.editing { visibility: hidden; }
+.region [data-unitpart].editing { visibility: hidden; }
+/* The answer of a region being edited, kept in view until the sheet calculates again. */
+.ghost-answer { position: absolute; font-size: 10pt; line-height: 1.15; white-space: nowrap; color: #6b7280; pointer-events: none; }
 .region.plot .slot .auto { color: #52514e; font: 6pt system-ui, sans-serif; }
 .region.plot .slot sup { font-size: 4.5pt; }
 .region.plot [data-slot^="x"], .region.plot [data-slot^="y"] { font-size: 6pt; }
@@ -83,7 +86,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .pagecolumn { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--guide); pointer-events: none; }
 @media print {
   html, body { display: block; height: auto; background: #fff; }
-  #toolbar, #crosshair, #marquee, #editor, .pagebreak, .pagecolumn { display: none; }
+  #toolbar, #crosshair, #marquee, #editor, .ghost-answer, .pagebreak, .pagecolumn { display: none; }
   #desk { overflow: visible; padding: 0; }
   #sheet { margin: 0; box-shadow: none; width: var(--print-width) !important; height: var(--print-height) !important; overflow: clip; }
   .region.past-page { display: none; }

@@ -1,5 +1,6 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
-import { type LimitKey, type Pixels, type PlotData, type SymAnswer, type SymSolver, runWithSymbolics } from '../engine/evaluate.js';
+import { type LimitKey, type Pixels, type PlotData, type SymAnswer, type SymSolver } from '../engine/evaluate.js';
+import { type Snapshot, runIncremental } from '../engine/incremental.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
 import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
@@ -7,7 +8,7 @@ import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/as
 import type { Defs } from '../symbolic/defs.js';
 import { NotSymbolic, expand } from '../symbolic/expand.js';
 import { type GiacRequest, Printer, buildRequest, readAnswer } from '../symbolic/giac.js';
-import { axisScale, displayUnit, formatValue } from '../ui/format.js';
+import { axisScale, displayUnit, formatValue, unitLatexOf } from '../ui/format.js';
 
 export interface ComputeRequest {
   seq: number;
@@ -27,10 +28,15 @@ export interface Shown {
   unevaluated?: boolean;
   /** A reference whose sheet is attached, though it still needs other files, listed in `error`. */
   partial?: boolean;
+  /** The unit part of `value`, as LaTeX, so the page can let it be edited apart from the number. */
+  unit?: string;
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
 export interface Progress { seq: number; at: string }
+
+/** A finished calculation: what to show for every region, and which regions were calculated this time. */
+export interface Done { seq: number; shown: Shown[]; ran: string[]; failure?: string }
 
 /** Messages to the page, which owns the long-lived algebra engine. */
 export interface AskAlgebra { ask: GiacRequest; id: number }
@@ -134,14 +140,68 @@ async function decode(assets: Worksheet['assets']): Promise<Files> {
   return { image: (name) => images.get(name), table: (name) => tables.get(name), sheet: (name) => sheets.get(name) };
 }
 
+/** The last run's state, kept between runs so the next one recalculates only what changed. */
+let snapshot: Snapshot | null = null;
+let decoded: { key: string; files: Files } | null = null;
+/** The newest request. A run checks it between regions, and stops when it's been overtaken. */
+let latest = -1;
+let queued: ComputeRequest | null = null;
+let busy = false;
+
+class Superseded extends Error {}
+
+/** Lets messages in, so a newer request can arrive mid-run. A promise alone wouldn't: it's a microtask. */
+const yieldTask = (): Promise<void> => new Promise((resolve) => {
+  const channel = new MessageChannel();
+  channel.port1.onmessage = () => resolve();
+  channel.port2.postMessage(0);
+});
+
+/** Identifies the attached files, so a change to any of them starts the calculation over. */
+function assetsKey(assets: Worksheet['assets']): string {
+  let h = 0x811c9dc5;
+  const mix = (text: string): void => {
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  };
+  for (const [name, a] of Object.entries(assets ?? {}).sort(([x], [y]) => (x < y ? -1 : 1))) {
+    mix(name);
+    mix(a.mime);
+    mix(a.data);
+  }
+  return `${Object.keys(assets ?? {}).length}:${(h >>> 0).toString(16)}`;
+}
+
 async function run({ seq, sheet }: ComputeRequest): Promise<void> {
   const ws: Worksheet = { ...sheet, page: null as never, texts: [], opaque: [], otherRegions: {}, componentOutputs: [] };
-  const files = await decode(sheet.assets ?? {});
+  const key = assetsKey(sheet.assets ?? {});
+  if (decoded?.key !== key) decoded = { key, files: await decode(sheet.assets ?? {}) };
   const starting = (region: Region): void => {
     const message: Progress = { seq, at: region.id };
     self.postMessage(message);
   };
-  const shown: Shown[] = (await runWithSymbolics(ws, solve, 'align', files, starting)).map((o) => {
+  let result: Awaited<ReturnType<typeof runIncremental>>;
+  try {
+    result = await runIncremental(ws, solve, snapshot, {
+      files: decoded.files,
+      filesKey: key,
+      starting,
+      between: async () => {
+        await yieldTask();
+        if (latest !== seq) throw new Superseded();
+      },
+      progress: (s) => {
+        snapshot = s;
+      },
+    });
+  } catch (err) {
+    // Overtaken: what it finished is kept, and the newer request carries on from there.
+    if (err instanceof Superseded) return;
+    // Anything else leaves nothing reliable to resume from.
+    snapshot = null;
+    throw err;
+  }
+  snapshot = result.snapshot;
+  const shown: Shown[] = result.outcomes.map((o) => {
     const id = o.region.id;
     // Grayed, not red: something to replace or a file to load, not a mistake in the math.
     if (o.error) {
@@ -149,21 +209,40 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
       if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
       return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
     }
-    if (o.plot && o.region.content.k === 'plot') return { id, plot: inUnits(o.plot, o.region.content) };
-    if (o.image) return { id, image: o.image };
+    // Points and pixels are copied, because sending moves them, and the snapshot keeps its own.
+    if (o.plot && o.region.content.k === 'plot') {
+      const plot = inUnits(o.plot, o.region.content);
+      return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })) } };
+    }
+    if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
     if (o.unevaluated) return { id, unevaluated: true };
     if (o.symbolic) return { id, value: tex(o.symbolic) };
     const c = o.region.content;
     const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
-    return o.value ? { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit) } : { id };
+    if (!o.value) return { id };
+    const shownUnit = unitLatexOf(o.value, unit);
+    return { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit), ...(shownUnit ? { unit: shownUnit } : {}) };
   });
-  // Point data moves to the page rather than being copied: plots can be large. Traces can share an
-  // array, and a buffer listed twice makes the browser refuse the whole message.
+  // Point data moves to the page rather than being copied a second time: plots can be large. A buffer
+  // listed twice makes the browser refuse the whole message.
   const transfer = new Set(shown.flatMap((s) => [
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.image ? [s.image.rgba.buffer] : []),
   ]));
-  self.postMessage({ seq, shown }, { transfer: [...transfer] as ArrayBuffer[] });
+  const done: Done = { seq, shown, ran: result.ran };
+  self.postMessage(done, { transfer: [...transfer] as ArrayBuffer[] });
+}
+
+/** Runs requests one at a time; a newer one stops an older one at its next region. */
+async function pump(): Promise<void> {
+  busy = true;
+  while (queued) {
+    const request = queued;
+    queued = null;
+    // A failure here must end the calculation visibly, or the page waits for ever.
+    await run(request).catch((err: Error) => self.postMessage({ seq: request.seq, shown: [], failure: err.message }));
+  }
+  busy = false;
 }
 
 self.onmessage = (m: MessageEvent<ComputeRequest | { answer: string; id: number }>) => {
@@ -171,8 +250,9 @@ self.onmessage = (m: MessageEvent<ComputeRequest | { answer: string; id: number 
   if ('answer' in data) {
     pending.get(data.id)?.(data.answer);
     pending.delete(data.id);
-  } else {
-    // A failure here must end the calculation visibly, or the page waits for ever.
-    run(data).catch((err: Error) => self.postMessage({ seq: data.seq, shown: [], failure: err.message }));
+    return;
   }
+  latest = data.seq;
+  queued = data;
+  if (!busy) void pump();
 };

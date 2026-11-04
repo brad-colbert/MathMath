@@ -101,6 +101,11 @@ export function axisScale(dim: Dim, unit: DisplayUnit | undefined): { divide: nu
   return { divide: u.divide, zero: u.offset?.zero ?? 0, latex: u.latex };
 }
 
+/** The unit an answer shows, as LaTeX: the chosen one, with any dimension it leaves over, or the default. */
+export function unitLatexOf(v: Value, unit?: DisplayUnit): string {
+  return v.t === 'num' || v.t === 'mat' ? unitFor(v.dim, unit).latex : '';
+}
+
 const withUnit = (number: string, latex: string): string => (latex ? `${number}\\ ${latex}` : number);
 
 const matrix = (rows: string[][]): string => `\\begin{pmatrix}${rows.map((r) => r.join('&')).join('\\\\')}\\end{pmatrix}`;

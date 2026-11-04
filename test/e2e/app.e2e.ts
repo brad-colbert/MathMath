@@ -209,6 +209,40 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Recalculating only what changed: the worker remembers the sheet between calculations.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'a:2*m');
+  await type(page, 72, 108, 'b:a*3');
+  await type(page, 72, 144, 'b=');
+  await type(page, 72, 180, 'c:10');
+  await type(page, 72, 216, 'c=');
+  await idle(page);
+  const ids = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.map((r: any) => r.id));
+  const ran = () => page.evaluate(() => (window as any).mathmath.doc.lastRan);
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.update(d.ws.regions[3], (c: any) => ({ ...c, value: { k: 'real', v: 20 } }));
+  });
+  await idle(page);
+  check('changing c runs only c and what reads it', JSON.stringify(await ran()) === JSON.stringify([ids[3], ids[4]]), { ran: await ran(), ids });
+  check('and the answers are right', (await shown(page)).join('|').replace(/[\s\u200b]/g, '').includes('c=20'), await shown(page));
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.update(d.ws.regions[2], (c: any) => ({ ...c, unit: { k: 'id', name: 'cm' } }));
+  });
+  await idle(page);
+  check('a new display unit calculates nothing', JSON.stringify(await ran()) === '[]', await ran());
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.update(d.ws.regions[0], (c: any) => ({ ...c, value: { k: 'op', op: 'mult', args: [{ k: 'real', v: 5 }, { k: 'id', name: 'm' }] } }));
+  });
+  await idle(page);
+  check('changing a reaches b below it, and leaves c alone', JSON.stringify(await ran()) === JSON.stringify([ids[0], ids[1], ids[2]]), await ran());
+  check('with b = 15 m shown in its chosen unit', (await shown(page)).join('|').replace(/[\s\u200b]/g, '').includes('b=1.5×103cm'), await shown(page));
+  await page.close();
+}
+
 // Editing above changes what's below.
 {
   const page = await fresh();
@@ -755,7 +789,10 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await plotAt(pu, 60, 96, 'd', 'd');
   await idleP(pu);
   const unitText = () => pu.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.plot .axis-unit')].map((e) => `${e.dataset.slot}:${e.textContent}:${e.classList.contains('auto')}`));
-  check('each axis shows its default unit, in gray', JSON.stringify(await unitText()) === JSON.stringify(['yunit:(m):true', 'xunit:(m):true']), await unitText());
+  check('each axis shows its default unit, in gray', JSON.stringify(await unitText()) === JSON.stringify(['yunit:(m):true', 'xunit:(m):true']), {
+    units: await unitText(),
+    state: await pu.evaluate(() => { const d = (window as any).mathmath.doc; const r = d.ws.regions[1]; return { x: r?.content.x, ys: r?.content.ys?.length, labels: d.outcomes.get(r?.id)?.plot?.labels, ran: d.lastRan, computing: d.computing, behind: d.behind }; }),
+  });
   const yu = await pu.evaluate(() => {
     const r = document.querySelector<HTMLElement>('.region.plot [data-slot="yunit"]')!.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -830,14 +867,29 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   if (at) {
     await page.mouse.click(at.x, at.y);
     await sleep(120);
+    const opened = await page.evaluate(() => {
+      const view = document.querySelectorAll<HTMLElement>('.region')[1]!;
+      const unit = view.querySelector<HTMLElement>('[data-unitpart]');
+      return {
+        editor: ((document.getElementById('editor') as any).getValue?.('latex-unstyled') as string) ?? '',
+        numberShown: view.style.visibility !== 'hidden' && getComputedStyle(view.querySelector('[data-slot="unit"]')!).visibility !== 'hidden',
+        unitHidden: unit ? getComputedStyle(unit).visibility === 'hidden' : false,
+      };
+    });
+    check('clicking the answer keeps the number in view, and opens its unit filled in', opened.numberShown && opened.unitHidden && /m/.test(opened.editor), opened);
     await keys(page, 'cm');
     await page.keyboard.press('Escape');
     await sleep(60);
   }
   text = await answers(page);
   check('choosing cm shows the length in centimetres', text[1]?.endsWith('=300cm') === true, text[1]);
-  // Editing the math keeps the unit.
+  // Editing the math keeps the unit, and the old answer stays in view, grayed, while it's edited.
   await clickAt(page, 62, 94);
+  const ghost = await page.evaluate(() => {
+    const g = document.querySelector<HTMLElement>('.ghost-answer')!;
+    return { hidden: g.hidden, text: (g.innerText ?? '').replace(/[\s\u200b]/g, '') };
+  });
+  check('while the math is edited, its answer stays in view', !ghost.hidden && ghost.text.startsWith('300'), ghost);
   await page.keyboard.press('End');
   await page.keyboard.press('ArrowLeft');
   await keys(page, '*2');
@@ -1433,7 +1485,10 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('EDIT calculates nothing, and the old answer grays', !edited.computing && /3/.test(edited.value ?? '') && edited.stale === true
     && /EDIT/.test(edited.note ?? ''), edited);
   await click();
-  check('switching back to LIVE calculates', (await mode()).live && (await page.evaluate(() => (window as any).mathmath.doc.computing)));
+  // The worker remembers the sheet, so this one-region change can finish before anything looks: check what ran.
+  await idle(page);
+  check('switching back to LIVE calculates', (await mode()).live && JSON.stringify(await page.evaluate(() => (window as any).mathmath.doc.lastRan)) === JSON.stringify(await page.evaluate(() => (window as any).mathmath.doc.ws.regions.map((r: any) => r.id))),
+    await page.evaluate(() => (window as any).mathmath.doc.lastRan));
   await idle(page);
   const after = await answer();
   check('and the answer is current again', /6/.test(after.value ?? '') && !after.stale, after);

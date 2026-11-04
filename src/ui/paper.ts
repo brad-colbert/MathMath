@@ -53,6 +53,8 @@ export class Paper {
   private editing: Editing | null = null;
   private textEdit: { region: TextRegion; el: HTMLElement } | null = null;
   private calcTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The answer of the region being edited, grayed beside the editor. */
+  private ghost = document.createElement('div');
   /** A plot title being typed in place. */
   private titleEdit: { region: Region; slot: TitleSlot; el: HTMLElement } | null = null;
   private crosshair: HTMLElement;
@@ -69,7 +71,14 @@ export class Paper {
       commit: (next) => this.commit(next),
       startText: () => this.startTextFromEmpty(),
       startPlot: () => this.startPlotFromEmpty(),
+      changed: () => this.placeGhost(),
+      closed: () => {
+        this.ghost.hidden = true;
+      },
     });
+    this.ghost.className = 'ghost-answer';
+    this.ghost.hidden = true;
+    sheet.appendChild(this.ghost);
     doc.onChange = (ids) => this.draw(ids);
     doc.onCalculating = (id) => this.calculating(id);
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
@@ -252,8 +261,13 @@ export class Paper {
     const outcome = this.doc.outcomes.get(region.id);
     const math = display(regionLatex(c)).replace(/=$/, '');
     const shows = c.k === 'eval' || (c.k === 'define' && c.shown);
-    // The answer is a slot: clicking it chooses the unit it shows in.
-    const answer = (result: string): string => `${math}=\\htmlData{slot=unit}{${result}}`;
+    // The answer is a slot: clicking it chooses the unit it shows in. Its unit is marked apart from the
+    // number, so editing the unit leaves the number in view.
+    const answer = (result: string, unit?: string): string => {
+      const tail = unit ? `\\ ${unit}` : '';
+      const marked = tail && result.endsWith(tail) ? `${result.slice(0, -tail.length)}\\ \\htmlData{unitpart=1}{${unit}}` : result;
+      return `${math}=\\htmlData{slot=unit}{${marked}}`;
+    };
     if (region.disabled) return { latex: math, state: 'stale', note: 'Calculation is off for this region' };
     // A Mathcad feature to replace, such as a file function: grayed, with what to do instead.
     if (outcome?.mathcad) return { latex: math, state: 'stale', note: outcome.error ?? '' };
@@ -267,7 +281,7 @@ export class Paper {
     // While a calculation runs, or in EDIT mode after a change, an answer may be out of date, and must look it.
     const note = this.outdated();
     const current = note ? 'stale' : 'ok';
-    if (shows && outcome?.value) return { latex: answer(outcome.value), state: current, note };
+    if (shows && outcome?.value) return { latex: answer(outcome.value, outcome.unit), state: current, note };
     if (shows && !outcome && stored) return { latex: answer(formatStored(stored, format)), state: 'stale', note: 'Saved answer' };
     return { latex: math, state: 'ok', note: '' };
   }
@@ -447,6 +461,27 @@ export class Paper {
     this.editing = { kind: 'region', region, bottom, isNew };
     if (el) el.style.visibility = 'hidden';
     this.editor.show(region.left, region.top, regionLatex(region.content));
+    // The answer stays in view, grayed, just after the math being edited, as in Mathcad, until the sheet
+    // calculates again.
+    const c = region.content;
+    const value = this.doc.outcomes.get(region.id)?.value;
+    if (value && (c.k === 'eval' || (c.k === 'define' && c.shown))) {
+      this.ghost.innerHTML = render(value);
+      this.ghost.hidden = false;
+      this.placeGhost();
+    }
+  }
+
+  /** Keeps the grayed answer just after the editor as the math grows and shrinks. */
+  private placeGhost(): void {
+    if (this.ghost.hidden) return;
+    requestAnimationFrame(() => {
+      const sheet = this.sheet.getBoundingClientRect();
+      const f = this.editor.field.getBoundingClientRect();
+      const g = this.ghost.getBoundingClientRect();
+      this.ghost.style.left = `${(f.right - sheet.left) / PT + 2}pt`;
+      this.ghost.style.top = `${(f.top + (f.height - g.height) / 2 - sheet.top) / PT}pt`;
+    });
   }
 
   /** Edits one part of a region in place, over the part itself. */
@@ -458,12 +493,27 @@ export class Paper {
     const el = this.views.get(region.id);
     const part = el?.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
     const sheet = this.sheet.getBoundingClientRect();
-    const box = (part ?? el)?.getBoundingClientRect();
-    const left = box ? (box.left - sheet.left) / PT : region.left;
+    let latex = slotLatex(region.content, slot);
+    let over: HTMLElement | null | undefined = part;
+    let after = false;
+    if (slot === 'unit') {
+      // Only the unit is edited, over the unit itself, starting from the one it shows now, all selected so
+      // typing replaces it. A plain number has no unit: the editor opens just after it.
+      const shown = this.doc.outcomes.get(region.id)?.unit ?? '';
+      if (!latex) latex = shown;
+      over = part?.querySelector<HTMLElement>('[data-unitpart]');
+      if (!over) {
+        over = part;
+        after = true;
+      }
+    }
+    const box = (over ?? el)?.getBoundingClientRect();
+    const left = box ? ((after ? box.right + 2 : box.left) - sheet.left) / PT : region.left;
     const top = box ? (box.top - sheet.top) / PT : region.top;
     this.editing = { kind: 'slot', region, slot };
-    part?.classList.add('editing');
-    this.editor.show(left, top, slotLatex(region.content, slot), true);
+    if (!after) over?.classList.add('editing');
+    this.editor.show(left, top, latex, true);
+    if (slot === 'unit' && latex) this.editor.selectAll();
   }
 
   /** A title is plain text, so it's typed right where it shows, like a text region. */
@@ -500,9 +550,10 @@ export class Paper {
   private commitSlot(region: Region, slot: Slot, next: 'stay' | 'below' | 'next'): void {
     const latex = this.editor.value();
     const changed = this.editor.edited();
-    this.editor.close();
+    const following = NEXT_SLOT[slot];
+    this.editor.close(next === 'next' && Boolean(following));
     this.editing = null;
-    this.views.get(region.id)?.querySelector('[data-slot].editing')?.classList.remove('editing');
+    this.views.get(region.id)?.querySelector('[data-slot].editing, [data-unitpart].editing')?.classList.remove('editing');
     if (changed) {
       try {
         const content = withSlot(region.content, slot, latex);
@@ -511,7 +562,6 @@ export class Paper {
         this.doc.onProblem(`Can't read that: ${(err as Error).message}`);
       }
     }
-    const following = NEXT_SLOT[slot];
     if (next === 'next' && following) this.openSlot(region, following);
   }
 
@@ -539,7 +589,7 @@ export class Paper {
     const latex = this.editor.value();
     const changed = this.editor.edited();
     const height = this.editor.field.offsetHeight / PT;
-    this.editor.close();
+    this.editor.close(next === 'below');
     this.editing = null;
     this.crosshair.hidden = true;
     const el = this.views.get(region.id);
