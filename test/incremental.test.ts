@@ -151,3 +151,10 @@ describe('recalculating from a change down', () => {
     expect(r.ran).toEqual(['r1', 'r2']);
   });
 });
+
+describe('random numbers, recalculated from a change down', () => {
+  test('give the same numbers as a full run', async () => {
+    const r = await edited(sheetOf(['i\\coloneq 0..9', 'x_{i}\\coloneq \\mathrm{rnd}\\left(1\\right)', 'k\\coloneq 2', 'x\\cdot k=']), (ws) => set(ws, 'r3', 'k\\coloneq 3'));
+    expect(r.ran).toEqual(['r3', 'r4']);
+  });
+});

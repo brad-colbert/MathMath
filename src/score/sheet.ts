@@ -30,13 +30,16 @@ export const selfContained = (ws: Worksheet, xml: string): boolean =>
 
 const storedOf = (c: Content) => (c.k === 'define' || c.k === 'eval' ? c.stored : null);
 const APPROXIMATE = /"(bigop|derivative)"/;
+/** A call of a random-number function. The answers Mathcad saved came from its own draws, so can't match. */
+const RANDOM = /"k":"id","name":"(rnd|runif|rnorm)"/;
 const namesIn = (json: string): string[] => [...json.matchAll(/"k":"id","name":"([^"]+)"/g)].map((m) => m[1]!);
 
 /**
- * Names whose values come, at any remove, from an integral or derivative, which Mathcad computes only to
- * its tolerance. Definitions in referenced sheets count too.
+ * Names whose values come, at any remove, from something the pattern finds in a definition: an integral or
+ * derivative, which Mathcad computes only to its tolerance, or random numbers. Definitions in referenced
+ * sheets count too.
  */
-function approximateNames(ws: Worksheet, files?: Files): Set<string> {
+function dependentNames(ws: Worksheet, files: Files | undefined, pattern: RegExp): Set<string> {
   const defs = new Map<string, string>();
   const seen = new Set<string>();
   const visit = (sheet: Worksheet): void => {
@@ -56,7 +59,7 @@ function approximateNames(ws: Worksheet, files?: Files): Set<string> {
     }
   };
   visit(ws);
-  const approx = new Set([...defs].filter(([, v]) => APPROXIMATE.test(v)).map(([k]) => k));
+  const approx = new Set([...defs].filter(([, v]) => pattern.test(v)).map(([k]) => k));
   for (let grew = true; grew;) {
     grew = false;
     for (const [name, v] of defs) {
@@ -77,7 +80,12 @@ const tolFor = (c: Content, approx: Set<string>): number => {
 export function scoreSheet(ws: Worksheet, order: OrderKey = 'align', files?: Files): SheetScore {
   const score: SheetScore = { match: 0, mismatch: 0, error: 0, excluded: 0, needs: 0, unscored: { ran: 0, failed: [] }, rows: [], units: { agree: 0, total: 0, misses: [] } };
   const outcomes = runWorksheet(ws, order, files);
-  const approx = approximateNames(ws, files);
+  const approx = dependentNames(ws, files, APPROXIMATE);
+  const random = dependentNames(ws, files, RANDOM);
+  const isRandom = (c: Content): boolean => {
+    const json = JSON.stringify(c);
+    return RANDOM.test(json) || namesIn(json).some((n) => random.has(n));
+  };
   // With a referenced sheet missing, an undefined name is most likely one it would have defined.
   const missing = outcomes.find((o) => o.region.content.k === 'include' && o.error?.kind === 'needs-file')?.region.content;
   const missingFile = missing?.k === 'include' ? missing.file : null;
@@ -104,6 +112,12 @@ export function scoreSheet(ws: Worksheet, order: OrderKey = 'align', files?: Fil
         const verdict = compareResult(o.value, stored, tolFor(c, approx), o.unit);
         bucket = verdict.ok ? 'match' : 'mismatch';
         if (!verdict.ok) detail = verdict.reason;
+        // Random draws differ from the ones Mathcad saved, so a miss there says nothing about the engine.
+        // Answers that don't hang on the draws, such as how many there are, still count.
+        if (!verdict.ok && isRandom(c)) {
+          bucket = 'excluded';
+          detail = `depends on random numbers, which differ from the ones Mathcad drew (${verdict.reason})`;
+        }
       } catch (err) {
         if (!(err instanceof EvalError)) throw err;
         bucket = 'error';
