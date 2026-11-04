@@ -600,3 +600,61 @@ describe('speed-ups that must not change answers', () => {
     expect(results(ws).map((o) => (o.value as { re: number }).re)).toEqual([2, 100]);
   });
 });
+
+describe('random numbers', () => {
+  const values = (ws: Worksheet, n = 0): number[] => {
+    const v = results(ws)[n]!.value!;
+    return v.t === 'num' ? [v.re] : [...(v as Mat).re];
+  };
+  const filled = () => sheet([
+    define(id('i'), stat('range', real(0), real(99))),
+    define(op('indexer', id('x'), id('i')), call('rnd', real(10))),
+    evaluate(id('x')),
+    evaluate(call('rnd', real(10))),
+  ]);
+
+  test('rnd(x) is uniform in [0, x), different for each element and each region', () => {
+    const x = values(filled());
+    expect(x.length).toBe(100);
+    expect(x.every((v) => v >= 0 && v < 10)).toBe(true);
+    expect(new Set(x).size).toBe(100);
+    expect(values(filled(), 1)[0]).not.toBe(x[0]);
+  });
+
+  test('a sheet draws the same numbers every time it calculates', () => {
+    expect(values(filled())).toEqual(values(filled()));
+  });
+
+  test("rnd keeps its argument's units", () => {
+    const v = results(sheet([evaluate(call('rnd', op('mult', real(5), id('m'))))]))[0]!.value as Num;
+    expect(v.dim).toEqual([1, 0, 0, 0, 0, 0, 0]);
+    expect(v.re >= 0 && v.re < 5).toBe(true);
+  });
+
+  test('runif and rnorm give m values with about the right spread', () => {
+    const u = values(sheet([evaluate(call('runif', real(4000), real(2), real(4)))]));
+    expect(u.length).toBe(4000);
+    expect(u.every((v) => v >= 2 && v < 4)).toBe(true);
+    expect(Math.abs(u.reduce((a, b) => a + b, 0) / u.length - 3)).toBeLessThan(0.05);
+    const g = values(sheet([evaluate(call('rnorm', real(4000), real(5), real(2)))]));
+    const mean = g.reduce((a, b) => a + b, 0) / g.length;
+    const sd = Math.sqrt(g.reduce((a, b) => a + (b - mean) ** 2, 0) / g.length);
+    expect(Math.abs(mean - 5)).toBeLessThan(0.15);
+    expect(Math.abs(sd - 2)).toBeLessThan(0.15);
+    expect(results(sheet([evaluate(call('runif', real(2.5), real(0), real(1)))]))[0]!.error?.reason).toContain('whole number');
+  });
+
+  test('the scoreboard leaves out answers that depend on random numbers', async () => {
+    const { scoreSheet } = await import('../src/score/sheet.js');
+    const ws = sheet([
+      define(id('r'), call('rnd', real(1))),
+      define(id('s'), op('plus', id('r'), real(1))),
+      evaluate(id('s'), real(1.5)),
+      evaluate(op('mult', id('r'), real(0)), real(0)),
+      evaluate(real(2), real(2)),
+    ]);
+    const s = scoreSheet(ws);
+    // The draw misses Mathcad's, so it's left out; an answer that doesn't hang on the draw still counts.
+    expect([s.excluded, s.match]).toEqual([1, 2]);
+  });
+});

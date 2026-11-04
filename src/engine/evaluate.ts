@@ -6,6 +6,7 @@ import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
   transpose, zip,
 } from './ops.js';
+import { stream } from './random.js';
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
@@ -229,7 +230,16 @@ export class Evaluator {
       interpolated: (xs, at) => {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
       },
+      random: () => this.random(),
     });
+  }
+
+  /** The stream random numbers come from, set as each region starts. */
+  private random: () => number = stream('');
+
+  /** Starts the random stream for a region, so its numbers are the same every time it calculates. */
+  randomFor(key: string): void {
+    this.random = stream(key);
   }
 
   get origin(): number {
@@ -881,6 +891,7 @@ export class Run {
   }
 
   plain(region: Region): void {
+    this.ev.randomFor([...this.including, region.id].join('/'));
     const c = region.content;
     if (c.k === 'image') {
       try {

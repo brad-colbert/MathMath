@@ -10,6 +10,23 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-04
+
+Random numbers.
+
+### Added
+
+- Random numbers: `rnd(x)`, uniform in [0, x) and in x's units; `runif(m, a, b)`, m uniform numbers in
+  [a, b); and `rnorm(m, μ, σ)`, m normal numbers. Each region draws from its own stream, so a sheet's random
+  data is the same every time it calculates, and recalculating part of a sheet gives the same numbers as
+  recalculating all of it. The numbers differ from other programs' draws.
+
+### Changed
+
+- The scoreboard leaves out an answer that depends on random numbers, at any remove, when it doesn't match,
+  since the saved answer came from other draws. One that matches anyway, such as a count, still counts.
+  Before, those regions stopped with an error.
+
 ## [0.10.0] - 2026-11-03
 
 Recalculating only what changed.

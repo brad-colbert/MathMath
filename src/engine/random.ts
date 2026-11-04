@@ -1,0 +1,32 @@
+/**
+ * Random numbers for rnd, runif and rnorm. Each region draws from its own stream, seeded from the region,
+ * so a sheet's "random" data is the same every time it calculates. That keeps recalculating only what
+ * changed in step with a full run, and keeps a sheet's numbers steady between sessions. Mathcad draws new
+ * numbers on each recalculation, and its generator isn't public, so the values differ from Mathcad's.
+ */
+
+/** A 32-bit FNV-1a hash of a string, for seeding. */
+function hash(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+}
+
+/** Mulberry32: small, fast and well mixed, plenty for test data. Returns numbers in [0, 1). */
+export function stream(key: string, seed = 1): () => number {
+  let a = (hash(key) ^ Math.imul(seed, 0x9e3779b9)) >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** A standard normal number, by the Box–Muller transform. */
+export function normal(next: () => number): number {
+  let u = 0;
+  while (u === 0) u = next();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * next());
+}

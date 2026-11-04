@@ -4,6 +4,7 @@ import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, sec
 import {
   cholesky, eigenvector, eigenvectors, geninv, lsolve, luDecompose, matOf, norm1, norm2, norme, normi, qr, rowsOf, rref, singular, singularValues,
 } from './linalg.js';
+import { normal } from './random.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
@@ -142,10 +143,18 @@ function imageMatrix(img: DecodedImage): Mat {
 /** Lets an integral learn where an interpolated table has corners, so it can split there. */
 export interface Hooks {
   interpolated?(xs: Float64Array, at: number): void;
+  /** The next number in [0, 1) from the stream of the region being calculated. */
+  random?(): number;
 }
 
 export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
   const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - origin;
+  const next = (): number => (hooks.random ?? Math.random)();
+  const count = (m: Value, fn: string): number => {
+    const n = requireReal(m, `${fn}'s count`);
+    if (!Number.isInteger(n) || n < 1) throw new EvalError('runtime', `${fn} needs a whole number of values, 1 or more`);
+    return n;
+  };
 
   const table: Record<string, Impl> = {
     sin: real1(Math.sin), cos: real1(Math.cos), tan: real1(Math.tan),
@@ -416,9 +425,20 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     concat: (...a) => str(a.map((s) => (s.t === 'str' ? s.v : '')).join('')),
     strlen: (s) => num(s.t === 'str' ? s.v.length : 0),
     num2str: (a) => str(String(requireReal(a))),
-    rnd: () => { throw new EvalError('excluded', 'rnd'); },
-    runif: () => { throw new EvalError('excluded', 'rnd'); },
-    rnorm: () => { throw new EvalError('excluded', 'rnd'); },
+    // A uniform number in [0, x), in x's units. On a vector, one for each element.
+    rnd: (x) => scalar((v) => num(next() * requireReal(v, "rnd's argument"), v.dim))(x!),
+    // m uniform numbers in [a, b), and m normal numbers with mean mu and standard deviation sigma.
+    runif: (m, a, b) => {
+      const [lo, hi] = [requireNum(a!), requireNum(b!)];
+      compareReal(lo, hi);
+      return column(Array.from({ length: count(m!, 'runif') }, () => lo.re + next() * (hi.re - lo.re)), lo.dim);
+    },
+    rnorm: (m, mu, sigma) => {
+      const [mean, sd] = [requireNum(mu!), requireNum(sigma!)];
+      if (sd.re < 0) throw new EvalError('runtime', "rnorm's standard deviation can't be negative");
+      compareReal(mean, sd);
+      return column(Array.from({ length: count(m!, 'rnorm') }, () => mean.re + sd.re * normal(next)), mean.dim);
+    },
     norme: (m) => absV(fromValues(requireMat(m).re.length, 1, flatten([m]))),
     normi: (m) => {
       const a = requireMat(m);
