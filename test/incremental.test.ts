@@ -178,3 +178,16 @@ describe('what a calculation says it may change', () => {
     expect(planned).toEqual([]);
   });
 });
+
+describe('answers as they come', () => {
+  test('each calculated region is handed over as soon as it is done, in order', async () => {
+    const ws = sheetOf(['x\\coloneq 1', 'x=', 'y\\coloneq 2', 'y=']);
+    const first = await runIncremental(ws, noAlgebra, null);
+    const edited = structuredClone(ws);
+    set(edited, 'r3', 'y\\coloneq 7');
+    const order: string[] = [];
+    const r = await runIncremental(edited, noAlgebra, first.snapshot, { finished: (o) => order.push(o.region.id) });
+    expect(order).toEqual(r.ran);
+    expect(order).toEqual(['r3', 'r4']);
+  });
+});

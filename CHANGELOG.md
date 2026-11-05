@@ -10,6 +10,21 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-05
+
+Answers appear as they're ready.
+
+### Changed
+
+- Answers appear one at a time as a sheet calculates, as each region finishes, instead of all at once at the
+  end. A long sheet fills in from the top, and an answer above a slow region shows, current, while the slow
+  one is still calculating.
+
+### Fixed
+
+- An app test compared the trace panel's `hidden` with a boolean, which the browser's types also allow to be
+  a string; it failed the type check only.
+
 ## [0.12.0] - 2026-11-05
 
 Trace styles, and graying only what a recalculation may change.
