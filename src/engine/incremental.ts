@@ -80,8 +80,9 @@ export function calcKey(c: Content): string {
     case 'eval': return json({ k: c.k, expr: c.expr });
     case 'define': return json({ k: c.k, target: c.target, value: c.value, global: c.global });
     case 'sym': return json({ k: c.k, expr: c.expr, commands: c.commands, target: c.target, global: c.global });
+    // Surface and contour read their expression differently from X-Y and polar, so that choice calculates.
     case 'plot': return json({
-      k: c.k, x: c.x, ys: c.ys,
+      k: c.k, x: c.x, ys: c.ys, grid: c.view === 'surface' || c.view === 'contour',
       xAxis: { min: c.xAxis.min, max: c.xAxis.max, unit: c.xAxis.unit ?? null },
       yAxis: { min: c.yAxis.min, max: c.yAxis.max, unit: c.yAxis.unit ?? null },
     });

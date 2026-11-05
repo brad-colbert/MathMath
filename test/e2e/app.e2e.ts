@@ -851,6 +851,120 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('Esc closes the panel', await ps.evaluate(() => document.getElementById('trace-panel')!.hidden === true));
   await ps.close();
 
+  // Polar, surface and contour views, chosen from Format.
+  const pv = await fresh();
+  const pick = (label: string) => pv.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === l)!.click(), label);
+  const viewInfo = () => pv.evaluate((): { view?: string; view3d?: { azimuth: number; elevation: number }; ran: string[]; paths: number; d: string; problem: string; ranges: number } => {
+    const d = (window as any).mathmath.doc;
+    const r = d.ws.regions.find((x: any) => x.content.k === 'plot');
+    const el = document.querySelector<HTMLElement>('.region.plot')!;
+    return {
+      view: r.content.view, view3d: r.content.view3d, ran: d.lastRan,
+      paths: el.querySelectorAll('.plot-svg path').length,
+      d: [...el.querySelectorAll('.plot-svg path')].slice(0, 3).map((p) => p.getAttribute('d')).join(),
+      problem: el.querySelector('.plot-problem')?.textContent ?? '',
+      ranges: el.querySelectorAll('.ranges').length,
+    };
+  });
+  const selectPlot = async () => {
+    const b = await pv.evaluate(() => {
+      const r = document.querySelector<HTMLElement>('.region.plot')!.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+    });
+    await pv.mouse.click(b.x, b.y);
+    await sleep(80);
+    return b;
+  };
+  await type(pv, 60, 60, 'q:0,0.1;6.3');
+  await type(pv, 60, 96, 'f(x,y', R, ':x*y');
+  await plotAt(pv, 60, 140, '1+cos(q', 'q');
+  await idleP(pv);
+  await selectPlot();
+  await pick('Polar plot');
+  await idleP(pv);
+  await sleep(80);
+  let vi = await viewInfo();
+  check('Format → Polar plot draws the trace around a center, calculating nothing', vi.view === 'polar' && vi.paths >= 1 && !vi.problem && JSON.stringify(vi.ran) === '[]', vi);
+  // The same plot, now of f, as a surface.
+  await pv.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const r = d.ws.regions.find((x: any) => x.content.k === 'plot');
+    d.update(r, (c: any) => ({ ...c, x: null, ys: [{ k: 'id', name: 'f' }] }));
+  });
+  await idleP(pv);
+  await pick('Surface plot (3-D)');
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('Format → Surface plot (3-D) draws a function of two variables', vi.view === 'surface' && vi.paths > 400 && !vi.problem && vi.ranges === 1, vi);
+  const unturned = vi.d;
+  const area = await pv.evaluate(() => {
+    const r = document.querySelector('.region.plot .rotate-area')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await pv.mouse.move(area.x, area.y);
+  await pv.mouse.down();
+  for (let n = 1; n <= 5; n++) await pv.mouse.move(area.x + n * 12, area.y + n * 4);
+  await pv.mouse.up();
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('dragging a surface turns it, calculating nothing', !!vi.view3d && vi.view3d.azimuth !== -55 && vi.view3d.elevation !== 28 && vi.d !== unturned && JSON.stringify(vi.ran) === '[]', vi);
+  const saved3d = await pv.evaluate(() => (window as any).mathmath.save());
+  await pick('Reset the 3-D view');
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('Format → Reset the 3-D view turns it back, calculating nothing', vi.view3d === undefined && vi.d === unturned && JSON.stringify(vi.ran) === '[]', vi);
+  await pv.keyboard.down('Control');
+  await pv.keyboard.press('KeyZ');
+  await pv.keyboard.up('Control');
+  await sleep(120);
+  check('and undo turns it again', !!(await viewInfo()).view3d);
+  const pdf3d = Buffer.from(await pv.pdf({ preferCSSPageSize: true, printBackground: true })).toString('latin1');
+  check('a 3-D plot prints as drawing, not a picture', !/\/Subtype\s*\/Image/.test(pdf3d));
+  await pv.keyboard.press('Escape');
+  await pv.keyboard.down('Control');
+  await pv.keyboard.press('KeyZ');
+  await pv.keyboard.up('Control');
+  await sleep(120);
+  vi = await viewInfo();
+  check('one undo turns it back', vi.view3d === undefined && vi.d === unturned, vi);
+  await selectPlot();
+  await pick('Contour plot');
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('Format → Contour plot draws level lines, calculating nothing', vi.view === 'contour' && vi.paths >= 3 && !vi.problem && JSON.stringify(vi.ran) === '[]', vi);
+  const pv2 = await fresh();
+  await pv2.evaluate((t) => (window as any).mathmath.load('v.mathmath', t), saved3d);
+  await idleP(pv2);
+  const back = (await model(pv2)).regions.find((r: any) => r.content.k === 'plot')?.content;
+  check('a saved surface keeps its view', back?.view === 'surface' && back.view3d?.azimuth === JSON.parse(saved3d).worksheet.regions.find((r: any) => r.content.k === 'plot').content.view3d.azimuth, back);
+  check('and draws it again', (await pv2.evaluate(() => document.querySelectorAll('.region.plot .plot-svg path').length)) > 400);
+  await pv2.close();
+  // A matrix of heights has no sampling limits to show, and something that isn't a surface says so.
+  await pv.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const r = d.ws.regions.find((x: any) => x.content.k === 'plot');
+    const row = (a: number[]) => a.map((v) => ({ k: 'real', v }));
+    d.update(r, (c: any) => ({ ...c, view: 'surface', ys: [{ k: 'matrix', rows: 2, cols: 3, items: [...row([1, 2, 3]), ...row([4, 5, 6])] }] }));
+  });
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('a matrix of heights draws as a surface, without x and y limits', vi.view3d === undefined && vi.paths >= 2 && vi.ranges === 0 && !vi.problem, vi);
+  await pv.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const r = d.ws.regions.find((x: any) => x.content.k === 'plot');
+    d.update(r, (c: any) => ({ ...c, ys: [{ k: 'real', v: 3 }] }));
+  });
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('a number says what a surface needs', vi.problem.includes('A surface needs'), vi);
+  await pv.close();
+
   // Vectors with no x, and mismatched lengths.
   const p2 = await fresh();
   await p2.evaluate(() => {

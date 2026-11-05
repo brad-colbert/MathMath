@@ -10,6 +10,35 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-05
+
+Polar, surface and contour plots.
+
+### Added
+
+- Polar plots. Format → Polar plot draws a plot's traces around a center, taking x as the angle in radians and
+  each y as the distance out. Rings and spokes every 30° stand in for the axes, and the outer ring's value can
+  be typed to fix the scale. Switching between X-Y and polar only redraws.
+- Surface plots. Format → Surface plot (3-D) draws a matrix of heights, a function of two variables, or three
+  matrices X, Y and Z in a vector (for shapes such as a sphere). A function is sampled on a 31 × 31 grid
+  between the x and y limits typed under the plot, −5 to 5 unless set. Color runs light to dark with height,
+  with a scale at the side in the heights' unit.
+- Drag across a surface plot to turn it; up and down tilts it. Turning redraws without recalculating, the
+  view is saved with the sheet, one undo turns it back, and Format → Reset the 3-D view returns to the start.
+- Contour plots. Format → Contour plot draws the same data as level lines on flat x and y axes, shaded like
+  the surface, from a matrix of heights or a function.
+
+### Changed
+
+- The `.mathmath` format, still version 1, gains an optional view on plots (polar, surface or contour) and
+  the turned angle of a surface. Plots without them are X-Y plots, as before.
+
+### Known limits
+
+- A contour plot needs a matrix of heights or a function; three matrices X, Y and Z draw only as a surface.
+- Surfaces are drawn flat-shaded, back to front, without lighting, and their box is scaled to fit rather
+  than kept to true proportions, so a sphere may look squashed.
+
 ## [0.15.0] - 2026-11-05
 
 Landscape pages.

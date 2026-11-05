@@ -384,10 +384,26 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Log x axis', 'plot', (c) => (c.k === 'plot' ? { ...c, xAxis: { ...c.xAxis, log: !c.xAxis.log } } : c)],
   ['Log y axis', 'plot', (c) => (c.k === 'plot' ? { ...c, yAxis: { ...c.yAxis, log: !c.yAxis.log } } : c)],
   ['Points instead of lines', 'plot', (c) => (c.k === 'plot' ? { ...c, markers: !c.markers } : c)],
+  // What kind of plot: how it's drawn, not what's calculated, so switching never recalculates.
+  ['X-Y plot', 'plot', (c) => (c.k === 'plot' ? withView(c, undefined) : c)],
+  ['Polar plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'polar') : c)],
+  ['Surface plot (3-D)', 'plot', (c) => (c.k === 'plot' ? withView(c, 'surface') : c)],
+  ['Contour plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'contour') : c)],
+  ['Reset the 3-D view', 'plot', (c) => {
+    if (c.k !== 'plot') return c;
+    const { view3d: _, ...rest } = c;
+    return rest;
+  }],
   ['Axis titles', 'plot', (c) => toggleTitles(c, 'axes')],
   ['Plot title', 'plot', (c) => toggleTitles(c, 'plot')],
   ['Color image (R|G|B side by side)', 'image', (c) => (c.k === 'image' ? { ...c, mode: c.mode === 'rgb' ? 'gray' : 'rgb' } : c)],
 ];
+/** The plot drawn another way: X-Y when `view` is undefined. */
+function withView(c: Extract<Content, { k: 'plot' }>, view: Extract<Content, { k: 'plot' }>['view'] | undefined): Content {
+  const { view: _, ...rest } = c;
+  return view ? { ...rest, view } : rest;
+}
+
 // Each trace's color, line, weight and points, in a panel for the selected plot.
 const tracePanel = new TracePanel(doc);
 {
