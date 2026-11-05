@@ -1,5 +1,5 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
-import { type LimitKey, type Pixels, type PlotData, type SymAnswer, type SymSolver } from '../engine/evaluate.js';
+import { type LimitKey, type Outcome, type Pixels, type PlotData, type SymAnswer, type SymSolver } from '../engine/evaluate.js';
 import { type Snapshot, runIncremental } from '../engine/incremental.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
 import { loadWorksheet } from '../format/native.js';
@@ -40,6 +40,9 @@ export interface Planned { seq: number; pending: string[] }
 
 /** Sent when one of those turns out to need no calculating, so it can show as current again. */
 export interface Kept { seq: number; kept: string }
+
+/** One region's answer, sent as soon as it's ready. The final message carries them all again. */
+export interface Answer { seq: number; ready: Shown }
 
 /** A finished calculation: what to show for every region, and which regions were calculated this time. */
 export interface Done { seq: number; shown: Shown[]; ran: string[]; failure?: string }
@@ -206,6 +209,12 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
         const message: Kept = { seq, kept: id };
         self.postMessage(message);
       },
+      // Each answer goes to the page as soon as it's ready, so a long sheet fills in from the top.
+      finished: (o) => {
+        const one = shownOf(o, sheet.format);
+        const message: Answer = { seq, ready: one };
+        self.postMessage(message, { transfer: buffersOf([one]) });
+      },
     });
   } catch (err) {
     // Overtaken: what it finished is kept, and the newer request carries on from there.
@@ -215,36 +224,44 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
     throw err;
   }
   snapshot = result.snapshot;
-  const shown: Shown[] = result.outcomes.map((o) => {
-    const id = o.region.id;
-    // Grayed, not red: something to replace or a file to load, not a mistake in the math.
-    if (o.error) {
-      const c = o.region.content;
-      if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
-      return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
-    }
-    // Points and pixels are copied, because sending moves them, and the snapshot keeps its own.
-    if (o.plot && o.region.content.k === 'plot') {
-      const plot = inUnits(o.plot, o.region.content);
-      return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })) } };
-    }
-    if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
-    if (o.unevaluated) return { id, unevaluated: true };
-    if (o.symbolic) return { id, value: tex(o.symbolic) };
+  const shown = result.outcomes.map((o) => shownOf(o, sheet.format));
+  const done: Done = { seq, shown, ran: result.ran };
+  self.postMessage(done, { transfer: buffersOf(shown) });
+}
+
+/** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */
+function shownOf(o: Outcome, format: NumberFormat): Shown {
+  const id = o.region.id;
+  // Grayed, not red: something to replace or a file to load, not a mistake in the math.
+  if (o.error) {
     const c = o.region.content;
-    const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
-    if (!o.value) return { id };
-    const shownUnit = unitLatexOf(o.value, unit);
-    return { id, value: formatValue(o.value, formatFor(o.region, sheet.format), unit), ...(shownUnit ? { unit: shownUnit } : {}) };
-  });
-  // Point data moves to the page rather than being copied a second time: plots can be large. A buffer
-  // listed twice makes the browser refuse the whole message.
-  const transfer = new Set(shown.flatMap((s) => [
+    if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
+    return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
+  }
+  // Points and pixels are copied, because sending moves them, and the snapshot keeps its own.
+  if (o.plot && o.region.content.k === 'plot') {
+    const plot = inUnits(o.plot, o.region.content);
+    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })) } };
+  }
+  if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
+  if (o.unevaluated) return { id, unevaluated: true };
+  if (o.symbolic) return { id, value: tex(o.symbolic) };
+  const c = o.region.content;
+  const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
+  if (!o.value) return { id };
+  const shownUnit = unitLatexOf(o.value, unit);
+  return { id, value: formatValue(o.value, formatFor(o.region, format), unit), ...(shownUnit ? { unit: shownUnit } : {}) };
+}
+
+/**
+ * Point data and pixels move to the page rather than being copied a second time: plots can be large. Traces
+ * can share an array, and a buffer listed twice makes the browser refuse the whole message.
+ */
+function buffersOf(shown: Shown[]): ArrayBuffer[] {
+  return [...new Set(shown.flatMap((s) => [
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.image ? [s.image.rgba.buffer] : []),
-  ]));
-  const done: Done = { seq, shown, ran: result.ran };
-  self.postMessage(done, { transfer: [...transfer] as ArrayBuffer[] });
+  ]))] as ArrayBuffer[];
 }
 
 /** Runs requests one at a time; a newer one stops an older one at its next region. */

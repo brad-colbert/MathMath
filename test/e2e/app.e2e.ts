@@ -848,7 +848,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('Default puts the trace back', (await ps.evaluate(() => (window as any).mathmath.doc.ws.regions[1].content.traces)) === undefined);
   await ps.keyboard.press('Escape');
   await sleep(60);
-  check('Esc closes the panel', await ps.evaluate(() => document.getElementById('trace-panel')!.hidden));
+  check('Esc closes the panel', await ps.evaluate(() => document.getElementById('trace-panel')!.hidden === true));
   await ps.close();
 
   // Vectors with no x, and mismatched lengths.
@@ -1352,6 +1352,34 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.waitForFunction('!window.mathmath.doc.computing', { timeout: 60000 });
   check('and loses it when the calculation ends', (await page.evaluate(() => document.querySelectorAll('.region.calculating').length)) === 0);
   check('with the right answer', (await shown(page)).join('').replace(/\s/g, '').includes('=1.645'), await shown(page));
+  await page.close();
+}
+
+// Answers appear as they're ready: one above a slow region shows, current, while the slow one calculates.
+{
+  const page = await fresh();
+  const T = { press: 'Tab' };
+  await type(page, 72, 72, 'a:1');
+  await type(page, 72, 108, 'a=');
+  await type(page, 72, 150, { press: 'Digit4', ctrl: true, shift: true }, 'n', T, '1', T, '3000000', T, '1/n^2', R, '+a', R, '=');
+  await idle(page);
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.update(d.ws.regions[0], (c: any) => ({ ...c, value: { k: 'real', v: 2 } }));
+  });
+  // Wait for a='s new answer, which comes before the slow sum below it finishes.
+  await page.waitForFunction(() => {
+    const d = (window as any).mathmath.doc;
+    return /2/.test(d.outcomes.get(d.ws.regions[1].id)?.value ?? '');
+  }, { timeout: 10000 });
+  const mid = await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const el = (id: string) => document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+    return { computing: d.computing, aStale: el(d.ws.regions[1].id).classList.contains('stale'), sumStale: el(d.ws.regions[2].id).classList.contains('stale') };
+  });
+  check('an answer shows as soon as it is ready, current, while a slow region below still calculates', mid.computing && !mid.aStale && mid.sumStale, mid);
+  await idle(page);
+  check('and the slow one follows', (await shown(page)).join('|').replace(/[\s\u200b]/g, '').includes('=3.64'), await shown(page));
   await page.close();
 }
 

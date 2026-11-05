@@ -7,7 +7,7 @@ import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { Algebra } from './algebra.js';
-import type { AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
+import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
 export type Item =
   | { kind: 'math'; region: Region }
@@ -144,7 +144,7 @@ export class Doc {
       this.onChange(null);
     };
     worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
-    worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress | Planned | Kept>) => {
+    worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress | Planned | Kept | Answer>) => {
       if ('ask' in m.data) {
         const { ask, id } = m.data;
         void this.algebra.ask(ask).then((answer) => worker.postMessage({ answer, id }));
@@ -164,6 +164,14 @@ export class Doc {
       if ('kept' in m.data) {
         this.mayChange?.delete(m.data.kept);
         this.onChange(new Set([m.data.kept]));
+        return;
+      }
+      // An answer as soon as it's ready: shown, and current, while the rest of the sheet calculates.
+      if ('ready' in m.data) {
+        const one = m.data.ready;
+        this.outcomes.set(one.id, one);
+        this.mayChange?.delete(one.id);
+        this.onChange(new Set([one.id]));
         return;
       }
       this.onCalculating(null);

@@ -68,6 +68,8 @@ export interface IncrementalOptions {
   planned?: (ids: string[]) => void;
   /** Told of each of those that turns out not to need calculating, as the run reaches it. */
   kept?: (id: string) => void;
+  /** Given each region's outcome as soon as it's calculated. */
+  finished?: (outcome: Outcome) => void;
 }
 
 const json = (v: unknown): string => JSON.stringify(v);
@@ -219,6 +221,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
     }
     const outcome = run.outcomes[shown]!;
     run.outcomes.length = shown;
+    opts.finished?.(outcome);
     const sets = setsBetween(scopeBefore, run.scope);
     // What it sets now, and what it set before, may both read differently below. Except a region that ran
     // again only because it holds a function: the same definition, reading nothing that changed, behaves the
