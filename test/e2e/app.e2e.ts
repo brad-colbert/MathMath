@@ -808,6 +808,49 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('a chosen unit converts the axis', uc?.yAxis.unit?.name === 'cm' && top === '1000' && (await unitText())[0] === 'yunit:(cm):false', { unit: uc?.yAxis.unit, top, labels: await unitText() });
   await pu.close();
 
+  // Trace styles: a panel from Format, changing how a trace looks without recalculating.
+  const ps = await fresh();
+  await type(ps, 60, 60, 't:0,0.5;5');
+  await plotAt(ps, 60, 96, 't,t^2', 't');
+  await idleP(ps);
+  const psBox = await ps.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await ps.mouse.click(psBox.x, psBox.y);
+  await sleep(80);
+  await ps.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === 'Trace styles…')!.click());
+  await sleep(120);
+  check('Format → Trace styles… opens a row per trace', (await ps.evaluate(() => document.querySelectorAll('#trace-panel:not([hidden]) .trace').length)) === 2);
+  await ps.evaluate(() => {
+    const row = document.querySelectorAll<HTMLElement>('#trace-panel .trace')[0]!;
+    row.querySelectorAll<HTMLButtonElement>('.swatch')[1]!.click();
+    const line = row.querySelectorAll<HTMLSelectElement>('select')[0]!;
+    line.value = 'none';
+    line.dispatchEvent(new Event('change'));
+  });
+  await idleP(ps);
+  await sleep(80);
+  const styled = await ps.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const el = document.querySelector<HTMLElement>('.region.plot')!;
+    return {
+      traces: d.ws.regions[1].content.traces,
+      ran: d.lastRan,
+      paths: [...el.querySelectorAll('path')].map((p) => p.getAttribute('stroke')),
+      points: el.querySelectorAll('.plot-svg circle').length,
+    };
+  });
+  check('a trace can be given its own color and drawn as points', styled.traces?.[0]?.color === '#eb6834' && styled.traces[0].line === 'none' && styled.points === 11, styled);
+  check('and restyling calculates nothing', JSON.stringify(styled.ran) === '[]', styled.ran);
+  await ps.evaluate(() => document.querySelectorAll<HTMLElement>('#trace-panel .trace')[0]!.querySelector<HTMLButtonElement>('.controls button')!.click());
+  await sleep(80);
+  check('Default puts the trace back', (await ps.evaluate(() => (window as any).mathmath.doc.ws.regions[1].content.traces)) === undefined);
+  await ps.keyboard.press('Escape');
+  await sleep(60);
+  check('Esc closes the panel', await ps.evaluate(() => document.getElementById('trace-panel')!.hidden));
+  await ps.close();
+
   // Vectors with no x, and mismatched lengths.
   const p2 = await fresh();
   await p2.evaluate(() => {
@@ -1267,22 +1310,29 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const page = await fresh();
   await type(page, 72, 72, 'x:3');
   await type(page, 72, 108, 'x+1=');
+  await type(page, 300, 72, 'y:2');
+  await type(page, 300, 108, 'y=');
   await idle(page);
   const during = await page.evaluate(() => {
     const m = (window as any).mathmath;
     const real = m.doc.recompute.bind(m.doc);
-    // Holds a calculation open, as a long one would.
+    const [, xAnswer, , yAnswer] = m.doc.ws.regions.map((r: any) => r.id);
+    // Holds a calculation open, as a long one would, which may change x and its answer but not y's.
     m.doc.recompute = () => {
       m.doc.computing = true;
+      m.doc.mayChange = new Set([m.doc.ws.regions[0].id, xAnswer]);
     };
     m.doc.setMath(m.doc.ws.regions[0], 'x\\coloneq9');
-    const stale = document.querySelectorAll('.region.stale').length;
+    const stale = (id: string) => document.querySelector(`[data-id="${id}"]`)!.classList.contains('stale');
+    const seen = { x: stale(xAnswer), y: stale(yAnswer) };
     m.doc.recompute = real;
     m.doc.computing = false;
+    m.doc.mayChange = null;
     m.doc.recompute();
-    return stale;
+    return seen;
   });
-  check('an answer shows as provisional during a calculation', during === 1, during);
+  check('an answer the calculation may change shows as provisional', during.x === true, during);
+  check('and one it can\'t change stays current', during.y === false, during);
   await idle(page);
   check('and as current once it finishes', (await page.evaluate(() => document.querySelectorAll('.region.stale').length)) === 0);
   await page.close();

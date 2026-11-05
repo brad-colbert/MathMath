@@ -64,6 +64,10 @@ export interface IncrementalOptions {
   between?: () => Promise<void>;
   /** Receives the snapshot as far as it has got, so a stopped run still leaves one to resume from. */
   progress?: (snapshot: Snapshot) => void;
+  /** Told at the start which regions may change: the first one affected and everything below it. */
+  planned?: (ids: string[]) => void;
+  /** Told of each of those that turns out not to need calculating, as the run reaches it. */
+  kept?: (id: string) => void;
 }
 
 const json = (v: unknown): string => JSON.stringify(v);
@@ -148,6 +152,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
   if (!sameOrder) for (const s of oldBelow) for (const [name] of s.sets) dirty.add(name);
 
   // Above the change nothing is calculated, but a region there may be shown differently now.
+  opts.planned?.(order.slice(k).map((r) => r.id));
   const steps: Step[] = old.slice(0, k).map((step, i) => {
     const region = order[i]!;
     const content = json(region.content);
@@ -197,6 +202,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
       }
       steps.push({ ...prior, content: json(c), outcome, scope: run.scope, defs: run.defs });
       snapshot.steps = steps;
+      opts.kept?.(region.id);
       continue;
     }
     opts.starting?.(region);

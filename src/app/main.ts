@@ -5,6 +5,7 @@ import { forgetFile, openFile, readAny, saveFile } from '../ui/files.js';
 import { TEMPLATES, matrixTemplate } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
 import { toggleTitles } from '../ui/slots.js';
+import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
 import type { Content, Worksheet } from '../model/ast.js';
@@ -129,6 +130,7 @@ const redraw = doc.onChange;
 doc.onChange = (ids) => {
   redraw(ids);
   showTitle();
+  tracePanel.refresh();
 };
 
 const busy = document.createElement('span');
@@ -331,6 +333,24 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Plot title', 'plot', (c) => toggleTitles(c, 'plot')],
   ['Color image (R|G|B side by side)', 'image', (c) => (c.k === 'image' ? { ...c, mode: c.mode === 'rgb' ? 'gray' : 'rgb' } : c)],
 ];
+// Each trace's color, line, weight and points, in a panel for the selected plot.
+const tracePanel = new TracePanel(doc);
+{
+  const b = document.createElement('button');
+  b.textContent = 'Trace styles…';
+  b.title = 'Color, line, weight and points for each trace of the selected plot';
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const region = paper.selectedOf('plot');
+    if (!region) {
+      doc.onProblem('Select a plot first');
+      return;
+    }
+    tracePanel.open(region);
+  });
+  plotList.appendChild(b);
+}
 for (const [label, kind, change] of formats) {
   const b = document.createElement('button');
   b.textContent = label;

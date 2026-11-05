@@ -35,6 +35,12 @@ export interface Shown {
 /** Sent as each region starts, so the page can show which one is calculating. */
 export interface Progress { seq: number; at: string }
 
+/** Sent as a calculation starts: the regions it may change. The rest of the sheet is already current. */
+export interface Planned { seq: number; pending: string[] }
+
+/** Sent when one of those turns out to need no calculating, so it can show as current again. */
+export interface Kept { seq: number; kept: string }
+
 /** A finished calculation: what to show for every region, and which regions were calculated this time. */
 export interface Done { seq: number; shown: Shown[]; ran: string[]; failure?: string }
 
@@ -191,6 +197,14 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
       },
       progress: (s) => {
         snapshot = s;
+      },
+      planned: (pending) => {
+        const message: Planned = { seq, pending };
+        self.postMessage(message);
+      },
+      kept: (id) => {
+        const message: Kept = { seq, kept: id };
+        self.postMessage(message);
       },
     });
   } catch (err) {

@@ -84,9 +84,23 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #marquee { position: absolute; border: 1px dashed var(--select); background: #2563eb18; pointer-events: none; }
 .pagebreak { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--guide); pointer-events: none; }
 .pagecolumn { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--guide); pointer-events: none; }
+/* Trace styles for the selected plot. */
+#trace-panel { position: fixed; top: 84px; right: 16px; z-index: 20; width: 340px; max-height: calc(100vh - 110px); overflow-y: auto;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 14px #0003; padding: 8px 10px; font: 13px system-ui, sans-serif; color: #111827; }
+#trace-panel .head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+#trace-panel .trace { border-top: 1px solid #e5e7eb; padding: 6px 0; }
+#trace-panel .name { font-size: 12pt; margin-bottom: 4px; }
+#trace-panel .colors { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+#trace-panel .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #0003; padding: 0; cursor: pointer; }
+#trace-panel .swatch.on { outline: 2px solid #111827; outline-offset: 1px; }
+#trace-panel input[type=color] { width: 26px; height: 22px; padding: 0; border: 1px solid #d1d5db; border-radius: 3px; background: none; }
+#trace-panel .controls { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+#trace-panel select { font: inherit; }
+#trace-panel button { font: inherit; }
+
 @media print {
   html, body { display: block; height: auto; background: #fff; }
-  #toolbar, #crosshair, #marquee, #editor, .ghost-answer, .pagebreak, .pagecolumn { display: none; }
+  #toolbar, #crosshair, #marquee, #editor, .ghost-answer, #trace-panel, .pagebreak, .pagecolumn { display: none; }
   #desk { overflow: visible; padding: 0; }
   #sheet { margin: 0; box-shadow: none; width: var(--print-width) !important; height: var(--print-height) !important; overflow: clip; }
   .region.past-page { display: none; }
