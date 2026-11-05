@@ -8,6 +8,7 @@ import {
 import { complexTransform, realForward, realInverse } from './fourier.js';
 import { normal } from './random.js';
 import { butterFns, convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
+import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
@@ -18,7 +19,7 @@ import {
 
 type Impl = (...args: Value[]) => Value;
 
-/** How many arguments each signal function takes, at least and at most, so a missing one is named. */
+/** How many arguments each signal function takes, at least and at most, so a missing one is named. Image functions list theirs in image.ts. */
 const SIGNAL_ARITY: Record<string, [number, number]> = {
   convolve: [2, 2], correlate: [2, 2], hannWindow: [1, 1], hammingWindow: [1, 1], blackmanWindow: [1, 1], kaiserWindow: [2, 2],
   firLowpass: [2, 3], firHighpass: [2, 3], firBandpass: [3, 4], firBandstop: [3, 4],
@@ -28,7 +29,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IMAGE_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -167,6 +168,8 @@ export interface Hooks {
   interpolated?(xs: Float64Array, at: number): void;
   /** The next number in [0, 1) from the stream of the region being calculated. */
   random?(): number;
+  /** An image file the region being calculated wrote, to offer for saving. */
+  wrote?(name: string, image: Pixels): void;
 }
 
 export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
@@ -415,6 +418,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     CFFT: (v) => complexTransform(v!, 'CFFT'), ICFFT: (v) => complexTransform(v!, 'ICFFT'),
     // MathMath's own signal processing (see signal.ts).
     ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...butterFns, ...filterFns } as unknown as Record<string, Impl>),
+    // Image processing (see image.ts).
+    ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     readWav: (source) => {
       const audio = wavFile(source, 'readWav');
       const frames = audio.channels[0]?.length ?? 0;

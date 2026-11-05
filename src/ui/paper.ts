@@ -11,6 +11,7 @@ import { Editor } from './editor.js';
 import { formatStored } from './format.js';
 import { drawPlot } from './plot.js';
 import { DEFAULT_VIEW } from './plot3d.js';
+import { drawSaves } from './save-image.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
@@ -201,6 +202,7 @@ export class Paper {
     el.classList.toggle('stale', state === 'stale');
     el.classList.toggle('draft', state === 'draft');
     el.title = note;
+    drawSaves(el, this.doc.outcomes.get(item.region.id)?.files);
   }
 
   /** A matrix as an image. Until it's computed, or if it can't be, the stored picture stands in. */
@@ -241,7 +243,9 @@ export class Paper {
     label.innerHTML = c.expr ? render(tex(c.expr)) : '&#9632;';
     el.appendChild(label);
     el.classList.toggle('error', !!outcome?.error);
-    el.title = outcome?.error ?? (c.mode === 'rgb' ? 'Color, from red, green and blue blocks side by side' : 'Gray levels 0 to 255, or color from three matrices');
+    const range = c.fit ? 'its own lowest to highest value' : '0 to 255';
+    el.title = outcome?.error ?? (c.mode === 'rgb' ? `Color, from red, green and blue blocks side by side, ${range}`
+      : c.falseColor ? `False color on the blue ramp, light to dark over ${range}` : `Gray levels over ${range}, or color from three matrices`);
     if (this.selected.has(region.id)) {
       const handle = document.createElement('div');
       handle.className = 'handle';
@@ -679,6 +683,8 @@ export class Paper {
     const view = target.closest<HTMLElement>('.region');
     if (view && view === this.textEdit?.el) return;
     if (this.titleEdit && target.closest('[data-slot]') === this.titleEdit.el) return;
+    // A Save button under a region is a button, not part of the region to select or drag.
+    if (target.closest('.saves')) return;
     e.preventDefault();
     const p = this.point(e);
     this.commitAll();

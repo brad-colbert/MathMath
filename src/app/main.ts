@@ -397,7 +397,14 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Axis titles', 'plot', (c) => toggleTitles(c, 'axes')],
   ['Plot title', 'plot', (c) => toggleTitles(c, 'plot')],
   ['Color image (R|G|B side by side)', 'image', (c) => (c.k === 'image' ? { ...c, mode: c.mode === 'rgb' ? 'gray' : 'rgb' } : c)],
+  ['Fit image to its range', 'image', (c) => (c.k === 'image' ? toggled(c, 'fit') : c)],
+  ['False color (blue ramp)', 'image', (c) => (c.k === 'image' ? toggled(c, 'falseColor') : c)],
 ];
+/** The image with an on-or-off display option switched: on is stored, off is left out. */
+function toggled(c: Extract<Content, { k: 'image' }>, key: 'fit' | 'falseColor'): Content {
+  const { [key]: on, ...rest } = c;
+  return on ? rest : { ...rest, [key]: true };
+}
 /** The plot drawn another way: X-Y when `view` is undefined. */
 function withView(c: Extract<Content, { k: 'plot' }>, view: Extract<Content, { k: 'plot' }>['view'] | undefined): Content {
   const { view: _, ...rest } = c;

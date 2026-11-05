@@ -108,7 +108,13 @@ export type Content =
    * A matrix shown as an image: gray levels 0 to 255, or color from red, green and blue blocks side by
    * side. `png` is a stored rendering, shown until the image is computed.
    */
-  | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
+  | {
+    k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null;
+    /** Stretch the matrix's own lowest to highest value over black to white, rather than 0 to 255. */
+    fit?: boolean;
+    /** Show a gray image on the blue ramp, light for low values and dark for high. */
+    falseColor?: boolean;
+  }
   /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
   | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string; traces?: (TraceStyle | null)[];
       /**

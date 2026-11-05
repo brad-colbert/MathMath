@@ -2,6 +2,7 @@ import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/as
 import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
+import { type Pixels, type Written, pixels } from './image.js';
 import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
   transpose, zip,
@@ -13,6 +14,8 @@ import {
   growColumn, needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
+
+export { type Pixels, type Written, pixels };
 /** Columns taken from each matrix, as long as it hasn't changed since. */
 const COLUMNS = new WeakMap<Mat, { version: number; cols: Map<number, Mat> }>();
 
@@ -135,18 +138,14 @@ export interface PlotData {
   zLabel?: string;
 }
 
-/** An image region's pixels, row by row, four bytes a pixel. */
-export interface Pixels {
-  width: number;
-  height: number;
-  rgba: Uint8ClampedArray;
-}
 
 export interface Outcome {
   region: Region;
   value?: Value;
   plot?: PlotData;
   image?: Pixels;
+  /** Image files the region wrote with writeImage, to offer for saving. */
+  files?: Written[];
   /** The result of a symbolic region. */
   symbolic?: Expr;
   unevaluated?: boolean;
@@ -242,7 +241,19 @@ export class Evaluator {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
       },
       random: () => this.random(),
+      wrote: (name, image) => this.writes.at(-1)?.set(name, image),
     });
+  }
+
+  /** Files written by the regions being calculated, innermost last: an included sheet's regions nest. */
+  private writes: Map<string, Pixels>[] = [];
+
+  beginWrites(): void {
+    this.writes.push(new Map());
+  }
+
+  takeWrites(): Written[] {
+    return [...(this.writes.pop() ?? new Map<string, Pixels>())].map(([name, image]) => ({ name, image }));
   }
 
   /** The stream random numbers come from, set as each region starts. */
@@ -902,12 +913,24 @@ export class Run {
   }
 
   plain(region: Region): void {
+    this.ev.beginWrites();
+    const shown = this.outcomes.length;
+    try {
+      this.plainRegion(region);
+    } finally {
+      const files = this.ev.takeWrites();
+      const outcome = this.outcomes[shown];
+      if (files.length > 0 && outcome) outcome.files = files;
+    }
+  }
+
+  private plainRegion(region: Region): void {
     this.ev.randomFor([...this.including, region.id].join('/'));
     const c = region.content;
     if (c.k === 'image') {
       try {
         if (!c.expr) throw new EvalError('runtime', 'Type the matrix to show');
-        this.outcomes.push({ region, image: pixels(this.ev.evalRegionExpr(c.expr, this.scope), c.mode) });
+        this.outcomes.push({ region, image: pixels(this.ev.evalRegionExpr(c.expr, this.scope), c.mode, c) });
       } catch (err) {
         this.outcomes.push({ region, error: toEvalError(err) });
       }
@@ -975,41 +998,6 @@ export class Run {
       this.ev.markFailed(c.target, toEvalError(err), this.scope);
     }
   }
-}
-
-/**
- * A matrix as pixels: gray levels, or color from three equal blocks of columns side by side. Three
- * matrices in a vector are color too, red then green then blue.
- */
-export function pixels(v: Value, mode: 'gray' | 'rgb'): Pixels {
-  if (v.t === 'mat' && v.cells && v.rows * v.cols === 3) {
-    const [r, g, b] = v.cells;
-    if (r?.t !== 'mat' || g?.t !== 'mat' || b?.t !== 'mat' || r.cells || g.cells || b.cells) throw new EvalError('runtime', 'A color image needs three matrices of numbers');
-    if (g.rows !== r.rows || b.rows !== r.rows || g.cols !== r.cols || b.cols !== r.cols) throw new EvalError('runtime', 'The red, green and blue matrices differ in size');
-    const joined = newMat(r.rows, r.cols * 3);
-    joined.re.set(r.re, 0);
-    joined.re.set(g.re, r.re.length);
-    joined.re.set(b.re, 2 * r.re.length);
-    return pixels(joined, 'rgb');
-  }
-  if (v.t !== 'mat' || v.cells) throw new EvalError('runtime', 'An image needs a matrix of numbers');
-  const { rows: h, cols } = v;
-  if (mode === 'rgb' && cols % 3 !== 0) throw new EvalError('runtime', `A color image needs three equal blocks of columns, and this has ${cols}`);
-  const w = mode === 'rgb' ? cols / 3 : cols;
-  const rgba = new Uint8ClampedArray(w * h * 4);
-  const at = (i: number, j: number): number => v.re[i + j * h]!;
-  for (let i = 0; i < h; i++) {
-    for (let j = 0; j < w; j++) {
-      const p = (i * w + j) * 4;
-      if (mode === 'rgb') {
-        rgba[p] = at(i, j);
-        rgba[p + 1] = at(i, j + w);
-        rgba[p + 2] = at(i, j + 2 * w);
-      } else rgba[p] = rgba[p + 1] = rgba[p + 2] = at(i, j);
-      rgba[p + 3] = 255;
-    }
-  }
-  return { width: w, height: h, rgba };
 }
 
 /** The most points a trace keeps. Beyond this a plot can't show the difference. */

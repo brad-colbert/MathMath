@@ -1,5 +1,5 @@
 /** Runs a worksheet off the main thread, so a long calculation can't freeze the page. */
-import { type LimitKey, type Outcome, type Pixels, type PlotData, type SymAnswer, type SymSolver } from '../engine/evaluate.js';
+import { type LimitKey, type Outcome, type Pixels, type PlotData, type SymAnswer, type SymSolver, type Written } from '../engine/evaluate.js';
 import { type Snapshot, runIncremental } from '../engine/incremental.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
 import { type DecodedAudio, isWavFile, parseWav } from '../engine/wav.js';
@@ -33,6 +33,8 @@ export interface Shown {
   unit?: string;
   /** Files the region is waiting for, by name: attached, they'd let it calculate. */
   needs?: string[];
+  /** Image files the region wrote, for the page to offer to save. */
+  files?: Written[];
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
@@ -245,8 +247,14 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
   self.postMessage(done, { transfer: buffersOf(shown) });
 }
 
-/** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */
+/** What the page shows for one region, with any image files it wrote, copied as pixels are. */
 function shownOf(o: Outcome, format: NumberFormat): Shown {
+  const shown = shownValue(o, format);
+  return o.files ? { ...shown, files: o.files.map((f) => ({ name: f.name, image: { ...f.image, rgba: f.image.rgba.slice() } })) } : shown;
+}
+
+/** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */
+function shownValue(o: Outcome, format: NumberFormat): Shown {
   const id = o.region.id;
   // Grayed, not red: something to replace or a file to load, not a mistake in the math.
   if (o.error) {
@@ -280,6 +288,7 @@ function buffersOf(shown: Shown[]): ArrayBuffer[] {
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.plot?.surface ? [s.plot.surface.x.buffer, s.plot.surface.y.buffer, s.plot.surface.z.buffer] : []),
     ...(s.image ? [s.image.rgba.buffer] : []),
+    ...(s.files?.map((f) => f.image.rgba.buffer) ?? []),
   ]))] as ArrayBuffer[];
 }
 

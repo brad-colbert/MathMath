@@ -1857,6 +1857,76 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await typed.close();
 }
 
+// Image processing: display options from Format, and writeImage's Save button.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['i\\coloneq 0..15', 'j\\coloneq 0..15', 'M_{i,j}\\coloneq i\\cdot j', 'w\\coloneq \\mathrm{writeImage}\\left(\\text{"out.png"},\\mathrm{gaussianBlur}\\left(M,1\\right)\\right)'];
+  ws.regions = lines.map((l, k) => ({ id: `m${k}`, left: 60, top: 40 + k * 30 - 8, alignX: 60, alignY: 40 + k * 30, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'im', left: 60, top: 200, alignX: 60, alignY: 200, disabled: false, content: { k: 'image', expr: readTex('M'), mode: 'gray', width: 64, height: 64, png: null } });
+  await page.evaluate((t) => (window as any).mathmath.load('img.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(100);
+  const firstPixel = () => page.evaluate(() => (window as any).mathmath.doc.outcomes.get('im')?.image?.rgba.slice(0, 3).join(',') ?? '');
+  const lastPixel = () => page.evaluate(() => {
+    const px = (window as any).mathmath.doc.outcomes.get('im')?.image?.rgba;
+    return px ? [...px.slice(px.length - 4, px.length - 1)].join(',') : '';
+  });
+  check('a matrix of 0 to 225 shows as gray, unscaled', (await lastPixel()) === '225,225,225', await lastPixel());
+  const imgBox = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('[data-id="im"]')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(imgBox.x, imgBox.y);
+  await sleep(80);
+  const pick = (label: string) => page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === l)!.click(), label);
+  await pick('Fit image to its range');
+  await idle(page);
+  await sleep(80);
+  check('Format → Fit image to its range stretches it to white', (await lastPixel()) === '255,255,255' && (await model(page)).regions.find((r: any) => r.id === 'im').content.fit === true, await lastPixel());
+  await pick('False color (blue ramp)');
+  await idle(page);
+  await sleep(80);
+  check('Format → False color uses the blue ramp', (await firstPixel()) === '205,226,251' && (await lastPixel()) === '13,54,107', [await firstPixel(), await lastPixel()]);
+  const savedImg = await page.evaluate(() => (window as any).mathmath.save());
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await idle(page);
+  await sleep(80);
+  check('one undo takes false color off', (await model(page)).regions.find((r: any) => r.id === 'im').content.falseColor === undefined);
+  check('a saved sheet keeps both options', /"fit":true/.test(savedImg) && /"falseColor":true/.test(savedImg));
+  // The Save button: its download is a PNG of the blurred matrix.
+  const button = await page.evaluate(() => document.querySelector('[data-id="m3"] .saves button')?.textContent ?? '');
+  check('writeImage puts a Save button under its region', button === 'Save out.png', button);
+  const file = await page.evaluate(async () => {
+    const made: Blob[] = [];
+    const original = URL.createObjectURL;
+    URL.createObjectURL = (b: Blob | MediaSource) => {
+      made.push(b as Blob);
+      return original(b);
+    };
+    const clicked: string[] = [];
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { clicked.push(this.download); };
+    document.querySelector<HTMLButtonElement>('[data-id="m3"] .saves button')!.click();
+    for (let n = 0; n < 50 && made.length === 0; n++) await new Promise((r) => setTimeout(r, 20));
+    URL.createObjectURL = original;
+    HTMLAnchorElement.prototype.click = click;
+    const bytes = made[0] ? [...new Uint8Array(await made[0].arrayBuffer()).slice(0, 8)] : [];
+    return { type: made[0]?.type, bytes, clicked };
+  });
+  check('clicking it downloads a PNG named as written', file.type === 'image/png' && file.bytes.join(',') === '137,80,78,71,13,10,26,10' && file.clicked[0] === 'out.png', file);
+  await page.close();
+
+  const typed = await fresh();
+  await type(typed, 72, 72, 'A:identity(5', R, '*200');
+  await type(typed, 72, 160, 'rows(gaussianBlur(A,1', R, R, '=');
+  const shownTyped = await shown(typed);
+  check('a typed image function calculates', !(await typed.evaluate(() => document.querySelector('.region.error'))) && shownTyped[1]?.replace(/\s/g, '').endsWith('=5') === true, shownTyped);
+  await typed.close();
+}
+
 // Printing: one PDF page per sheet page, sized from the worksheet.
 {
   const page = await fresh();
