@@ -48,6 +48,13 @@ export class Doc {
    * Only these show as out of date. Null until the worker says, a moment after it starts.
    */
   mayChange: Set<string> | null = null;
+  /** Files the sheet's answers are waiting for, by name, in the order they're first needed. */
+  missingFiles(): string[] {
+    const out = new Set<string>();
+    for (const r of this.ws.regions) for (const name of this.outcomes.get(r.id)?.needs ?? []) out.add(name);
+    return [...out];
+  }
+
   /** Called after anything changes, with the ids whose content must redraw, or null for all. */
   onChange: (ids: Set<string> | null) => void = () => {};
   /** Called when a calculation starts or ends. */

@@ -10,6 +10,21 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-05
+
+Missing files, said plainly.
+
+### Added
+
+- When a sheet needs files it doesn't have, a notice under the toolbar names them, with an *Attach files…*
+  button that opens the file picker. It counts files that referenced sheets need too, and goes away once
+  they're all attached. Before, the only sign was a note on hovering over a grayed region.
+
+### Changed
+
+- An answer waiting for a file keeps its `=` and shows *needs a file* after it, in gray. Before, the `=` was
+  dropped, and the region looked as if its answer had vanished.
+
 ## [0.13.0] - 2026-11-05
 
 Answers appear as they're ready.

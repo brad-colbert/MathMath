@@ -1383,6 +1383,31 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// A file the sheet needs is said under the toolbar, and attaching it clears the notice.
+{
+  const page = await fresh();
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const r = (n: number, content: unknown) => ({ id: String(n), left: 60, top: 30 + n * 40, alignX: 60, alignY: 38 + n * 40, disabled: false, content });
+    const call = { k: 'call', fn: { k: 'id', name: 'readTable' }, args: [{ k: 'str', v: 'data.csv' }] };
+    m.load('n.mathmath', JSON.stringify({
+      format: 'mathmath', version: 1,
+      worksheet: { ...m.doc.ws, regions: [
+        r(1, { k: 'define', target: { k: 'var', name: 'D' }, value: call, global: false, stored: null, unit: null, shown: false }),
+        r(2, { k: 'eval', expr: { k: 'op', op: 'indexer', args: [{ k: 'id', name: 'D' }, { k: 'real', v: 1 }, { k: 'real', v: 1 }] }, stored: null, unit: null }),
+      ], texts: [] },
+    }));
+  });
+  await idle(page);
+  const bar = () => page.evaluate(() => { const b = document.getElementById('needs-bar')!; return b.hidden ? null : b.innerText; });
+  check('a missing file is named under the toolbar, with a way to attach it', /needs a file to calculate: data\.csv/.test((await bar()) ?? '') && /Attach files/.test((await bar()) ?? ''), await bar());
+  check('and the answer waiting for it keeps its = and says so', (await shown(page))[1]?.replace(/[\s\u200b]/g, '').endsWith('=needsafile') === true, await shown(page));
+  await page.evaluate(() => (window as any).mathmath.doc.attach([{ name: 'data.csv', mime: 'text/csv', data: btoa('1,2\n3,4\n') }]));
+  await idle(page);
+  check('attaching it clears the notice and the answer appears', (await bar()) === null && (await shown(page))[1]?.replace(/[\s\u200b]/g, '').endsWith('=4') === true, { bar: await bar(), shown: await shown(page) });
+  await page.close();
+}
+
 // One edit is one undo, even when it pushes regions down.
 {
   const page = await fresh();

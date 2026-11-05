@@ -269,6 +269,10 @@ export class Paper {
       return `${math}=\\htmlData{slot=unit}{${marked}}`;
     };
     if (region.disabled) return { latex: math, state: 'stale', note: 'Calculation is off for this region' };
+    // Waiting for a file: the = stays, with a word saying so, rather than the answer seeming to vanish.
+    if (outcome?.mathcad && outcome.needs && shows) {
+      return { latex: `${math}=\\ {\\scriptsize\\text{needs a file}}`, state: 'stale', note: outcome.error ?? '' };
+    }
     // A Mathcad feature to replace, such as a file function: grayed, with what to do instead.
     if (outcome?.mathcad) return { latex: math, state: 'stale', note: outcome.error ?? '' };
     const stored = c.stored;

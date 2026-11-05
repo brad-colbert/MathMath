@@ -33,7 +33,7 @@ const base64 = async (file: File): Promise<string> => {
  * Keeps a file in the worksheet. An image or a data file adds a readImage or readTable region for it,
  * ready for a variable name. A worksheet is kept for references to find, in MathMath's own format.
  */
-async function loadFromComputer(): Promise<void> {
+async function loadFromComputer(insert = true): Promise<void> {
   const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.xmcd,.mathmath', true);
   if (picked.length === 0) return;
   const attached: { name: string; mime: string; data: string }[] = [];
@@ -57,7 +57,7 @@ async function loadFromComputer(): Promise<void> {
   // What was picked wins over a copy that came inside a sheet.
   doc.attach([...carried, ...attached]);
   const [only] = picked;
-  if (picked.length === 1 && only && !isSheetName(only.name)) {
+  if (insert && picked.length === 1 && only && !isSheetName(only.name)) {
     paper.insertReadImage(only.name, only.type.startsWith('image/') ? 'readImage' : 'readTable');
     return;
   }
@@ -126,11 +126,36 @@ function showTitle(): void {
   document.title = `${doc.name}${mark} - MathMath`;
 }
 
+// Files the sheet needs and doesn't have, said plainly under the toolbar with a way to attach them, rather
+// than left to the notes on grayed answers. It goes away once they're all attached.
+const needsBar = document.createElement('div');
+needsBar.id = 'needs-bar';
+needsBar.hidden = true;
+needsBar.setAttribute('role', 'status');
+const needsText = document.createElement('span');
+const needsButton = document.createElement('button');
+needsButton.textContent = 'Attach files…';
+needsButton.title = 'Choose the files from this computer. They travel inside the worksheet once it\'s saved';
+needsButton.addEventListener('click', () => void loadFromComputer(false));
+needsBar.append(needsText, needsButton);
+toolbar.after(needsBar);
+let needsShown = '';
+const showNeeds = (): void => {
+  const missing = doc.missingFiles();
+  const key = missing.join('\n');
+  if (key === needsShown) return;
+  needsShown = key;
+  needsBar.hidden = missing.length === 0;
+  needsText.textContent = missing.length === 0 ? ''
+    : `This sheet needs ${missing.length === 1 ? 'a file' : `${missing.length} files`} to calculate: ${missing.join(', ')}.`;
+};
+
 const redraw = doc.onChange;
 doc.onChange = (ids) => {
   redraw(ids);
   showTitle();
   tracePanel.refresh();
+  showNeeds();
 };
 
 const busy = document.createElement('span');
