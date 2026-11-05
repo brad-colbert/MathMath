@@ -122,3 +122,9 @@ body { display: flex; flex-direction: column; background: var(--desk); }
   .region.plot .slot.empty, .region.image .slot.empty, .region .handle, .region.plot .readout { display: none; }
   .region.draft, .region.calculating { outline: none; }
 }
+
+/* Save buttons under a region that wrote image files. Not printed: they're for the screen. */
+.region .saves { position: absolute; left: 0; top: 100%; margin-top: 2pt; display: flex; gap: 4pt; white-space: nowrap; }
+.region .saves button { font: 9pt system-ui, sans-serif; padding: 1pt 6pt; border: 1px solid #9ab; border-radius: 3px; background: #f4f8fc; color: #234; cursor: pointer; }
+.region .saves button:hover { background: #e3eefa; }
+@media print { .region .saves { display: none; } }

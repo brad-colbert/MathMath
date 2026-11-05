@@ -3,7 +3,7 @@
  *
  * A cubic spline is kept as its second derivatives at the data points. The three kinds differ only at
  * the ends: lspline is natural (zero curvature), pspline parabolic (the end interval's curvature is its
- * neighbour's), and cspline cubic (curvature runs on linearly). Outside the data, the end cubic continues.
+ * neighbor's), and cspline cubic (curvature runs on linearly). Outside the data, the end cubic continues.
  */
 import { EvalError } from './values.js';
 

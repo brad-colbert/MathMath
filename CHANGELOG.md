@@ -10,6 +10,45 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-05
+
+Image processing.
+
+### Added
+
+- Image processing. A gray image is a matrix of 0 to 255, and a color image is a vector of three matrices
+  (R; G; B). Functions that work on a channel do each of a color image's three, and give back the same kind.
+- Color: `imageChannels(M)` splits the red, green and blue blocks that `readImage` and Mathcad's `READRGB`
+  put side by side into (R; G; B), and `joinChannels` puts them back. `toGray` uses the usual Rec. 601
+  weights. `rgbToHsv` and `hsvToRgb` convert to and from hue, saturation and value, each 0 to 255.
+- Geometry: `resizeImage(M, rows, cols)`, smooth when enlarging and averaging when shrinking;
+  `rotateImage(M, angle)` about the center, counterclockwise, so `30·deg` works; `rotate90(M, k)` for quarter
+  turns; `flipRows` and `flipCols`.
+- Filters: `convolve2d(M, kernel)`, `gaussianBlur(M, σ)`, `boxBlur(M, n)`, `medianFilter(M, n)`,
+  `sharpen(M, amount)`, `sobelEdges(M)` for edges, and `erode` and `dilate`. The border is continued past
+  the edge, so an image keeps its size. They match SciPy's, and the tests check them against its numbers.
+- Tone: `threshold(M, t)`, `levels(M, lo, hi)` to stretch contrast, `gammaAdjust(M, γ)` (below 1 brightens)
+  and `equalize(M)` for histogram equalization.
+- Dithering to a number of levels per channel: `ditherFloydSteinberg`, `ditherAtkinson` and `ditherJarvis`
+  (error diffusion), and `ditherOrdered(M, levels, n)` with an n×n Bayer matrix. A 640×480 color image
+  dithers in under a tenth of a second.
+- `writeImage("name.png", M)` keeps an image to save, and puts a Save button under its region that
+  downloads the latest result as PNG, JPEG or WebP, from the name. A plain matrix saves as gray, (R; G; B)
+  as color.
+- Two image display options in Format: *Fit image to its range* stretches a matrix's own lowest to
+  highest value over black to white, for filter output and spectra; *False color* shows a gray image on the
+  blue ramp the surface plots use.
+
+### Changed
+
+- The `.mathmath` format, still version 1, gains the optional `fit` and `falseColor` settings on image
+  regions. Images without them show as before.
+
+### Known limits
+
+- A plain matrix is read as one channel, so a color image in side-by-side blocks must be split with
+  `imageChannels` before filtering it, or a blur runs across the seams between the blocks.
+
 ## [0.17.0] - 2026-11-05
 
 Signal processing.
