@@ -341,6 +341,36 @@ for (const [name, takesArgument, help] of [
   });
   list.appendChild(b);
 }
+// The page: portrait or landscape. The current one is ticked each time the menu opens.
+const pageMenu = document.createElement('details');
+pageMenu.className = 'menu';
+const pageSummary = document.createElement('summary');
+pageSummary.textContent = 'Page';
+pageSummary.title = 'Page orientation';
+pageSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const pageList = document.createElement('div');
+pageMenu.append(pageSummary, pageList);
+toolbar.appendChild(pageMenu);
+const orientations: [string, boolean][] = [['Portrait', false], ['Landscape', true]];
+const orientationButtons = orientations.map(([label, landscape]) => {
+  const b = document.createElement('button');
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    pageMenu.open = false;
+    doc.setOrientation(landscape);
+  });
+  pageList.appendChild(b);
+  return { b, label, landscape };
+});
+pageMenu.addEventListener('toggle', () => {
+  for (const { b, label, landscape } of orientationButtons) {
+    const on = doc.ws.page.landscape === landscape;
+    b.textContent = `${on ? '✓ ' : '\u2003'}${label}`;
+    b.setAttribute('aria-checked', String(on));
+    b.setAttribute('role', 'menuitemradio');
+  }
+});
+
 const plotMenu = document.createElement('details');
 plotMenu.className = 'menu';
 const plotSummary = document.createElement('summary');

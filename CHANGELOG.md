@@ -10,6 +10,16 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-05
+
+Landscape pages.
+
+### Added
+
+- A Page menu on the toolbar turns the page portrait or landscape. The page's width and height swap and its
+  margins stay; page breaks on screen and printing follow, and nothing on the sheet moves or recalculates.
+  One undo turns it back. Sheets imported in landscape already opened that way; now any sheet can switch.
+
 ## [0.14.0] - 2026-11-05
 
 Missing files, said plainly.
