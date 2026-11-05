@@ -5,6 +5,19 @@ and plots sit anywhere on the page, and live math reads like handwritten notes.
 
 **Status: early development.** You can write, calculate, save and print worksheets, but expect rough edges.
 
+## Everything runs in your browser
+
+All the computing happens on your own computer, in the browser. The server only sends the app's files
+(the page, its scripts and the algebra engine) and does no calculation.
+
+- **Calculation:** numbers, units, programs and plot data are worked out in a background thread of the page.
+  Symbolic algebra runs in a second thread, in Giac compiled to WebAssembly. Plots are drawn in the page.
+- **Your worksheets stay with you:** opening and saving use files on your computer, and nothing is uploaded
+  or kept on the server. The only outside request the app makes is when you load a picture from a web
+  address, which your browser fetches from that site directly.
+- **Speed depends on your machine, not the server's:** a large sheet calculates as fast as the computer
+  running the browser allows, and one small server can serve many people.
+
 ## Development
 
 Requires Node 22 or later.

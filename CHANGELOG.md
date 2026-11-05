@@ -10,6 +10,15 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-05
+
+The README says where the computing happens.
+
+### Changed
+
+- The README now says plainly near the top that all calculation runs in the browser: the server only sends
+  the app's files, worksheets are opened and saved on your own computer, and speed depends on your machine.
+
 ## [0.16.0] - 2026-11-05
 
 Polar, surface and contour plots.
