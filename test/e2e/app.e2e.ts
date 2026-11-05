@@ -7,6 +7,10 @@ import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
 import puppeteer, { type Page } from 'puppeteer-core';
 import { CSP } from '../../vite.config.js';
+import { emptyWorksheet, saveWorksheet } from '../../src/format/native.js';
+import { readTex } from '../../src/latex/latex.js';
+import { readRegion } from '../../src/latex/region.js';
+import { autoAxis } from '../../src/model/ast.js';
 
 const shots = process.argv[2];
 execSync('npx vite build --logLevel error', { stdio: 'inherit' });
@@ -1790,6 +1794,67 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     check('regions past the edge do not print', !bbox.includes('>side<'));
   }
   await page.close();
+}
+
+// Signal processing: a WAV file attached after the sheet asks for it, its spectrum, and a filter.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = [
+    's\\coloneq \\mathrm{readWav}\\left(\\text{"beep.wav"}\\right)', 'r\\coloneq \\mathrm{wavRate}\\left(\\text{"beep.wav"}\\right)', 'r=',
+    'S\\coloneq \\mathrm{cfft}\\left(s\\right)', 'm\\coloneq 0..399', 'h\\coloneq \\mathrm{firLowpass}\\left(31,\\frac{300\\cdot \\mathrm{Hz}}{r}\\right)',
+    'y\\coloneq \\mathrm{zeroPhaseFilter}\\left(h,s\\right)', '\\mathrm{rows}\\left(y\\right)=',
+  ];
+  ws.regions = lines.map((l, i) => ({ id: `w${i}`, left: 60, top: 40 + i * 30 - 8, alignX: 60, alignY: 40 + i * 30, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'wp', left: 60, top: 300, alignX: 60, alignY: 300, disabled: false,
+    content: { k: 'plot', x: readTex('m'), ys: [readTex('\\left|S_{m}\\right|')], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: 300, height: 150 } });
+  // 0.1 s of a 1 kHz tone at 8 kHz, 16-bit mono.
+  const n = 800;
+  const wav = Buffer.alloc(44 + n * 2);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12); wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) wav.writeInt16LE(Math.round(16000 * Math.sin((2 * Math.PI * 1000 * i) / 8000)), 44 + i * 2);
+  await page.evaluate((t) => (window as any).mathmath.load('wav.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(100);
+  const needs = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].filter((e) => e.classList.contains('needs-file') || e.classList.contains('stale')).length);
+  check('a sheet reading a WAV file that is not attached grays what needs it', needs >= 3, needs);
+  await page.evaluate((data) => (window as any).mathmath.doc.attach([{ name: 'beep.wav', mime: 'audio/wav', data }]), wav.toString('base64'));
+  await idle(page);
+  await sleep(150);
+  const got = await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const o = (id: string) => d.outcomes.get(id);
+    const el = document.querySelector<HTMLElement>('.region.plot')!;
+    return {
+      errors: [...document.querySelectorAll<HTMLElement>('.region.error')].map((e) => e.title),
+      rate: document.querySelector<HTMLElement>('[data-id="w2"]')?.innerText.replace(/\s+/g, ' ') ?? '',
+      rows: document.querySelector<HTMLElement>('[data-id="w7"]')?.innerText.replace(/\s+/g, ' ') ?? '',
+      paths: el.querySelectorAll('.plot-svg path').length,
+      peak: (() => {
+        const t = o('wp')?.plot?.traces?.[0];
+        if (!t) return -1;
+        let best = 0;
+        for (let k = 1; k < t.y.length; k++) if (t.y[k] > t.y[best]) best = k;
+        return t.x[best];
+      })(),
+    };
+  });
+  check('attaching it calculates: readWav gives the samples, wavRate the rate in hertz', got.errors.length === 0 && /8000|8\s*×\s*10/.test(got.rate), got);
+  check('cfft of 800 samples puts a 1 kHz tone at bin 100', got.peak === 100, got.peak);
+  check('the spectrum plots, and a zero-phase filter keeps the length', got.paths >= 1 && got.rows.includes('800'), got);
+  await page.close();
+
+  // The names can be typed.
+  const typed = await fresh();
+  await type(typed, 72, 72, 'h:firLowpass(5,0.1');
+  await type(typed, 72, 108, 'h=');
+  await type(typed, 72, 300, 'b:butterLowpass(2,0.25');
+  await type(typed, 72, 360, 'rows(fft(hannWindow(8', R, R, R, '=');
+  const t = await shown(typed);
+  check('typed signal functions calculate', t[1]?.startsWith('h=') === true && !(await typed.evaluate(() => document.querySelector('.region.error'))) && t[3]?.replace(/\s/g, '').endsWith('=5') === true, t);
+  await typed.close();
 }
 
 // Printing: one PDF page per sheet page, sized from the worksheet.

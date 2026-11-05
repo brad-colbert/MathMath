@@ -10,6 +10,40 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-05
+
+Signal processing.
+
+### Added
+
+- Mathcad's Fourier transforms: `fft` and `ifft`, `FFT` and `IFFT` for real signals of 2^m values, and
+  `cfft`, `icfft`, `CFFT` and `ICFFT` for complex vectors of any length and matrices (a 2-D transform). They
+  match Mathcad 14's scaling and signs, checked against its own answers. Any length is fast, not only powers
+  of two: a million points take a fraction of a second. Values keep their units.
+- Convolution and correlation: `convolve(a, b)` and `correlate(a, b)`, of real or complex vectors, at every
+  overlap.
+- Windows: `hannWindow(n)`, `hammingWindow(n)`, `blackmanWindow(n)` and `kaiserWindow(n, β)`.
+- FIR filter design by the window method: `firLowpass(n, fc)`, `firHighpass`, `firBandpass(n, f1, f2)` and
+  `firBandstop`, with a Hamming window unless another is given as a last argument.
+- Butterworth filters: `butterLowpass(order, fc)`, `butterHighpass`, `butterBandpass(order, f1, f2)` and
+  `butterBandstop`. They return the filter as two coefficient vectors, b and a.
+- Filtering: `applyFilter(F, x)` runs a filter forward, as it would in real time; `zeroPhaseFilter(F, x)`
+  runs it forward and back, so the output doesn't lag. A matrix is filtered a column (a channel) at a time,
+  and the output keeps the signal's units. `freqResponse(F, f)` gives a filter's complex gain at a frequency
+  or a vector of them.
+- Frequencies given to the filters are fractions of the sample rate, from 0 to 0.5, so `80·Hz/fs` works as
+  written. The filters match SciPy's definitions, and the tests check them against its numbers.
+- WAV files: attach one with Files, then `readWav("name.wav")` gives its samples between −1 and 1, a column
+  per channel, and `wavRate("name.wav")` its sample rate in hertz. 8-, 16-, 24- and 32-bit and
+  floating-point files are read.
+
+### Known limits
+
+- Mathcad's wavelet transforms, `wave` and `iwave`, aren't built.
+- WAV files can be read but not written yet.
+- An attached WAV file is kept inside the sheet, so a long recording makes the sheet file large: a 30-second
+  stereo recording at 44.1 kHz adds about 7 MB.
+
 ## [0.16.1] - 2026-11-05
 
 The README says where the computing happens.

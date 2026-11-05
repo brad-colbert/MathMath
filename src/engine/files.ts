@@ -1,5 +1,6 @@
 /** Files a worksheet reads, already decoded, so evaluation stays synchronous. */
 import type { Worksheet } from '../model/ast.js';
+import type { DecodedAudio } from './wav.js';
 
 export interface DecodedImage {
   width: number;
@@ -14,6 +15,8 @@ export interface Files {
   table(name: string): string | undefined;
   /** A worksheet, by `sheetKey`. */
   sheet(name: string): Worksheet | undefined;
+  /** A WAV file's samples, by `fileKey`, or why it couldn't be read. */
+  audio(name: string): DecodedAudio | string | undefined;
 }
 
 export const isWebAddress = (s: string): boolean => /^https?:\/\//i.test(s);
@@ -36,4 +39,4 @@ export const isSheetName = (name: string): boolean => /\.(xmcd|mcd|mathmath)$/i.
 /** Attached worksheets are kept in MathMath's own format, whatever they were loaded from. */
 export const SHEET_MIME = 'application/vnd.mathmath+json';
 
-export const NO_FILES: Files = { image: () => undefined, table: () => undefined, sheet: () => undefined };
+export const NO_FILES: Files = { image: () => undefined, table: () => undefined, sheet: () => undefined, audio: () => undefined };

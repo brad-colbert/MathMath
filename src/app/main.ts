@@ -34,7 +34,7 @@ const base64 = async (file: File): Promise<string> => {
  * ready for a variable name. A worksheet is kept for references to find, in MathMath's own format.
  */
 async function loadFromComputer(insert = true): Promise<void> {
-  const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.xmcd,.mathmath', true);
+  const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.wav,audio/wav,.xmcd,.mathmath', true);
   if (picked.length === 0) return;
   const attached: { name: string; mime: string; data: string }[] = [];
   const carried: { name: string; mime: string; data: string }[] = [];
