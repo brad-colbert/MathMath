@@ -30,6 +30,8 @@ export interface Shown {
   partial?: boolean;
   /** The unit part of `value`, as LaTeX, so the page can let it be edited apart from the number. */
   unit?: string;
+  /** Files the region is waiting for, by name: attached, they'd let it calculate. */
+  needs?: string[];
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
@@ -235,8 +237,9 @@ function shownOf(o: Outcome, format: NumberFormat): Shown {
   // Grayed, not red: something to replace or a file to load, not a mistake in the math.
   if (o.error) {
     const c = o.region.content;
-    if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true };
-    return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true } : { id, error: o.error.reason };
+    const needs = o.error.kind === 'needs-file' && o.error.needs.length > 0 ? { needs: o.error.needs } : {};
+    if (c.k === 'include' && o.error.kind === 'needs-file' && !o.error.needs.includes(c.file)) return { id, error: o.error.reason, partial: true, ...needs };
+    return o.error.kind === 'mathcad' || o.error.kind === 'needs-file' ? { id, error: o.error.reason, mathcad: true, ...needs } : { id, error: o.error.reason };
   }
   // Points and pixels are copied, because sending moves them, and the snapshot keeps its own.
   if (o.plot && o.region.content.k === 'plot') {
