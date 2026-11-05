@@ -84,6 +84,13 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #marquee { position: absolute; border: 1px dashed var(--select); background: #2563eb18; pointer-events: none; }
 .pagebreak { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--guide); pointer-events: none; }
 .pagecolumn { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--guide); pointer-events: none; }
+/* Surface and contour plots: the sampling range under the expression, the unit over the color bar. */
+.region.plot .ranges { position: absolute; display: flex; align-items: center; justify-content: center; gap: 2pt; font: 7pt system-ui, sans-serif; color: #52514e; }
+.region.plot .ranges .slot { min-height: 8pt; font-size: 7pt; }
+.region.plot .zunit { position: absolute; font-size: 7pt; color: #52514e; }
+.region.plot .rotate-area { cursor: grab; }
+.region.plot.rotating .rotate-area { cursor: grabbing; }
+
 /* Files a sheet needs and doesn't have. */
 #needs-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #fffbeb; border-bottom: 1px solid #f59e0b;
   color: #78350f; font: 13px system-ui, sans-serif; }

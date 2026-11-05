@@ -79,7 +79,15 @@ function inUnits(p: PlotData, c: Plot): PlotData {
     // A limit typed with units converts; a bare number is already in the axis's unit.
     limits[key] = p.dims?.limits[key] ? (v - s.zero) / s.divide : v;
   }
-  return { traces, limits, labels: { x: ax.latex, y: ay.latex, xChosen: ax.chosen, yChosen: ay.chosen } };
+  const out: PlotData = { traces, limits, labels: { x: ax.latex, y: ay.latex, xChosen: ax.chosen, yChosen: ay.chosen } };
+  if (p.surface) {
+    // Heights in their default display unit, which the color bar names.
+    const zs = axisScale(p.surface.zDim, undefined);
+    const z = zs.divide === 1 && zs.zero === 0 ? p.surface.z : p.surface.z.map((v) => (v - zs.zero) / zs.divide);
+    out.surface = { ...p.surface, z };
+    out.zLabel = zs.latex;
+  }
+  return out;
 }
 
 const formatFor = (r: Region, fallback: NumberFormat): NumberFormat =>
@@ -244,7 +252,8 @@ function shownOf(o: Outcome, format: NumberFormat): Shown {
   // Points and pixels are copied, because sending moves them, and the snapshot keeps its own.
   if (o.plot && o.region.content.k === 'plot') {
     const plot = inUnits(o.plot, o.region.content);
-    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })) } };
+    const surface = plot.surface ? { ...plot.surface, x: plot.surface.x.slice(), y: plot.surface.y.slice(), z: plot.surface.z.slice() } : undefined;
+    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })), ...(surface ? { surface } : {}) } };
   }
   if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
   if (o.unevaluated) return { id, unevaluated: true };
@@ -263,6 +272,7 @@ function shownOf(o: Outcome, format: NumberFormat): Shown {
 function buffersOf(shown: Shown[]): ArrayBuffer[] {
   return [...new Set(shown.flatMap((s) => [
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
+    ...(s.plot?.surface ? [s.plot.surface.x.buffer, s.plot.surface.y.buffer, s.plot.surface.z.buffer] : []),
     ...(s.image ? [s.image.rgba.buffer] : []),
   ]))] as ArrayBuffer[];
 }

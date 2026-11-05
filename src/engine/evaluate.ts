@@ -108,6 +108,13 @@ export interface Trace {
 
 export type LimitKey = 'xmin' | 'xmax' | 'ymin' | 'ymax';
 
+/**
+ * A surface on a grid of rows × cols points, each array column by column. `regular` is true for a matrix of
+ * heights or a sampled function, whose x and y follow the grid; false for three matrices X, Y and Z.
+ * `sampled` is true for a function, the one kind the x and y limits apply to.
+ */
+export interface SurfaceData { rows: number; cols: number; x: Float64Array; y: Float64Array; z: Float64Array; regular: boolean; zDim: Dim; sampled: boolean }
+
 export interface PlotData {
   traces: Trace[];
   /** Limits typed on the plot. Anything missing comes from the data. */
@@ -122,6 +129,10 @@ export interface PlotData {
   units?: { x: Value | undefined; y: Value | undefined };
   /** The unit each axis shows, as LaTeX, and whether it was chosen rather than the default. Set by the worker. */
   labels?: { x: string; y: string; xChosen: boolean; yChosen: boolean };
+  /** For a surface or contour plot, in place of traces. */
+  surface?: SurfaceData;
+  /** The unit the surface's heights are shown in, as LaTeX. Set by the worker. */
+  zLabel?: string;
 }
 
 /** An image region's pixels, row by row, four bytes a pixel. */
@@ -1028,7 +1039,65 @@ function thin(x: Float64Array, y: Float64Array): [Float64Array, Float64Array] {
 }
 
 /** Evaluates a plot's expressions. Range variables give aligned columns, as in any region. */
+/** How many points a function is sampled at along each side of a surface. */
+const SURFACE_SAMPLES = 31;
+
+/** The data for a surface or contour plot, from its first y expression. */
+function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
+  const e = c.ys[0];
+  if (!e) return { traces: [], limits: {} };
+  const v = ev.eval(e, scope);
+  const real = (x: Value, what: string): number => {
+    const n = requireNum(x, what);
+    if (n.im !== 0) throw new EvalError('runtime', `${what} must be real`);
+    return n.re;
+  };
+  if (v.t === 'fn') {
+    // A function of two variables, sampled over the x and y limits.
+    const limit = (x: Expr | null, fallback: number): number => (x ? requireReal(ev.eval(x, scope), 'a limit') : fallback);
+    const [x0, x1, y0, y1] = [limit(c.xAxis.min, -5), limit(c.xAxis.max, 5), limit(c.yAxis.min, -5), limit(c.yAxis.max, 5)];
+    if (!(x1 > x0) || !(y1 > y0)) throw new EvalError('runtime', 'Each axis needs its upper limit above its lower one');
+    const n = SURFACE_SAMPLES;
+    const [x, y, z] = [new Float64Array(n * n), new Float64Array(n * n), new Float64Array(n * n)];
+    let zDim: Dim = NODIM;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const [xi, yj] = [x0 + ((x1 - x0) * i) / (n - 1), y0 + ((y1 - y0) * j) / (n - 1)];
+        const out = requireNum(v.call([num(xi), num(yj)]), 'the function');
+        x[i + j * n] = xi;
+        y[i + j * n] = yj;
+        z[i + j * n] = out.im === 0 ? out.re : NaN;
+        zDim = out.dim;
+      }
+    }
+    return { traces: [], limits: {}, surface: { rows: n, cols: n, x, y, z, regular: true, zDim, sampled: true } };
+  }
+  if (v.t === 'mat' && v.cells && v.rows * v.cols === 3) {
+    // Three matrices of the same size: the x, y and z of each grid point, for shapes such as a sphere.
+    const [X, Y, Z] = v.cells.map((m) => requireMat(m, 'each of X, Y and Z'));
+    if (X!.rows !== Y!.rows || X!.rows !== Z!.rows || X!.cols !== Y!.cols || X!.cols !== Z!.cols) {
+      throw new EvalError('runtime', 'X, Y and Z must be matrices of the same size');
+    }
+    const flat = (m: Mat): Float64Array => Float64Array.from({ length: m.rows * m.cols }, (_, k) => real(getEl(m, k % m.rows, Math.floor(k / m.rows)), 'each value'));
+    return { traces: [], limits: {}, surface: { rows: X!.rows, cols: X!.cols, x: flat(X!), y: flat(Y!), z: flat(Z!), regular: false, zDim: Z!.dim, sampled: false } };
+  }
+  if (v.t === 'mat' && !v.cells) {
+    // A matrix of heights: x is the row number, y the column number, counted from ORIGIN.
+    if (v.rows < 2 || v.cols < 2) throw new EvalError('runtime', 'A surface needs a matrix with at least two rows and two columns');
+    const n = v.rows * v.cols;
+    const [x, y] = [new Float64Array(n), new Float64Array(n)];
+    for (let k = 0; k < n; k++) {
+      x[k] = (k % v.rows) + ev.origin;
+      y[k] = Math.floor(k / v.rows) + ev.origin;
+    }
+    const z = v.im ? Float64Array.from(v.re, (re, k) => (v.im![k] === 0 ? re : NaN)) : Float64Array.from(v.re);
+    return { traces: [], limits: {}, surface: { rows: v.rows, cols: v.cols, x, y, z, regular: true, zDim: v.dim, sampled: false } };
+  }
+  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector');
+}
+
 export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
+  if (c.view === 'surface' || c.view === 'contour') return surfaceData(ev, c, scope);
   const limits: PlotData['limits'] = {};
   const limitDims: Partial<Record<LimitKey, Dim>> = {};
   const set = (key: LimitKey, e: Expr | null): void => {

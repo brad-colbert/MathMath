@@ -110,7 +110,15 @@ export type Content =
    */
   | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
   /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
-  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string; traces?: (TraceStyle | null)[] }
+  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string; traces?: (TraceStyle | null)[];
+      /**
+       * How the plot is drawn: X-Y when absent; polar takes x as the angle in radians and each y as a radius.
+       * Surface and contour plot the first y expression: a matrix of heights, a function of two variables
+       * (sampled over the x and y limits, −5 to 5 by default), or three matrices X, Y and Z.
+       */
+      view?: 'polar' | 'surface' | 'contour';
+      /** The angle a surface is seen from, in degrees: round the vertical, and above the horizontal. */
+      view3d?: { azimuth: number; elevation: number } }
   /**
    * Another worksheet's definitions, available from here on as if its regions were here. `file` is a file
    * name, matched without its extension against attached worksheets.

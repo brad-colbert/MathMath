@@ -6,6 +6,7 @@ import { convertLatexToMarkup } from 'mathlive';
 import type { PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
+import { drawContour, drawSurface } from './plot3d.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -41,6 +42,14 @@ function symbol(kind: NonNullable<TraceStyle['points']>, x: number, y: number, c
   }
 }
 const SECONDARY = '#52514e';
+
+/** A trace's entry in the legend: its line and point symbol, so color is never alone. */
+function legendSwatch(c: Plot, n: number): string {
+  const look = traceLook(c, n);
+  const line = look.line ? `<line x1="0" y1="4" x2="16" y2="4" stroke="${look.color}" stroke-width="${look.weight}"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}/>` : '';
+  const mark = look.points !== 'none' || !look.line ? symbol(look.points !== 'none' ? look.points : 'circle', 8, 4, look.color, Math.min(look.weight, 1.5)) : '';
+  return `<svg width="16pt" height="8pt" viewBox="0 0 16 8">${line}${mark}</svg>`;
+}
 const GRID = '#e6e5e1';
 
 /** Space around the plot area, in points: room for limits, tick labels and axis expressions. */
@@ -136,6 +145,18 @@ const slot = (name: string, html: string, style: string, hint: string): string =
 const TITLE = { top: 13, left: 11, bottom: 11 };
 
 export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+  if (c.view === 'polar') {
+    drawPolar(el, c, data, problem);
+    return;
+  }
+  if (c.view === 'surface') {
+    drawSurface(el, c, data, problem);
+    return;
+  }
+  if (c.view === 'contour') {
+    drawContour(el, c, data, problem);
+    return;
+  }
   const [w, h] = [c.width, c.height];
   const [hasTitle, hasX, hasY] = [c.title !== undefined, c.xAxis.title !== undefined, c.yAxis.title !== undefined];
   const m = {
@@ -199,12 +220,7 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
   parts.push('</svg>');
 
   // The y expressions double as the legend: each carries its trace's line, so color is never alone.
-  const swatch = (n: number): string => {
-    const look = traceLook(c, n);
-    const line = look.line ? `<line x1="0" y1="4" x2="16" y2="4" stroke="${look.color}" stroke-width="${look.weight}"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}/>` : '';
-    const mark = look.points !== 'none' || !look.line ? symbol(look.points !== 'none' ? look.points : 'circle', 8, 4, look.color, Math.min(look.weight, 1.5)) : '';
-    return `<svg width="16pt" height="8pt" viewBox="0 0 16 8">${line}${mark}</svg>`;
-  };
+  const swatch = (n: number): string => legendSwatch(c, n);
   // Each axis's unit sits after its expression: gray when it's the default, and clicked to choose another.
   const labels = data?.labels;
   const unit = (name: 'xunit' | 'yunit', latex: string | undefined, chosen: boolean | undefined): string => (latex
@@ -262,6 +278,128 @@ function hover(el: HTMLElement, traces: PlotData['traces'], sx: Scale, sy: Scale
     const b: { x: number; y: number; n: number } = best;
     readout.hidden = false;
     readout.textContent = `${traces.length > 1 ? `trace ${b.n + 1}: ` : ''}x = ${Number(b.x.toPrecision(6))}, y = ${Number(b.y.toPrecision(6))}`;
+  });
+  svg.addEventListener('mouseleave', () => {
+    readout.hidden = true;
+  });
+}
+
+/**
+ * A polar plot: x is the angle, in radians, counterclockwise from the right, and each y a radius. Rings mark
+ * the radius and spokes every 30°; a radius typed at the top end of the scale fixes the outer ring.
+ */
+function drawPolar(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+  const [w, h] = [c.width, c.height];
+  const [hasTitle, hasX, hasY] = [c.title !== undefined, c.xAxis.title !== undefined, c.yAxis.title !== undefined];
+  const m = { left: M.left + (hasY ? TITLE.left : 0), right: M.right, top: M.top + (hasTitle ? TITLE.top : 0), bottom: M.bottom + (hasX ? TITLE.bottom : 0) };
+  const area = { x: m.left, y: m.top, w: Math.max(20, w - m.left - m.right), h: Math.max(20, h - m.top - m.bottom) };
+  const traces = data?.traces ?? [];
+  // Room round the outer ring for the angle labels.
+  const R = Math.max(10, Math.min(area.w, area.h) / 2 - 12);
+  const [cx, cy] = [area.x + area.w / 2, area.y + area.h / 2];
+  let rmax = data?.limits.ymax;
+  if (rmax === undefined) {
+    let big = 0;
+    for (const t of traces) for (const r of t.y) if (Number.isFinite(r)) big = Math.max(big, Math.abs(r));
+    if (big > 0) {
+      const t = ticks({ lo: 0, hi: big, log: false }, 4);
+      const step = t.length > 1 ? t[1]! - t[0]! : big;
+      rmax = Math.ceil(big / step - 1e-9) * step;
+    }
+  }
+  const message = problem ?? traces.find((t) => t.error)?.error
+    ?? (c.ys.length === 0 ? undefined : rmax === undefined || !(rmax > 0) ? 'There are no points to plot' : undefined);
+  const parts: string[] = [`<svg class="plot-svg" width="${w}pt" height="${h}pt" viewBox="0 0 ${w} ${h}" font-family="system-ui, sans-serif" font-size="8">`];
+  const at = (theta: number, r: number): [number, number] => [cx + (r / rmax!) * R * Math.cos(theta), cy - (r / rmax!) * R * Math.sin(theta)];
+  if (rmax !== undefined && rmax > 0) {
+    const rings = ticks({ lo: 0, hi: rmax, log: false }, 4).filter((r) => r > 0 && r <= rmax! * (1 + 1e-9));
+    for (const r of rings) {
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="${((r / rmax) * R).toFixed(2)}" fill="none" stroke="${r >= rmax * (1 - 1e-9) ? SECONDARY : GRID}" stroke-width="0.75"/>`);
+      // The outer ring's value is the editable limit, so only the inner rings get a label.
+      if (r < rmax * (1 - 1e-9)) parts.push(`<text x="${(cx + (r / rmax) * R + 2).toFixed(2)}" y="${cy - 2}" fill="${SECONDARY}">${tickText(r)}</text>`);
+    }
+    if (rings.length === 0 || rings[rings.length - 1]! < rmax * (1 - 1e-9)) parts.push(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${SECONDARY}" stroke-width="0.75"/>`);
+    for (let deg = 0; deg < 360; deg += 30) {
+      const th = (deg * Math.PI) / 180;
+      const [ex, ey] = [cx + R * Math.cos(th), cy - R * Math.sin(th)];
+      parts.push(`<line x1="${cx}" y1="${cy}" x2="${ex.toFixed(2)}" y2="${ey.toFixed(2)}" stroke="${GRID}" stroke-width="0.75"/>`);
+      const [lx, ly] = [cx + (R + 7) * Math.cos(th), cy - (R + 7) * Math.sin(th) + 2.8];
+      parts.push(`<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="middle" fill="${SECONDARY}">${deg}°</text>`);
+    }
+    parts.push(`<clipPath id="clip-${el.dataset.id}"><circle cx="${cx}" cy="${cy}" r="${R + 0.5}"/></clipPath>`);
+    parts.push(`<g clip-path="url(#clip-${el.dataset.id})">`);
+    traces.forEach((t, n) => {
+      const look = traceLook(c, n);
+      const usable = (i: number): boolean => Number.isFinite(t.x[i]!) && Number.isFinite(t.y[i]!);
+      let d = '';
+      let pen = false;
+      for (let i = 0; i < t.x.length; i++) {
+        if (!usable(i)) {
+          pen = false;
+          continue;
+        }
+        const [px, py] = at(t.x[i]!, t.y[i]!);
+        d += `${pen ? 'L' : 'M'}${px.toFixed(2)} ${py.toFixed(2)}`;
+        pen = true;
+      }
+      if (d && look.line) parts.push(`<path d="${d}" fill="none" stroke="${look.color}" stroke-width="${look.weight}" stroke-linejoin="round" stroke-linecap="round"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}/>`);
+      const points = look.points !== 'none' ? look.points : t.x.length === 1 || !look.line ? 'circle' : 'none';
+      if (points !== 'none') {
+        for (let i = 0; i < t.x.length; i++) {
+          if (!usable(i)) continue;
+          const [px, py] = at(t.x[i]!, t.y[i]!);
+          parts.push(symbol(points, px, py, look.color, look.weight));
+        }
+      }
+    });
+    parts.push('</g>');
+  }
+  if (message) parts.push(`<text class="plot-problem" x="${cx}" y="${cy}" text-anchor="middle" fill="#c00">${esc(message)}</text>`);
+  parts.push('</svg>');
+  const swatch = (n: number): string => legendSwatch(c, n);
+  const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('');
+  const limit = c.yAxis.max ? markup(tex(c.yAxis.max)) : rmax !== undefined ? `<span class="auto">${esc(label(rmax))}</span>` : '';
+  el.innerHTML = [
+    parts.join(''),
+    slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'Radius. Separate several with commas'),
+    slot('x', c.x ? markup(tex(c.x)) : '', `left:${area.x}pt;width:${area.w}pt;top:${area.y + area.h + M.bottom - 16}pt`, 'Angle, in radians'),
+    slot('ymax', limit, `left:${(cx + R - 26).toFixed(2)}pt;width:25pt;top:${(cy + 3).toFixed(2)}pt;justify-content:flex-end`, 'Radius of the outer ring. Leave empty to fit the data'),
+    hasTitle ? slot('title', esc(c.title!), `left:${area.x}pt;width:${area.w}pt;top:0;height:${TITLE.top}pt`, 'Plot title. Click to type it; Format turns it off') : '',
+    hasX ? slot('titlex', esc(c.xAxis.title!), `left:${area.x}pt;width:${area.w}pt;top:${h - TITLE.bottom}pt;height:${TITLE.bottom}pt`, 'Angle title. Click to type it; Format turns it off') : '',
+    hasY ? slot('titley', esc(c.yAxis.title!), `left:0;width:${TITLE.left}pt;top:${area.y}pt;height:${area.h}pt`, 'Radius title. Click to type it; Format turns it off') : '',
+    '<div class="readout" hidden></div>',
+  ].join('');
+  el.style.width = `${w}pt`;
+  el.style.height = `${h}pt`;
+  if (rmax !== undefined && rmax > 0) polarHover(el, traces, { cx, cy, R, rmax });
+}
+
+/** Shows the nearest point under the pointer, as an angle in degrees and a radius. */
+function polarHover(el: HTMLElement, traces: PlotData['traces'], g: { cx: number; cy: number; R: number; rmax: number }): void {
+  const svg = el.querySelector<SVGSVGElement>('.plot-svg')!;
+  const readout = el.querySelector<HTMLElement>('.readout')!;
+  svg.addEventListener('mousemove', (e) => {
+    const box = svg.getBoundingClientRect();
+    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    if (Math.hypot(px - g.cx, py - g.cy) > g.R) {
+      readout.hidden = true;
+      return;
+    }
+    let best: { d: number; th: number; r: number; n: number } | null = null;
+    traces.forEach((t, n) => {
+      for (let i = 0; i < t.x.length; i++) {
+        const [th, r] = [t.x[i]!, t.y[i]!];
+        if (!Number.isFinite(th) || !Number.isFinite(r)) continue;
+        const qx = g.cx + (r / g.rmax) * g.R * Math.cos(th);
+        const qy = g.cy - (r / g.rmax) * g.R * Math.sin(th);
+        const d = (qx - px) ** 2 + (qy - py) ** 2;
+        if (!best || d < best.d) best = { d, th, r, n };
+      }
+    });
+    if (!best) return;
+    const b: { th: number; r: number; n: number } = best;
+    readout.hidden = false;
+    readout.textContent = `${traces.length > 1 ? `trace ${b.n + 1}: ` : ''}θ = ${Number(((b.th * 180) / Math.PI).toPrecision(5))}°, r = ${Number(b.r.toPrecision(6))}`;
   });
   svg.addEventListener('mouseleave', () => {
     readout.hidden = true;

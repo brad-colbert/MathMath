@@ -10,6 +10,7 @@ import type { Content, NumberFormat, Region, TextRegion } from '../model/ast.js'
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
 import { drawPlot } from './plot.js';
+import { DEFAULT_VIEW } from './plot3d.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
@@ -35,7 +36,8 @@ function render(latex: string): string {
 type Press =
   | { kind: 'blank'; x: number; y: number }
   | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null }
-  | { kind: 'resize'; id: string; x: number; y: number; width: number; height: number };
+  | { kind: 'resize'; id: string; x: number; y: number; width: number; height: number }
+  | { kind: 'rotate'; id: string; x: number; y: number; azimuth: number; elevation: number; was: { azimuth: number; elevation: number } | undefined };
 
 type Editing =
   | { kind: 'region'; region: Region; bottom: number; isNew: boolean }
@@ -45,6 +47,13 @@ const MIN_PLOT = { width: 96, height: 72 };
 
 /** How long a region calculates before it gets the green box, in milliseconds. */
 const CALC_BOX_DELAY = 100;
+
+/** A surface's view after a drag: across turns it round, down tips it towards looking from above. */
+function rotated(press: { azimuth: number; elevation: number }, dx: number, dy: number): { azimuth: number; elevation: number } {
+  const azimuth = ((((press.azimuth - dx * 0.7) % 360) + 540) % 360) - 180;
+  const elevation = Math.min(90, Math.max(-10, press.elevation + dy * 0.5));
+  return { azimuth: Math.round(azimuth * 10) / 10, elevation: Math.round(elevation * 10) / 10 };
+}
 
 export class Paper {
   private views = new Map<string, HTMLElement>();
@@ -673,6 +682,18 @@ export class Paper {
     e.preventDefault();
     const p = this.point(e);
     this.commitAll();
+    // Dragging across a surface plot turns it, rather than moving it.
+    if (target.closest('.rotate-area') && view) {
+      const item = this.doc.find(view.dataset.id!);
+      if (item?.kind === 'math' && item.region.content.k === 'plot' && item.region.content.view === 'surface') {
+        const was = item.region.content.view3d;
+        const { azimuth, elevation } = was ?? DEFAULT_VIEW;
+        this.select([item.region.id]);
+        this.press = { kind: 'rotate', id: item.region.id, x: p.x, y: p.y, azimuth, elevation, was };
+        view.classList.add('rotating');
+        return;
+      }
+    }
     if (target.classList.contains('handle') && view) {
       const item = this.doc.find(view.dataset.id!);
       if (item?.kind === 'math' && (item.region.content.k === 'plot' || item.region.content.k === 'image')) {
@@ -706,6 +727,15 @@ export class Paper {
     const p = this.point(e);
     const [dx, dy] = [p.x - press.x, p.y - press.y];
     const far = Math.hypot(dx, dy) * PT > DRAG_THRESHOLD;
+    if (press.kind === 'rotate') {
+      // Turned live as the pointer moves; the change is recorded once, on release.
+      const item = this.doc.find(press.id);
+      if (item?.kind === 'math' && item.region.content.k === 'plot') {
+        item.region.content.view3d = rotated(press, dx, dy);
+        this.draw(new Set([press.id]));
+      }
+      return;
+    }
     if (press.kind === 'resize') {
       const el = this.views.get(press.id);
       const svg = el?.querySelector<HTMLElement | SVGElement>('.plot-svg, .frame');
@@ -745,6 +775,20 @@ export class Paper {
     this.press = null;
     if (!press) return;
     const p = this.point(e);
+    if (press.kind === 'rotate') {
+      this.views.get(press.id)?.classList.remove('rotating');
+      const item = this.doc.find(press.id);
+      if (item?.kind === 'math' && item.region.content.k === 'plot') {
+        const view3d = rotated(press, p.x - press.x, p.y - press.y);
+        // Back to where it started first, so undo has the old view to return to.
+        // A plot that had no view of its own is left without one, so a plain click changes nothing.
+        if (press.was) item.region.content.view3d = press.was;
+        else delete item.region.content.view3d;
+        if (p.x !== press.x || p.y !== press.y) this.doc.update(item.region, (c) => (c.k === 'plot' ? { ...c, view3d } : c));
+        else this.draw(new Set([press.id]));
+      }
+      return;
+    }
     if (press.kind === 'resize') {
       const item = this.doc.find(press.id);
       if (item?.kind === 'math') {
