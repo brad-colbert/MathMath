@@ -18,12 +18,13 @@ export type Item =
 export const GRID = 6;
 
 /** Everything undo restores. Picture data is shared, since nothing ever changes it. */
-type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque'>;
+type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page'>;
 
 const snapshot = (ws: Worksheet): Snapshot => ({
   regions: structuredClone(ws.regions),
   texts: structuredClone(ws.texts),
   opaque: ws.opaque.map((o) => ({ ...o })),
+  page: structuredClone(ws.page),
 });
 
 const HISTORY = 100;
@@ -48,6 +49,18 @@ export class Doc {
    * Only these show as out of date. Null until the worker says, a moment after it starts.
    */
   mayChange: Set<string> | null = null;
+  /**
+   * Turns the page portrait or landscape: its width and height swap, and the margins stay. Nothing on the
+   * sheet moves or recalculates; page breaks and printing follow the new size. One undo puts it back.
+   */
+  setOrientation(landscape: boolean): void {
+    const page = this.ws.page;
+    if (page.landscape === landscape) return;
+    const [short, long] = [Math.min(page.width, page.height), Math.max(page.width, page.height)];
+    this.ws.page = { ...page, landscape, width: landscape ? long : short, height: landscape ? short : long };
+    this.touched();
+  }
+
   /** Files the sheet's answers are waiting for, by name, in the order they're first needed. */
   missingFiles(): string[] {
     const out = new Set<string>();

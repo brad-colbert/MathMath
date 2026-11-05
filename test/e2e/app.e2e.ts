@@ -1408,6 +1408,37 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Page orientation: Page → Landscape swaps the page's width and height, for the screen and for print.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'x:1');
+  await idle(page);
+  const pick = (label: string) => page.evaluate((l) => {
+    const menu = [...document.querySelectorAll<HTMLDetailsElement>('#toolbar details.menu')].find((d) => d.querySelector('summary')!.textContent === 'Page')!;
+    menu.open = true;
+    menu.dispatchEvent(new Event('toggle'));
+    [...menu.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes(l))!.click();
+  }, label);
+  const state = () => page.evaluate(() => {
+    const ws = (window as any).mathmath.doc.ws;
+    const line = document.querySelector<HTMLElement>('.pagebreak');
+    return { landscape: ws.page.landscape, width: ws.page.width, height: ws.page.height, firstBreak: line?.style.top, print: document.getElementById('page-style')?.textContent ?? '' };
+  });
+  await pick('Landscape');
+  await sleep(80);
+  let st = await state();
+  check('Page → Landscape turns the page sideways', st.landscape && st.width === 792 && st.height === 612 && st.firstBreak === '612pt', st);
+  check('and printing uses the landscape size', st.print.includes('size: 792pt 612pt'), st.print);
+  check('changing the page calculates nothing', JSON.stringify(await page.evaluate(() => (window as any).mathmath.doc.lastRan)) === '[]');
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(80);
+  st = await state();
+  check('one undo puts it back to portrait', !st.landscape && st.width === 612 && st.height === 792, st);
+  await page.close();
+}
+
 // One edit is one undo, even when it pushes regions down.
 {
   const page = await fresh();
