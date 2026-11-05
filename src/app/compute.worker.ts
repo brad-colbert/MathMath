@@ -2,6 +2,7 @@
 import { type LimitKey, type Outcome, type Pixels, type PlotData, type SymAnswer, type SymSolver } from '../engine/evaluate.js';
 import { type Snapshot, runIncremental } from '../engine/incremental.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
+import { type DecodedAudio, isWavFile, parseWav } from '../engine/wav.js';
 import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/ast.js';
@@ -131,8 +132,13 @@ async function decode(assets: Worksheet['assets']): Promise<Files> {
   const images = new Map<string, DecodedImage>();
   const tables = new Map<string, string>();
   const sheets = new Map<string, Worksheet>();
+  const audio = new Map<string, DecodedAudio | string>();
   const utf8 = new TextDecoder();
   for (const [name, asset] of Object.entries(assets)) {
+    if (isWavFile(name, asset.mime)) {
+      audio.set(fileKey(name), parseWav(Uint8Array.from(atob(asset.data), (ch) => ch.charCodeAt(0))));
+      continue;
+    }
     if (!asset.mime.startsWith('image/')) {
       const text = utf8.decode(Uint8Array.from(atob(asset.data), (ch) => ch.charCodeAt(0)));
       if (asset.mime === SHEET_MIME || isSheetName(name)) {
@@ -156,7 +162,7 @@ async function decode(assets: Worksheet['assets']): Promise<Files> {
       // An unreadable image reads as missing, and the region that asks for it says so.
     }
   }
-  return { image: (name) => images.get(name), table: (name) => tables.get(name), sheet: (name) => sheets.get(name) };
+  return { image: (name) => images.get(name), table: (name) => tables.get(name), sheet: (name) => sheets.get(name), audio: (name) => audio.get(name) };
 }
 
 /** The last run's state, kept between runs so the next one recalculates only what changed. */

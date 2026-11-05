@@ -1,10 +1,13 @@
 import { eigenvalues } from './eigen.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
+import type { DecodedAudio } from './wav.js';
 import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, secondDerivatives, secondDerivatives2, spline2At, splineAt } from './splines.js';
 import {
   cholesky, eigenvector, eigenvectors, geninv, lsolve, luDecompose, matOf, norm1, norm2, norme, normi, qr, rowsOf, rref, singular, singularValues,
 } from './linalg.js';
+import { complexTransform, realForward, realInverse } from './fourier.js';
 import { normal } from './random.js';
+import { butterFns, convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
@@ -14,6 +17,25 @@ import {
 } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
+
+/** How many arguments each signal function takes, at least and at most, so a missing one is named. */
+const SIGNAL_ARITY: Record<string, [number, number]> = {
+  convolve: [2, 2], correlate: [2, 2], hannWindow: [1, 1], hammingWindow: [1, 1], blackmanWindow: [1, 1], kaiserWindow: [2, 2],
+  firLowpass: [2, 3], firHighpass: [2, 3], firBandpass: [3, 4], firBandstop: [3, 4],
+  butterLowpass: [2, 2], butterHighpass: [2, 2], butterBandpass: [3, 3], butterBandstop: [3, 3],
+  applyFilter: [2, 2], zeroPhaseFilter: [2, 2], freqResponse: [2, 2],
+};
+
+function withArity(fns: Record<string, Impl>): Record<string, Impl> {
+  return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
+    const [lo, hi] = SIGNAL_ARITY[name] ?? [0, Infinity];
+    const say = lo === hi ? `${lo}` : `${lo} or ${hi}`;
+    return [name, (...args: Value[]) => {
+      if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
+      return f(...args);
+    }];
+  }));
+}
 
 const scalar = (f: (x: Num) => Value): Impl => {
   const g = (v: Value): Value => (v.t === 'mat' ? mapMat(v, g) : f(requireNum(v)));
@@ -154,6 +176,16 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     const n = requireReal(m, `${fn}'s count`);
     if (!Number.isInteger(n) || n < 1) throw new EvalError('runtime', `${fn} needs a whole number of values, 1 or more`);
     return n;
+  };
+
+  const wavFile = (source: Value | undefined, fn: string): DecodedAudio => {
+    if (source?.t !== 'str') throw new EvalError('runtime', `${fn} needs a file name in quotes`);
+    const name = source.v;
+    if (/[\\/]/.test(name)) throw new EvalError('runtime', `${fn} takes the name of an attached file, not a folder path`);
+    const audio = files.audio(fileKey(name));
+    if (audio === undefined) throw needsFile(name);
+    if (typeof audio === 'string') throw new EvalError('runtime', `${name} can't be read: ${audio}`);
+    return audio;
   };
 
   const table: Record<string, Impl> = {
@@ -376,6 +408,21 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       if (!img) throw new EvalError('runtime', `${name} isn't attached to this worksheet. Load it with Files on the toolbar`);
       return imageMatrix(img);
     },
+    // Mathcad's Fourier transforms, with its scaling and signs (see fourier.ts).
+    fft: (v) => realForward(v!, 'fft'), FFT: (v) => realForward(v!, 'FFT'),
+    ifft: (v) => realInverse(v!, 'ifft'), IFFT: (v) => realInverse(v!, 'IFFT'),
+    cfft: (v) => complexTransform(v!, 'cfft'), icfft: (v) => complexTransform(v!, 'icfft'),
+    CFFT: (v) => complexTransform(v!, 'CFFT'), ICFFT: (v) => complexTransform(v!, 'ICFFT'),
+    // MathMath's own signal processing (see signal.ts).
+    ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...butterFns, ...filterFns } as unknown as Record<string, Impl>),
+    readWav: (source) => {
+      const audio = wavFile(source, 'readWav');
+      const frames = audio.channels[0]?.length ?? 0;
+      const m = newMat(frames, audio.channels.length);
+      audio.channels.forEach((c, j) => m.re.set(c, j * frames));
+      return m;
+    },
+    wavRate: (source) => num(wavFile(source, 'wavRate').rate, PER_SECOND),
     readTable: (source) => {
       if (source?.t !== 'str') throw new EvalError('runtime', 'readTable needs a file name in quotes');
       const name = source.v;
@@ -470,6 +517,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
 }
 
 const KELVIN: Dim = [0, 0, 0, 0, 1, 0, 0];
+const PER_SECOND: Dim = [0, 0, -1, 0, 0, 0, 0];
 
 function keepTemp(v: Value, f: (x: number) => number): Value {
   return scalar((x) => num(f(x.re), KELVIN))(v);

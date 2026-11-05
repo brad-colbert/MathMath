@@ -172,7 +172,7 @@ export function bsplineAt(coef: ArrayLike<number>, ends: ArrayLike<number>, x: n
 }
 
 /**
- * Running median over a window of n (odd), centred. Near the ends the window is cut short rather than
+ * Running median over a window of n (odd), centered. Near the ends the window is cut short rather than
  * padded, and a window with an even count takes the mean of its two middle values.
  */
 export function medianSmooth(ys: ArrayLike<number>, n: number): Float64Array {
