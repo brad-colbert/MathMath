@@ -10,6 +10,26 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-05
+
+Trace styles, and graying only what a recalculation may change.
+
+### Added
+
+- Trace styles. Select a plot and choose Format → *Trace styles…*: for each trace, a color (from the plot
+  palette or any other), a line (solid, dashed, dotted, dash-dot or none), a weight, and a point symbol
+  (circle, square, triangle or cross). Changes show at once, and *Default* puts a trace back. The legend
+  follows each trace's style. Styles only change how a plot looks, so nothing recalculates.
+
+### Changed
+
+- While a sheet recalculates, only the answers it may change gray out: those from the first region a change
+  affects downward. As the calculation reaches each region that doesn't depend on the change, that answer
+  shows as current again, so on a long sheet the gray soon narrows to what really depends on the edit.
+  Before, every answer grayed. A change that only affects how something looks grays nothing.
+- The `.mathmath` format, still version 1, gains optional per-trace styles on plots. Plots without them save
+  as before.
+
 ## [0.11.1] - 2026-11-04
 
 Deploys no longer depend on the algebra engine's download site.

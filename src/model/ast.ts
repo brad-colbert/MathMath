@@ -64,6 +64,19 @@ export interface SymCommand {
   args: Expr[];
 }
 
+/**
+ * How one trace is drawn. Anything left out takes the default: the color and dash for the trace's place in
+ * the plot, and lines or points as the plot's own setting says.
+ */
+export interface TraceStyle {
+  /** A CSS color, as #rrggbb. */
+  color?: string;
+  line?: 'solid' | 'dash' | 'dot' | 'dashdot' | 'none';
+  /** Line weight, in points. */
+  weight?: number;
+  points?: 'none' | 'circle' | 'square' | 'triangle' | 'cross';
+}
+
 /** A plot axis. Null limits are chosen from the data. */
 export interface Axis {
   min: Expr | null;
@@ -97,7 +110,7 @@ export type Content =
    */
   | { k: 'image'; expr: Expr | null; mode: 'gray' | 'rgb'; width: number; height: number; png: string | null }
   /** An X-Y plot. Each y expression is a trace against x. Size is in points. */
-  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string }
+  | { k: 'plot'; x: Expr | null; ys: Expr[]; xAxis: Axis; yAxis: Axis; markers: boolean; width: number; height: number; title?: string; traces?: (TraceStyle | null)[] }
   /**
    * Another worksheet's definitions, available from here on as if its regions were here. `file` is a file
    * name, matched without its extension against attached worksheets.

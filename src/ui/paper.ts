@@ -279,7 +279,7 @@ export class Paper {
       return { latex: math, state: 'error', note: outcome.error };
     }
     // While a calculation runs, or in EDIT mode after a change, an answer may be out of date, and must look it.
-    const note = this.outdated();
+    const note = this.outdated(region.id);
     const current = note ? 'stale' : 'ok';
     if (shows && outcome?.value) return { latex: answer(outcome.value, outcome.unit), state: current, note };
     if (shows && !outcome && stored) return { latex: answer(formatStored(stored, format)), state: 'stale', note: 'Saved answer' };
@@ -293,7 +293,7 @@ export class Paper {
     if (outcome?.error) return { latex: math, state: 'error', note: outcome.error };
     if (outcome?.unevaluated) return { latex: math, state: 'stale', note: 'No closed form was found' };
     if (outcome?.value) {
-      const note = this.outdated();
+      const note = this.outdated(region.id);
       return { latex: `${math}${outcome.value}`, state: note ? 'stale' : 'ok', note };
     }
     if (c.stored) return { latex: `${math}${tex(c.stored)}`, state: 'stale', note: 'Saved answer' };
@@ -301,8 +301,10 @@ export class Paper {
   }
 
   /** Why results on the page may be out of date, or '' if they're current. */
-  private outdated(): string {
-    return this.doc.computing ? 'Calculating' : this.doc.behind;
+  private outdated(id: string): string {
+    // While calculating, only what the calculation may change: the first region affected and those below.
+    if (this.doc.computing) return this.doc.mayChange?.has(id) ? 'Calculating' : '';
+    return this.doc.behind;
   }
 
   private drawPages(): void {

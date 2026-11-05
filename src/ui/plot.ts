@@ -5,7 +5,7 @@
 import { convertLatexToMarkup } from 'mathlive';
 import type { PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
-import type { Content } from '../model/ast.js';
+import type { Content, TraceStyle } from '../model/ast.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -13,6 +13,33 @@ type Plot = Extract<Content, { k: 'plot' }>;
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
 const DASHES = ['', '6 3', '2 3', '8 3 2 3', '1 2', '10 4', '4 2 1 2', '3 5'];
 const INK = '#0b0b0b';
+
+/** The dash patterns a trace's line can be given by name. */
+export const LINE_DASHES: Record<NonNullable<TraceStyle['line']>, string> = { solid: '', dash: '6 3', dot: '1.5 2.5', dashdot: '8 3 2 3', none: '' };
+
+/** How trace n is drawn: its own style where set, the plot's defaults otherwise. */
+export function traceLook(c: Plot, n: number): { color: string; dash: string; line: boolean; weight: number; points: NonNullable<TraceStyle['points']> } {
+  const s = c.traces?.[n] ?? {};
+  return {
+    color: s.color ?? SERIES[n % SERIES.length]!,
+    dash: s.line ? LINE_DASHES[s.line] : DASHES[n % DASHES.length]!,
+    line: s.line ? s.line !== 'none' : !c.markers,
+    weight: s.weight ?? 1.5,
+    points: s.points ?? (c.markers ? 'circle' : 'none'),
+  };
+}
+
+/** A point symbol at (x, y), its size following the line weight. */
+function symbol(kind: NonNullable<TraceStyle['points']>, x: number, y: number, color: string, weight: number): string {
+  const r = 1.6 + weight * 0.4;
+  switch (kind) {
+    case 'circle': return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="${color}" stroke="#fff" stroke-width="0.75"/>`;
+    case 'square': return `<rect x="${(x - r).toFixed(2)}" y="${(y - r).toFixed(2)}" width="${(2 * r).toFixed(2)}" height="${(2 * r).toFixed(2)}" fill="${color}" stroke="#fff" stroke-width="0.75"/>`;
+    case 'triangle': return `<path d="M${x.toFixed(2)} ${(y - 1.2 * r).toFixed(2)}L${(x + 1.1 * r).toFixed(2)} ${(y + 0.8 * r).toFixed(2)}L${(x - 1.1 * r).toFixed(2)} ${(y + 0.8 * r).toFixed(2)}Z" fill="${color}" stroke="#fff" stroke-width="0.75"/>`;
+    case 'cross': return `<path d="M${(x - r).toFixed(2)} ${(y - r).toFixed(2)}L${(x + r).toFixed(2)} ${(y + r).toFixed(2)}M${(x + r).toFixed(2)} ${(y - r).toFixed(2)}L${(x - r).toFixed(2)} ${(y + r).toFixed(2)}" stroke="${color}" stroke-width="${Math.max(1, weight * 0.8).toFixed(2)}" stroke-linecap="round"/>`;
+    default: return '';
+  }
+}
 const SECONDARY = '#52514e';
 const GRID = '#e6e5e1';
 
@@ -144,8 +171,8 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     parts.push(`<clipPath id="clip-${el.dataset.id}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath>`);
     parts.push(`<g clip-path="url(#clip-${el.dataset.id})">`);
     traces.forEach((t, n) => {
-      const color = SERIES[n % SERIES.length]!;
-      const dash = DASHES[n % DASHES.length]!;
+      const look = traceLook(c, n);
+      const { color, dash } = look;
       const usable = (i: number): boolean => Number.isFinite(t.x[i]!) && Number.isFinite(t.y[i]!) && !(sx.log && t.x[i]! <= 0) && !(sy.log && t.y[i]! <= 0);
       let d = '';
       let pen = false;
@@ -157,10 +184,12 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
         d += `${pen ? 'L' : 'M'}${X(t.x[i]!).toFixed(2)} ${Y(t.y[i]!).toFixed(2)}`;
         pen = true;
       }
-      if (d && !c.markers) parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`);
-      if (c.markers || t.x.length === 1) {
+      if (d && look.line) parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${look.weight}" stroke-linejoin="round" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`);
+      // A lone point always shows, or there'd be nothing to see.
+      const points = look.points !== 'none' ? look.points : t.x.length === 1 || !look.line ? 'circle' : 'none';
+      if (points !== 'none') {
         for (let i = 0; i < t.x.length; i++) {
-          if (usable(i)) parts.push(`<circle cx="${X(t.x[i]!).toFixed(2)}" cy="${Y(t.y[i]!).toFixed(2)}" r="2.2" fill="${color}" stroke="#fff" stroke-width="0.75"/>`);
+          if (usable(i)) parts.push(symbol(points, X(t.x[i]!), Y(t.y[i]!), color, look.weight));
         }
       }
     });
@@ -171,8 +200,10 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
 
   // The y expressions double as the legend: each carries its trace's line, so color is never alone.
   const swatch = (n: number): string => {
-    const dash = DASHES[n % DASHES.length]!;
-    return `<svg width="14pt" height="6pt" viewBox="0 0 14 6"><line x1="0" y1="3" x2="14" y2="3" stroke="${SERIES[n % SERIES.length]}" stroke-width="1.5"${dash ? ` stroke-dasharray="${dash}"` : ''}/></svg>`;
+    const look = traceLook(c, n);
+    const line = look.line ? `<line x1="0" y1="4" x2="16" y2="4" stroke="${look.color}" stroke-width="${look.weight}"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}/>` : '';
+    const mark = look.points !== 'none' || !look.line ? symbol(look.points !== 'none' ? look.points : 'circle', 8, 4, look.color, Math.min(look.weight, 1.5)) : '';
+    return `<svg width="16pt" height="8pt" viewBox="0 0 16 8">${line}${mark}</svg>`;
   };
   // Each axis's unit sits after its expression: gray when it's the default, and clicked to choose another.
   const labels = data?.labels;

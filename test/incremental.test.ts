@@ -158,3 +158,23 @@ describe('random numbers, recalculated from a change down', () => {
     expect(r.ran).toEqual(['r3', 'r4']);
   });
 });
+
+describe('what a calculation says it may change', () => {
+  test('the first region affected and everything below it; nothing for a display-only change', async () => {
+    const ws = sheetOf(['x\\coloneq 1', 'y\\coloneq 2', 'y=', 'L\\coloneq 3\\cdot m', 'L=']);
+    const first = await runIncremental(ws, noAlgebra, null);
+    const edited = structuredClone(ws);
+    set(edited, 'r2', 'y\\coloneq 5');
+    let planned: string[] = [];
+    const kept: string[] = [];
+    const second = await runIncremental(edited, noAlgebra, first.snapshot, { planned: (ids) => (planned = ids), kept: (id) => kept.push(id) });
+    expect(planned).toEqual(['r2', 'r3', 'r4', 'r5']);
+    // L and its answer don't read y: they're found to be current as the run reaches them.
+    expect(kept).toEqual(['r4', 'r5']);
+    const shown = structuredClone(edited);
+    const c = shown.regions[4]!.content;
+    if (c.k === 'eval') c.unit = readTex('\\mathrm{cm}');
+    await runIncremental(shown, noAlgebra, second.snapshot, { planned: (ids) => (planned = ids) });
+    expect(planned).toEqual([]);
+  });
+});

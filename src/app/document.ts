@@ -7,7 +7,7 @@ import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { Algebra } from './algebra.js';
-import type { AskAlgebra, ComputeRequest, Done, Progress, Shown } from './compute.worker.js';
+import type { AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
 export type Item =
   | { kind: 'math'; region: Region }
@@ -43,6 +43,11 @@ export class Doc {
   name = 'Untitled';
   /** The regions the last calculation actually ran, for tests and for showing what was recalculated. */
   lastRan: string[] = [];
+  /**
+   * While a calculation runs, the regions it may change: the first one affected and everything below.
+   * Only these show as out of date. Null until the worker says, a moment after it starts.
+   */
+  mayChange: Set<string> | null = null;
   /** Called after anything changes, with the ids whose content must redraw, or null for all. */
   onChange: (ids: Set<string> | null) => void = () => {};
   /** Called when a calculation starts or ends. */
@@ -117,6 +122,7 @@ export class Doc {
     const seq = ++this.seq;
     const worker = this.worker ?? this.startWorker();
     this.computing = true;
+    this.mayChange = null;
     this.onBusy(true);
     const { regions, origin, tol, exactCompare, zeroOverZero, format, assets } = this.ws;
     const request: ComputeRequest = { seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets } };
@@ -130,6 +136,7 @@ export class Doc {
       worker.terminate();
       if (this.worker === worker) this.worker = null;
       this.computing = false;
+      this.mayChange = null;
       this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = `Not updated: the calculation failed (${reason})`;
       this.onBusy(false);
@@ -137,7 +144,7 @@ export class Doc {
       this.onChange(null);
     };
     worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
-    worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress>) => {
+    worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress | Planned | Kept>) => {
       if ('ask' in m.data) {
         const { ask, id } = m.data;
         void this.algebra.ask(ask).then((answer) => worker.postMessage({ answer, id }));
@@ -149,7 +156,18 @@ export class Doc {
         this.onCalculating(m.data.at);
         return;
       }
+      if ('pending' in m.data) {
+        this.mayChange = new Set(m.data.pending);
+        this.onChange(null);
+        return;
+      }
+      if ('kept' in m.data) {
+        this.mayChange?.delete(m.data.kept);
+        this.onChange(new Set([m.data.kept]));
+        return;
+      }
       this.onCalculating(null);
+      this.mayChange = null;
       if (m.data.failure) {
         failed(m.data.failure);
         return;
@@ -175,6 +193,7 @@ export class Doc {
       this.worker?.terminate();
       this.worker = null;
       this.computing = false;
+      this.mayChange = null;
       this.onCalculating(null);
       if (this.outcomes.size > 0) this.behind = 'Calculation stopped before this was updated. Any change calculates again.';
       this.onBusy(false);
