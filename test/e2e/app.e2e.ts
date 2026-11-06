@@ -1484,7 +1484,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const T = { press: 'Tab' };
   await type(page, 72, 72, 'a:1');
   await idle(page);
-  await type(page, 72, 108, { press: 'Digit4', ctrl: true, shift: true }, 'n', T, '1', T, '2000000', T, '1/n^2', R, '=');
+  await type(page, 72, 108, { press: 'Digit4', ctrl: true, shift: true }, 'n', T, '1', T, '20000000', T, '1/n^2', R, '=');
   const boxed = await page.waitForSelector('.region.calculating', { timeout: 8000 }).then((h) => h?.evaluate((e) => (e as HTMLElement).dataset.id)).catch(() => null);
   if (shots) await page.screenshot({ path: `${shots}/calculating.png` as `${string}.png`, clip: { x: 0, y: 0, width: 700, height: 300 } });
   const ws = await model(page);

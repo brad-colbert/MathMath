@@ -45,7 +45,7 @@ export const newMat = (rows: number, cols: number, dim: Dim = NODIM): Mat => ({
   t: 'mat', rows, cols, re: new Float64Array(rows * cols), im: null, dim, cells: null,
 });
 
-export const dimEq = (a: Dim, b: Dim): boolean => a.every((v, i) => Math.abs(v - b[i]!) < 1e-9);
+export const dimEq = (a: Dim, b: Dim): boolean => a === b || a.every((v, i) => Math.abs(v - b[i]!) < 1e-9);
 export const isNoDim = (d: Dim): boolean => d === NODIM || dimEq(d, NODIM);
 export const dimMul = (a: Dim, b: Dim): Dim => (a === NODIM ? b : b === NODIM ? a : a.map((v, i) => v + b[i]!));
 export const dimDiv = (a: Dim, b: Dim): Dim => (b === NODIM ? a : a.map((v, i) => v - b[i]!));

@@ -10,6 +10,21 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-05
+
+Programs and user functions run about three times faster.
+
+### Changed
+
+- Programs and the functions you define run about three times faster. Expressions are now turned into
+  closures once, rather than walked as a tree each time they're worked out, and a loop's arithmetic on
+  plain numbers, its reads of matrix elements, and its writes into a matrix it owns take direct paths.
+  Answers are unchanged: every result on the test sheets is identical, bit for bit.
+
+### Fixed
+
+- An index that draws a random number, as `v[floor(rnd(3))]`, drew it twice. It now draws once.
+
 ## [0.20.0] - 2026-11-05
 
 Transfer functions, filter design in five families, and Laplace and z-transforms.
