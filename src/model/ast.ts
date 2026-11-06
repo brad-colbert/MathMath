@@ -204,6 +204,8 @@ export interface Worksheet {
   opaque: OpaqueRegion[];
   origin: number;
   tol: number;
+  /** Mathcad's CTOL: how near a solve block's constraints must come to holding. 0.001 when left out. */
+  ctol?: number;
   /**
    * Whether comparisons are exact. When not, as Mathcad's "exact equality" option off, numbers within a
    * relative 10⁻¹² of each other are equal, so `<` and `>` are false between them.

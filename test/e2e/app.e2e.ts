@@ -1995,6 +1995,23 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await typed.close();
 }
 
+// Solve blocks, typed: Given, an equation, Find; and an equation in primes.
+{
+  const page = await fresh();
+  await type(page, 72, 60, 'x:3');
+  await type(page, 72, 100, 'Given');
+  await type(page, 72, 140, 'x^2', R, '=16');
+  await type(page, 72, 180, 'Find(x', R, '=');
+  await type(page, 72, 240, "y''(t", R, '+y(t', R, '=0');
+  const shownSolve = await shown(page);
+  const solveModel = await model(page);
+  check('Given typed is the solve block keyword', solveModel.regions[1]?.content.k === 'show' && solveModel.regions[1]?.content.expr?.name === 'Given', solveModel.regions[1]?.content);
+  check('an equation typed between is a constraint', solveModel.regions[2]?.content.expr?.op === 'equal', solveModel.regions[2]?.content);
+  check('Find solves the block', /=4$/.test((shownSolve[3] ?? '').replace(/\s/g, '')), shownSolve);
+  check("primes typed after a name are part of it, y''", JSON.stringify(solveModel.regions[4]?.content ?? {}).includes(`"name":"y''"`), solveModel.regions[4]?.content);
+  await page.close();
+}
+
 // Printing: one PDF page per sheet page, sized from the worksheet.
 {
   const page = await fresh();

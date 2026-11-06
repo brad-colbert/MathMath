@@ -33,6 +33,8 @@ export interface Host {
   resolve(name: string, s: Scope, called?: boolean): Value | undefined;
   callee(fn: Expr, s: Scope): Fn;
   isBuiltinIf(f: Fn): boolean;
+  isSolveForm(name: string): boolean;
+  solveForm(name: string, args: Expr[], s: Scope): Value;
   index(base: Value, idx: Value[]): Value;
   indexAt(base: Value, a: Value, b: Value | undefined): Value;
   position(v: Value): number;
@@ -209,6 +211,17 @@ export class Compiler {
   private call(fn: Expr, args: Expr[]): E {
     const h = this.h;
     const fs = args.map((a) => this.expr(a));
+    const normal = this.normalCall(fn, fs);
+    // root and the solve block functions take names, unless the sheet has a function of that name.
+    if (fn.k === 'id' && h.isSolveForm(fn.name)) {
+      const name = fn.name;
+      return (s) => (s.lookup(name) ? normal(s) : h.solveForm(name, args, s));
+    }
+    return normal;
+  }
+
+  private normalCall(fn: Expr, fs: E[]): E {
+    const h = this.h;
     return (s) => {
       const callee = h.callee(fn, s);
       if (h.isBuiltinIf(callee)) {
