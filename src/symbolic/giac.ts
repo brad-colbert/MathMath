@@ -17,6 +17,8 @@ const FUNCTIONS: Record<string, string> = {
   sin: 'sin', cos: 'cos', tan: 'tan', asin: 'asin', acos: 'acos', atan: 'atan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh',
   ln: 'ln', log: 'log10', exp: 'exp', sqrt: 'sqrt', max: 'max', min: 'min', floor: 'floor', ceil: 'ceil', sign: 'sign',
   Re: 're', Im: 'im', sec: 'sec', csc: 'csc', cot: 'cot',
+  // Mathcad's step is Φ; δ with one argument is Dirac's impulse, as transforms give it.
+  'Φ': 'Heaviside', 'δ': 'Dirac',
 };
 
 const CONSTANTS: Record<string, string> = { 'π': 'pi', e: 'e', '∞': '(+infinity)' };
@@ -26,12 +28,15 @@ const FROM_GIAC: Record<string, Expr> = {
   pi: { k: 'id', name: 'π' }, e: { k: 'id', name: 'e' }, i: { k: 'imag', v: 1 }, infinity: { k: 'id', name: '∞' },
 };
 
-const KEYWORDS_WITH_ARGUMENT = ['solve', 'collect', 'coeffs', 'series', 'substitute', 'parfrac', 'assume'];
+const TRANSFORMS = ['laplace', 'invlaplace', 'ztrans', 'invztrans'];
+const KEYWORDS_WITH_ARGUMENT = ['solve', 'collect', 'coeffs', 'series', 'substitute', 'parfrac', 'assume', ...TRANSFORMS];
 const KEYWORDS_PLAIN = ['simplify', 'expand', 'factor', 'float'];
 export const KEYWORDS = [...KEYWORDS_PLAIN, ...KEYWORDS_WITH_ARGUMENT];
 
 export class Printer {
   private names = new Map<string, string>();
+  /** Decimals as exact fractions: the engine finds no z-transform of 0.5^n, but does of (1/2)^n. */
+  exactNumbers = false;
   private calls = new Map<string, string>();
   /** Generated name, back to the name on the sheet. */
   readonly back = new Map<string, string>();
@@ -66,7 +71,10 @@ export class Printer {
   print(e: Expr): string {
     const p = (x: Expr): string => this.print(x);
     switch (e.k) {
-      case 'real': return e.v < 0 ? `(${e.v})` : String(e.v);
+      case 'real': {
+        const text = this.exactNumbers && !Number.isInteger(e.v) ? `exact(${e.v})` : String(e.v);
+        return e.v < 0 ? `(${text})` : text;
+      }
       case 'imag': return `(${e.v}*i)`;
       case 'id': return CONSTANTS[e.name] ?? this.name(e.name);
       case 'matrix': {
@@ -131,6 +139,8 @@ function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest):
   const first = c.args[0];
   const numeric = first !== undefined && !/"k":"id"/.test(JSON.stringify(first));
   if (numeric && (c.name === 'solve' || c.name === 'series')) throw new Error(`${c.name} needs a variable with no value on the sheet`);
+  // A transform's variables must be plain names: one with a value on the sheet has been replaced by it.
+  if (TRANSFORMS.includes(c.name) && c.args.some((a) => a.k !== 'id')) throw new Error(`${c.name} needs a variable with no value on the sheet`);
   if (numeric && ['coeffs', 'collect', 'parfrac', 'substitute', 'assume'].includes(c.name)) return cmd;
   const substituted = c.name === 'substitute' && first?.k === 'op' && first.args[0]?.k !== 'id';
   if (substituted) return cmd;
@@ -146,6 +156,11 @@ function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest):
     case 'solve': return `csolve(${cmd},${arg(0)})`;
     case 'series': return `convert(series(${cmd},${c.args[0]?.k === 'id' ? `${arg(0)}=0` : arg(0)},${c.args[1] ? arg(1) : 6}),polynom)`;
     case 'float': return `evalf(${cmd},${c.args[0] ? arg(0) : 20})`;
+    // As Mathcad: the transform's variable, then optionally the result's, which is otherwise s, t, z or n.
+    case 'laplace': return `laplace(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('s')})`;
+    case 'invlaplace': return `ilaplace(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('t')})`;
+    case 'ztrans': return `ztrans(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('z')})`;
+    case 'invztrans': return `invztrans(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('n')})`;
     case 'assume':
       req.setup.push(`assume(${arg(0)})`);
       return cmd;
@@ -156,6 +171,7 @@ function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest):
 export function buildRequest(expanded: Expr, commands: SymCommand[], p: Printer): GiacRequest {
   const req: GiacRequest = { setup: [], command: '', cleanup: [] };
   // Without a keyword, combine like terms and leave the rest as written, as a plain arrow does.
+  p.exactNumbers = commands.some((c) => TRANSFORMS.includes(c.name));
   let cmd = p.print(expanded);
   if (commands.length === 0) cmd = `regroup(${cmd})`;
   for (const command of commands) cmd = applyKeyword(cmd, command, p, req);
@@ -196,13 +212,16 @@ export type GiacAnswer =
   /** Exact but unreadable, such as a `rootof`. Ask again for a number. */
   | { retry: string };
 
-const UNEVALUATED = /\b(integrate|int|sum|product|limit|diff)\(/;
+const UNEVALUATED = /\b(integrate|int|sum|product|limit|diff|laplace|ilaplace|ztrans|invztrans)\(/;
 
 export function readAnswer(out: string, c: Sym, req: GiacRequest, p: Printer): GiacAnswer {
   // Giac adds an approximation to exact results: 2*sqrt(2)=2.82842712475.
   const text = out.trim().replace(/=-?[\d.]+(e[+-]?\d+)?$/, '');
   if (text.startsWith('ERROR ')) return { error: text.slice(6) };
-  if (text.includes('undef')) return { error: 'This has no defined value' };
+  if (text.includes('undef')) {
+    const transform = c.commands.find((k) => TRANSFORMS.includes(k.name));
+    return { error: transform ? `No ${transform.name} transform was found for this` : 'This has no defined value' };
+  }
   if (/^-?infinity$/.test(text) && !hasLimitProcess(c)) return { error: 'This has no defined value' };
   if (text.includes('rootof')) return { retry: `evalf(${req.command})` };
   if (UNEVALUATED.test(text)) return { unevaluated: true };

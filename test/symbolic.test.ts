@@ -179,3 +179,55 @@ describe('importing', () => {
     expect(out[0]!.error?.reason).toContain('symbolic');
   });
 });
+
+describe('Laplace and z-transforms, as Mathcad keywords', () => {
+  const t = V('t');
+  const decay = op('pow', V('e'), op('mult', R(-2), t));
+  test('laplace, t gives a function of s, and invlaplace, s one of t', () => {
+    const p = new Printer();
+    const req = buildRequest(decay, [{ name: 'laplace', args: [t] }], p);
+    expect(req.command).toBe('laplace((e^((-2)*v0)),v0,v1)');
+    expect(p.back.get('v1')).toBe('s');
+    expect(readAnswer('1/(v1+2)', sym(decay, { name: 'laplace', args: [t] }), req, p)).toEqual({
+      result: op('div', R(1), op('plus', V('s'), R(2))),
+    });
+    const inv = buildRequest(op('div', R(1), V('s')), [{ name: 'invlaplace', args: [V('s')] }], new Printer());
+    expect(inv.command).toBe('ilaplace((1/v0),v0,v1)');
+  });
+  test('a second argument names the result variable', () => {
+    const p = new Printer();
+    const req = buildRequest(decay, [{ name: 'laplace', args: [t, V('p')] }], p);
+    expect(req.command).toBe('laplace((e^((-2)*v0)),v0,v1)');
+    expect(p.back.get('v1')).toBe('p');
+  });
+  test('decimals go to the engine as exact fractions, for transforms only', () => {
+    expect(buildRequest(op('pow', R(0.5), V('n')), [{ name: 'ztrans', args: [V('n')] }], new Printer()).command).toBe('ztrans((exact(0.5)^v0),v0,v1)');
+    expect(buildRequest(op('pow', R(0.5), V('n')), [], new Printer()).command).toBe('regroup((0.5^v0))');
+  });
+  test('ztrans, n and invztrans, z', () => {
+    expect(buildRequest(op('pow', R(2), V('n')), [{ name: 'ztrans', args: [V('n')] }], new Printer()).command).toBe('ztrans((2^v0),v0,v1)');
+    expect(buildRequest(V('z'), [{ name: 'invztrans', args: [V('z')] }], new Printer()).command).toBe('invztrans(v0,v0,v1)');
+  });
+  test("Giac's step and impulse come back as Mathcad's Φ and δ", () => {
+    const p = new Printer();
+    p.name('t');
+    const req = buildRequest(t, [], p);
+    expect(readAnswer('Heaviside(v0-1)', sym(t), req, p)).toEqual({
+      result: { k: 'call', fn: V('Φ'), args: [op('minus', V('t'), R(1))] },
+    });
+    expect(readAnswer('Dirac(v0)', sym(t), req, p)).toEqual({ result: { k: 'call', fn: V('δ'), args: [V('t')] } });
+  });
+  test('a transform the engine can’t do says so', () => {
+    const c = sym(t, { name: 'laplace', args: [t] });
+    const p = new Printer();
+    const req = buildRequest(t, c.commands, p);
+    expect(readAnswer('undef', c, req, p)).toEqual({ error: 'No laplace transform was found for this' });
+    expect(readAnswer('laplace(f0(v0),v0,v1)', c, req, p)).toEqual({ unevaluated: true });
+  });
+  test('the variable must be free', () => {
+    expect(() => buildRequest(t, [{ name: 'laplace', args: [R(3)] }], new Printer())).toThrow('no value on the sheet');
+    // A vector of times with units, as a sheet's t_j := j·ms, is no plain name either.
+    const times = { k: 'matrix', rows: 1, cols: 1, items: [op('mult', R(0.001), V('s'))] } as Expr;
+    expect(() => buildRequest(t, [{ name: 'laplace', args: [times] }], new Printer())).toThrow('no value on the sheet');
+  });
+});

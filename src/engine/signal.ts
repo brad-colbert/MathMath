@@ -1,16 +1,21 @@
 /**
- * Signal processing: convolution and correlation, windows, FIR and Butterworth filter design, filtering, and
- * frequency response. These are MathMath's own functions, not Mathcad's (its Signal Processing pack isn't
+ * Signal processing: convolution and correlation, windows, FIR filter design, filtering, and frequency
+ * response. IIR design (Butterworth, Chebyshev, elliptic, Bessel) is in iir.ts. These are MathMath's own functions, not Mathcad's (its Signal Processing pack isn't
  * measured), so they follow SciPy's definitions, and the tests check them against SciPy's numbers.
  *
  * Frequencies are fractions of the sample rate, 0 to ½ (½ is the Nyquist frequency), so a cutoff typed as
  * `fc/fs` with both in Hz cancels to a plain number. A filter is a vector of FIR coefficients b, or a vector
- * of two vectors (b; a) for an IIR filter, as the Butterworth functions return.
+ * of two vectors (b; a) for an IIR filter, as the design functions in iir.ts return. freqResponse also takes
+ * frequencies with units, for an analog H(s).
  */
+import { type C, cdiv } from './complex.js';
 import { transform } from './fourier.js';
+import { analogAt, systemOf } from './systems.js';
 import {
-  type Dim, EvalError, type Mat, NODIM, type Value, dimMul, fromValues, isNoDim, newMat, requireMat, requireReal,
+  type Dim, EvalError, type Mat, NODIM, type Value, dimEq, dimMul, fromValues, isNoDim, newMat, requireMat, requireReal,
 } from './values.js';
+
+const PER_SECOND: Dim = [0, 0, -1, 0, 0, 0, 0];
 
 // ── Vectors in and out ──────────────────────────────────────────────────────────────────────────────
 
@@ -229,111 +234,6 @@ export const firFns = {
   },
 };
 
-// ── Butterworth design ──────────────────────────────────────────────────────────────────────────────
-
-type C = [number, number];
-const cmul = (a: C, b: C): C => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
-const cdiv = (a: C, b: C): C => {
-  const d = b[0] * b[0] + b[1] * b[1];
-  return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d];
-};
-const cadd = (a: C, b: C): C => [a[0] + b[0], a[1] + b[1]];
-const csub = (a: C, b: C): C => [a[0] - b[0], a[1] - b[1]];
-const csqrt = (a: C): C => {
-  const r = Math.hypot(a[0], a[1]);
-  const re = Math.sqrt((r + a[0]) / 2);
-  const im = Math.sqrt(Math.max(0, (r - a[0]) / 2));
-  return [re, a[1] < 0 ? -im : im];
-};
-
-/** The polynomial with these roots, highest power first; real, since the roots come in conjugate pairs. */
-function poly(roots: C[]): Float64Array {
-  let p: C[] = [[1, 0]];
-  for (const r of roots) {
-    const next: C[] = Array.from({ length: p.length + 1 }, () => [0, 0] as C);
-    p.forEach((c, i) => {
-      next[i] = cadd(next[i]!, c);
-      next[i + 1] = csub(next[i + 1]!, cmul(c, r));
-    });
-    p = next;
-  }
-  return Float64Array.from(p, (c) => c[0]);
-}
-
-/**
- * A digital Butterworth filter, as SciPy's `butter(order, edges, kind, fs=1)`: the analog prototype's poles,
- * moved to the band, then the bilinear transform with the edges pre-warped so they land where asked.
- */
-export function butter(order: number, edges: number[], kind: 'low' | 'high' | 'band' | 'stop'): { b: Float64Array; a: Float64Array } {
-  const fs = 2;
-  const warped = edges.map((f) => 2 * fs * Math.tan((Math.PI * f * 2) / fs));
-  // Prototype poles on the left half of the unit circle.
-  let p: C[] = Array.from({ length: order }, (_, k) => {
-    const t = (Math.PI * (2 * k + 1 - order)) / (2 * order);
-    return [-Math.cos(t), -Math.sin(t)] as C;
-  });
-  let z: C[] = [];
-  let gain = 1;
-  if (kind === 'low') {
-    const w = warped[0]!;
-    p = p.map((q) => [q[0] * w, q[1] * w]);
-    gain = w ** order;
-  } else if (kind === 'high') {
-    const w = warped[0]!;
-    gain = p.reduce((g, q) => cmul(g, [-q[0], -q[1]]), [1, 0] as C)[0];
-    gain = 1 / gain;
-    p = p.map((q) => cdiv([w, 0], q));
-    z = Array.from({ length: order }, () => [0, 0] as C);
-  } else {
-    const [w1, w2] = warped as [number, number];
-    const bw = w2 - w1;
-    const w0 = Math.sqrt(w1 * w2);
-    if (kind === 'band') {
-      const half = p.map((q) => [(q[0] * bw) / 2, (q[1] * bw) / 2] as C);
-      p = half.flatMap((h) => {
-        const d = csqrt(csub(cmul(h, h), [w0 * w0, 0]));
-        return [cadd(h, d), csub(h, d)];
-      });
-      z = Array.from({ length: order }, () => [0, 0] as C);
-      gain = bw ** order;
-    } else {
-      gain = 1 / p.reduce((g, q) => cmul(g, [-q[0], -q[1]]), [1, 0] as C)[0];
-      const half = p.map((q) => cdiv([bw / 2, 0], q));
-      p = half.flatMap((h) => {
-        const d = csqrt(csub(cmul(h, h), [w0 * w0, 0]));
-        return [cadd(h, d), csub(h, d)];
-      });
-      z = Array.from({ length: order }, () => [[0, w0], [0, -w0]] as C[]).flat();
-    }
-  }
-  // Bilinear transform: s = 2·fs·(z − 1)/(z + 1). Zeros at infinity land at z = −1.
-  const fs2: C = [2 * fs, 0];
-  const zd = z.map((q) => cdiv(cadd(fs2, q), csub(fs2, q)));
-  const pd = p.map((q) => cdiv(cadd(fs2, q), csub(fs2, q)));
-  while (zd.length < pd.length) zd.push([-1, 0]);
-  const num = z.reduce((g, q) => cmul(g, csub(fs2, q)), [1, 0] as C);
-  const den = p.reduce((g, q) => cmul(g, csub(fs2, q)), [1, 0] as C);
-  const k = gain * cdiv(num, den)[0];
-  const b = poly(zd).map((x) => x * k);
-  const a = poly(pd);
-  return { b, a };
-}
-
-function order(v: Value, fn: string): number {
-  const n = requireReal(v, `${fn}'s order`);
-  if (!Number.isInteger(n) || n < 1 || n > 20) throw new EvalError('runtime', `${fn}'s order must be a whole number from 1 to 20`);
-  return n;
-}
-
-const iir = ({ b, a }: { b: Float64Array; a: Float64Array }): Mat => fromValues(2, 1, [columnOf(b), columnOf(a)]);
-
-export const butterFns = {
-  butterLowpass: (n: Value, fc: Value) => iir(butter(order(n, 'butterLowpass'), [fraction(fc, 'butterLowpass')], 'low')),
-  butterHighpass: (n: Value, fc: Value) => iir(butter(order(n, 'butterHighpass'), [fraction(fc, 'butterHighpass')], 'high')),
-  butterBandpass: (n: Value, f1: Value, f2: Value) => iir(butter(order(n, 'butterBandpass'), band(f1, f2, 'butterBandpass'), 'band')),
-  butterBandstop: (n: Value, f1: Value, f2: Value) => iir(butter(order(n, 'butterBandstop'), band(f1, f2, 'butterBandstop'), 'stop')),
-};
-
 // ── Filtering ───────────────────────────────────────────────────────────────────────────────────────
 
 /** A filter's coefficients, with a normalized so a₀ = 1: a vector b, or a vector of two vectors (b; a). */
@@ -451,8 +351,26 @@ export const filterFns = {
     const { b, a } = coefficients(vf, 'zeroPhaseFilter');
     return eachColumn(vx, 'zeroPhaseFilter', (col) => filtfilt(b, a, col, 'zeroPhaseFilter'));
   },
-  /** H at each frequency f (a fraction of the sample rate): Σ b_k e^(−2πi f k) / Σ a_k e^(−2πi f k). */
+  /**
+   * H at each frequency f. A fraction of the sample rate: Σ b_k e^(−2πi f k) / Σ a_k e^(−2πi f k). A frequency
+   * with units (Hz): H(s) of an analog system at s = i·2πf, coefficients constant term first.
+   */
   freqResponse: (vf: Value, vfreq: Value) => {
+    const fdim = (vfreq as { dim?: Dim }).dim ?? NODIM;
+    if (dimEq(fdim, PER_SECOND)) {
+      const sys = systemOf(vf, 'freqResponse');
+      if (vfreq.t === 'num') {
+        const [re, im] = analogAt(sys.b, sys.a, vfreq.re);
+        return { t: 'num', re, im, dim: NODIM };
+      }
+      const hz = sequence(vfreq, "freqResponse's frequencies");
+      const re = new Float64Array(hz.re.length);
+      const im = new Float64Array(hz.re.length);
+      hz.re.forEach((f, k) => {
+        [re[k], im[k]] = analogAt(sys.b, sys.a, f);
+      });
+      return columnOf(re, NODIM, im);
+    }
     const { b, a } = coefficients(vf, 'freqResponse');
     const at = (f: number): C => {
       const sum = (c: Float64Array): C => {
@@ -466,12 +384,12 @@ export const filterFns = {
       return cdiv(sum(b), sum(a));
     };
     if (vfreq.t === 'num') {
-      if (!isNoDim(vfreq.dim)) throw new EvalError('runtime', "freqResponse's frequency is a fraction of the sample rate: divide it by the sample rate, as f/fs");
+      if (!isNoDim(vfreq.dim)) throw new EvalError('runtime', "freqResponse's frequency is a fraction of the sample rate (as f/fs) for a digital filter, or in Hz for an analog H(s)");
       const [re, im] = at(vfreq.re);
       return { t: 'num', re, im, dim: NODIM };
     }
     const fs = sequence(vfreq, "freqResponse's frequencies");
-    if (!isNoDim(fs.dim)) throw new EvalError('runtime', "freqResponse's frequencies are fractions of the sample rate: divide them by the sample rate, as f/fs");
+    if (!isNoDim(fs.dim)) throw new EvalError('runtime', "freqResponse's frequencies are fractions of the sample rate (as f/fs) for a digital filter, or in Hz for an analog H(s)");
     const re = new Float64Array(fs.re.length);
     const im = new Float64Array(fs.re.length);
     fs.re.forEach((f, k) => {

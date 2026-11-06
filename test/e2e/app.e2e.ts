@@ -485,6 +485,28 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await p2.close();
   await p3.close();
 
+  // Laplace and z-transforms, through the engine.
+  const px = await fresh();
+  const transform = async (top: number, expr: string, name: string, variable: string) => {
+    await clickAt(px, 60, top);
+    await keys(px, expr);
+    await keyword(px, name);
+    await sleep(40);
+    await keys(px, variable);
+    await px.keyboard.press('Escape');
+    await sleep(60);
+  };
+  await transform(60, 'e^-2t', 'laplace', 't');
+  await transform(110, '1/(s^2+4', 'invlaplace', 's');
+  await transform(160, '2^n', 'ztrans', 'n');
+  await transform(210, '1', 'invlaplace', 's');
+  const xf = (await text(px)).map((x) => x.replace(/\s/g, ''));
+  check('laplace, t gives a function of s', /→s\+21/.test(xf[0] ?? ''), xf[0]);
+  check('invlaplace, s gives a function of t', /→.*sin\(2⋅?t\)/.test(xf[1] ?? ''), xf[1]);
+  check('ztrans, n gives a function of z', /→z−2z/.test(xf[2] ?? ''), xf[2]);
+  check('the inverse transform of 1 is δ(t)', /→δ\(t\)$/.test(xf[3] ?? ''), xf[3]);
+  await px.close();
+
   // No closed form must never look like an answer.
   const p4 = await fresh();
   await p4.evaluate(() => {

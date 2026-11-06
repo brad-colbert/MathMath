@@ -7,7 +7,9 @@ import {
 } from './linalg.js';
 import { complexTransform, realForward, realInverse } from './fourier.js';
 import { normal } from './random.js';
-import { butterFns, convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
+import { convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
+import { IIR_ARITY, iirFns } from './iir.js';
+import { SYSTEM_ARITY, systemFns } from './systems.js';
 import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
 import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { parseTable } from './table.js';
@@ -24,13 +26,12 @@ type Impl = (...args: Value[]) => Value;
 const SIGNAL_ARITY: Record<string, [number, number]> = {
   convolve: [2, 2], correlate: [2, 2], hannWindow: [1, 1], hammingWindow: [1, 1], blackmanWindow: [1, 1], kaiserWindow: [2, 2],
   firLowpass: [2, 3], firHighpass: [2, 3], firBandpass: [3, 4], firBandstop: [3, 4],
-  butterLowpass: [2, 2], butterHighpass: [2, 2], butterBandpass: [3, 3], butterBandstop: [3, 3],
   applyFilter: [2, 2], zeroPhaseFilter: [2, 2], freqResponse: [2, 2],
 };
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -50,6 +51,11 @@ const real1 = (f: (x: number) => number): Impl =>
     if (x.im !== 0) throw new EvalError('unsupported', 'complex argument to real function');
     return num(f(x.re));
   });
+
+const realOf = (x: Num, fn: string): number => {
+  if (x.im !== 0) throw new EvalError('runtime', `${fn} takes a real argument`);
+  return x.re;
+};
 
 const keepDim1 = (f: (x: number) => number): Impl => scalar((x) => num(f(x.re), x.dim));
 
@@ -216,6 +222,12 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       })(a);
     },
     sqrt: scalar((x) => pow(x, num(0.5))),
+    // Mathcad's Heaviside step, with Φ(0) = 1, and Kronecker's δ(m, n). δ with one argument is Dirac's
+    // impulse, as Laplace transforms give it: 0 away from 0, infinite at 0.
+    'Φ': scalar((x) => num(realOf(x, 'Φ') < 0 ? 0 : 1)),
+    'δ': (m, n) => (n === undefined
+      ? scalar((x) => num(realOf(x, 'δ') === 0 ? Infinity : 0))(m!)
+      : num(requireReal(m!, "δ's first argument") === requireReal(n, "δ's second argument") ? 1 : 0)),
     sign: keepDimless(Math.sign), floor: keepDim1(Math.floor), ceil: keepDim1(Math.ceil), trunc: keepDim1(Math.trunc),
     round: (a, b) => {
       const p = 10 ** (b ? requireReal(b) : 0);
@@ -418,7 +430,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     cfft: (v) => complexTransform(v!, 'cfft'), icfft: (v) => complexTransform(v!, 'icfft'),
     CFFT: (v) => complexTransform(v!, 'CFFT'), ICFFT: (v) => complexTransform(v!, 'ICFFT'),
     // MathMath's own signal processing (see signal.ts).
-    ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...butterFns, ...filterFns } as unknown as Record<string, Impl>),
+    ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...filterFns } as unknown as Record<string, Impl>),
+    ...withArity({ ...iirFns, ...systemFns }),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // Electrical engineering (see electrical.ts).
