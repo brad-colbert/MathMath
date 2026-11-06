@@ -90,6 +90,8 @@ function boundOne(e: XElement): string {
   return names[0] ?? '';
 }
 
+const SOLVE_TAGS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve']);
+
 function parseApply(e: XElement): Expr {
   const [head, ...rest] = kids(e);
   if (!head) return { k: 'unsupported', tag: 'apply:empty' };
@@ -117,6 +119,8 @@ function parseApply(e: XElement): Expr {
     return { k: 'derivative', varName: boundOne(vars), body: parseExpr(body) };
   }
   const args = argList(rest).map(parseExpr);
+  // Mathcad saves a solve block's function as an element of its own, holding the solver's settings.
+  if (SOLVE_TAGS.has(tag)) return { k: 'call', fn: { k: 'id', name: tag }, args };
   if (tag === 'id') return { k: 'call', fn: { k: 'id', name: translateFunction(idName(head)) }, args };
   if (tag === 'apply' || tag === 'parens') return { k: 'call', fn: parseExpr(head), args };
   // Mathcad writes the determinant as its own operator; in MathMath, |M| on a square matrix is the determinant.
@@ -452,6 +456,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
     componentOutputs,
     origin: vars ? num(vars, 'array-origin') : 0,
     tol: vars ? Number(vars.getAttribute('convergence-tolerance') ?? 0.001) : 0.001,
+    ctol: vars ? Number(vars.getAttribute('constraint-tolerance') ?? 0.001) : 0.001,
     exactCompare: descendants(root, 'calculationBehavior')[0]?.getAttribute('exact-boolean') !== 'false',
     zeroOverZero: descendants(root, 'calculationBehavior')[0]?.getAttribute('zero-over-zero') === '0',
   };

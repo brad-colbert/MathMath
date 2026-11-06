@@ -14,7 +14,7 @@ import type { Content, Region, Target, Worksheet } from '../model/ast.js';
 import type { Defs } from '../symbolic/defs.js';
 import type { Files } from './files.js';
 import { NO_FILES } from './files.js';
-import { type OrderKey, type Outcome, Run, Scope, type SymSolver, collectIds, inOrder } from './evaluate.js';
+import { type OrderKey, type Outcome, Run, SOLVE_BLOCK, Scope, type SymSolver, closesBlock, collectIds, inOrder } from './evaluate.js';
 import type { Value } from './values.js';
 
 /** One region's part of a run. */
@@ -101,6 +101,8 @@ function readsOf(c: Content): Set<string> {
     if (t.k === 'multi') t.targets.forEach(extended);
   };
   if (c.k === 'define' || c.k === 'sym') extended(c.target);
+  // A solver reads its block, which Given and the constraints above it mark (see SOLVE_BLOCK).
+  if (closesBlock(c)) used.add(SOLVE_BLOCK);
   return used;
 }
 
@@ -121,7 +123,7 @@ function setsBetween(before: Scope, after: Scope): [string, Value][] {
 }
 
 function basisOf(ws: Worksheet, filesKey: string): string {
-  return json({ origin: ws.origin, tol: ws.tol, exactCompare: ws.exactCompare ?? true, zeroOverZero: ws.zeroOverZero ?? false, files: filesKey });
+  return json({ origin: ws.origin, tol: ws.tol, ctol: ws.ctol ?? 0.001, exactCompare: ws.exactCompare ?? true, zeroOverZero: ws.zeroOverZero ?? false, files: filesKey });
 }
 
 export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snapshot | null, opts: IncrementalOptions = {}): Promise<IncrementalResult> {
@@ -143,6 +145,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
   const resumeDefs = before?.defs ?? start.defs;
   resumeScope.forgetAfter();
   const run = new Run(ws, opts.files ?? NO_FILES, { ev: run0.ev, scope: resumeScope, defs: resumeDefs });
+  run.order = order;
 
   // Names whose meaning may have changed from here down. Regions that were below the change and are gone,
   // or have moved, leave their names behind as changed: a reader below may now see an earlier definition.

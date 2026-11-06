@@ -524,3 +524,32 @@ export const ODE_ARITY: Record<string, [number, number]> = {
   Stiffb: [6, 6], Stiffr: [6, 6], stiffb: [8, 8], stiffr: [8, 8], Radau: [5, 8], BDF: [5, 7], AdamsBDF: [5, 7],
 };
 
+
+/**
+ * y at evenly spaced points from x1 to x2, with the derivative there: for Odesolve, which interpolates
+ * between them. The adaptive Runge–Kutta first; if the system proves stiff, the stiff solver.
+ */
+export function odeGrid(f: F, x1: number, x2: number, y0: Float64Array, points: number, fn: string): { xs: number[]; ys: Vec[]; dys: Vec[] } {
+  const run = (st: Stepper): { xs: number[]; ys: Vec[]; dys: Vec[] } => {
+    const step = (x2 - x1) / points;
+    const xs = [x1];
+    const ys: Vec[] = [y0.slice()];
+    const h = { v: firstStep(f, x1, y0, x2 - x1, DEFAULT_TOL, DEFAULT_TOL) };
+    let y: Vec = y0.slice();
+    let x = x1;
+    for (let k = 1; k <= points; k++) {
+      const target = k === points ? x2 : x1 + k * step;
+      y = integrate(st, x, y, target, h, fn);
+      x = target;
+      xs.push(x);
+      ys.push(y);
+    }
+    return { xs, ys, dys: xs.map((xi, i) => f(xi, ys[i]!)) };
+  };
+  try {
+    return run(dopri(f, DEFAULT_TOL, DEFAULT_TOL));
+  } catch (err) {
+    if (!(err instanceof EvalError) || !/stiff/.test(err.message)) throw err;
+    return run(rosenbrock(f, numericJacobian(f), DEFAULT_TOL, DEFAULT_TOL));
+  }
+}

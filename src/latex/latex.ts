@@ -14,11 +14,14 @@ const GREEK_WORDS = Object.fromEntries(
 );
 const UNGREEK = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
 
-function name(id: string): string {
+function name(whole: string): string {
+  // Primes, as y'' for y″, print after the name, subscript and all.
+  const marks = /'*$/.exec(whole)![0];
+  const id = whole.slice(0, whole.length - marks.length);
   const dot = id.indexOf('.');
   const [base, sub] = dot > 0 ? [id.slice(0, dot), id.slice(dot + 1)] : [id, null];
   const b = GREEK[base] ?? (/^[A-Za-z]$/.test(base) ? base : `\\mathrm{${escapeText(base)}}`);
-  return sub ? `${b}_{\\text{${escapeText(sub)}}}` : b;
+  return (sub ? `${b}_{\\text{${escapeText(sub)}}}` : b) + marks;
 }
 
 /** Inside text, a backslash is written as a command: `\\\\` there would be a line break. */
@@ -286,17 +289,40 @@ export function readTex(src: string): Expr {
     return items;
   };
   const identifier = (base: string): Expr => {
+    let name = base;
     if (is('_') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === '\\text') {
       p += 3;
       const sub = rawBetween();
       eat('}');
-      return { k: 'id', name: `${base}.${sub}` };
-    }
-    if (is('_') && toks[p + 1]?.v === '\\text') {
+      name = `${base}.${sub}`;
+    } else if (is('_') && toks[p + 1]?.v === '\\text') {
       p += 2;
-      return { k: 'id', name: `${base}.${rawBetween()}` };
+      name = `${base}.${rawBetween()}`;
     }
-    return { k: 'id', name: base };
+    return { k: 'id', name: name + primes() };
+  };
+  /**
+   * Primes after a name, as y′ and y″ for derivatives in an Odesolve block: Mathcad keeps them in the name,
+   * as y''. Typed as apostrophes, or as ^{\prime} the way an editor may write them.
+   */
+  const primes = (): string => {
+    let out = '';
+    for (;;) {
+      if (is("'")) {
+        p++;
+        out += "'";
+      } else if (is('^') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === '\\prime') {
+        p += 2;
+        while (is('\\prime')) {
+          p++;
+          out += "'";
+        }
+        eat('}');
+      } else if (is('^') && toks[p + 1]?.v === '\\prime') {
+        p += 2;
+        out += "'";
+      } else return out;
+    }
   };
   /**
    * Adjacent letters are one name, as in Mathcad, Greek ones included (Δx, αβ). Multiplication is

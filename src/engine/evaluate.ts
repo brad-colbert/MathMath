@@ -3,6 +3,8 @@ import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
+import { brent, leastSquares, minimize, minimizeWithin, secant } from './solve.js';
+import { odeGrid } from './ode.js';
 import { type Pixels, type Written, pixels } from './image.js';
 import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
@@ -11,7 +13,7 @@ import {
 import { stream } from './random.js';
 import { UNITS } from './units.js';
 import {
-  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimEq, dimMul, fromValues, getEl, isNoDim, newMat, num,
+  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
   growColumn, needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
@@ -232,13 +234,80 @@ const CONSTANTS: Record<string, Num> = {
   'π': num(Math.PI), e: num(Math.E), '∞': num(1e307), '%': num(0.01),
 };
 
+/** Functions that work on names rather than values, as root, and those that close a solve block. */
+export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'root']);
+const BLOCK_FORMS = ['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve'];
+const RELATIONS = new Set(['equal', 'lessThan', 'greaterThan', 'lessOrEqual', 'greaterOrEqual']);
+/**
+ * A name no sheet can write. Given and each constraint set it, and each solver reads it, so recalculation
+ * that changes a constraint calculates the solver below it again.
+ */
+export const SOLVE_BLOCK = '\u0000solve block';
+
+const BLOCK_CALL = new RegExp(`"name":"(${BLOCK_FORMS.join('|')})"`);
+/** Whether a definition or evaluation calls a function that closes a solve block. Its stored answer isn't looked at. */
+export const closesBlock = (c: Content): boolean =>
+  (c.k === 'define' || c.k === 'eval') && BLOCK_CALL.test(JSON.stringify(c.k === 'define' ? c.value : c.expr));
+export const isGiven = (c: Content): boolean => c.k === 'show' && c.expr.k === 'id' && (c.expr.name === 'Given' || c.expr.name === 'given');
+export const isConstraint = (c: Content): boolean => c.k === 'show' && c.expr.k === 'op' && RELATIONS.has(c.expr.op);
+
+/** Solves the small n × n system A·x = b, or null if A is singular. */
+function solveSmall(A: number[][], b: number[]): number[] | null {
+  const n = b.length;
+  const M = A.map((r) => r.slice());
+  const x = b.slice();
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r]![c]!) > Math.abs(M[p]![c]!)) p = r;
+    if (Math.abs(M[p]![c]!) < 1e-300) return null;
+    [M[c], M[p]] = [M[p]!, M[c]!];
+    [x[c], x[p]] = [x[p]!, x[c]!];
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r]![c]! / M[c]![c]!;
+      for (let k = c; k < n; k++) M[r]![k]! -= f * M[c]![k]!;
+      x[r]! -= f * x[c]!;
+    }
+  }
+  for (let r = n - 1; r >= 0; r--) {
+    let v = x[r]!;
+    for (let k = r + 1; k < n; k++) v -= M[r]![k]! * x[k]!;
+    x[r] = v / M[r]![r]!;
+  }
+  return x;
+}
+
+/** Cubic Hermite interpolation through values and slopes at sorted or reverse-sorted points. */
+function hermite(xs: number[], ys: number[], ds: number[], at: number): number {
+  const n = xs.length;
+  const up = xs[n - 1]! >= xs[0]!;
+  let lo = 0;
+  let hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if ((xs[mid]! <= at) === up) lo = mid;
+    else hi = mid;
+  }
+  const h = xs[hi]! - xs[lo]!;
+  const u = (at - xs[lo]!) / h;
+  const h00 = (1 + 2 * u) * (1 - u) ** 2;
+  const h10 = u * (1 - u) ** 2;
+  const h01 = u * u * (3 - 2 * u);
+  const h11 = u * u * (u - 1);
+  return h00 * ys[lo]! + h10 * h * ds[lo]! + h01 * ys[hi]! + h11 * h * ds[hi]!;
+}
+
+/** What a solver sees while its region is worked out: its block's constraints, or null outside a block. */
+export interface SolveContext { constraints: Expr[] | null; target: Target | null }
+
 export class Evaluator implements Host {
   private builtins: Map<string, Fn>;
+  /** Set by Run while a region that calls a solver is worked out. */
+  solveContext: SolveContext | null = null;
   /** Expressions and programs as closures, built once per tree node. */
   private compiler = new Compiler(this);
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
   private corners: { at: number; tables: Set<Float64Array> } | null = null;
-  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { exactCompare?: boolean; zeroOverZero?: boolean }, files?: Files) {
+  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { ctol?: number; exactCompare?: boolean; zeroOverZero?: boolean }, files?: Files) {
     this.builtins = makeBuiltins(ws.origin, files, {
       interpolated: (xs, at) => {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
@@ -277,6 +346,7 @@ export class Evaluator implements Host {
     if (v) return v;
     if (name === 'ORIGIN') return num(this.ws.origin);
     if (name === 'TOL') return num(this.ws.tol);
+    if (name === 'CTOL') return num(this.ws.ctol ?? 0.001);
     const c = CONSTANTS[name];
     if (c) return c;
     const b = this.builtins.get(name);
@@ -297,6 +367,10 @@ export class Evaluator implements Host {
 
   get zeroOverZero(): boolean {
     return this.ws.zeroOverZero === true;
+  }
+
+  isSolveForm(name: string): boolean {
+    return SOLVE_FORMS.has(name);
   }
 
   isBuiltinIf(f: Fn): boolean {
@@ -516,6 +590,7 @@ export class Evaluator implements Host {
   }
 
   private evalCall(fn: Expr, args: Expr[], s: Scope, vec: boolean): Value {
+    if (fn.k === 'id' && SOLVE_FORMS.has(fn.name) && !s.lookup(fn.name)) return this.solveForm(fn.name, args, s);
     const callee = this.callee(fn, s);
     if (callee.name === 'if' && callee === this.builtinIf) return this.evalIf(args, s, vec);
     const values = args.map((a) => this.eval(a, s, vec));
@@ -524,6 +599,344 @@ export class Evaluator implements Host {
   }
 
   private builtinIf: Fn = { t: 'fn', name: 'if', call: () => num(0) };
+
+  // ── Solve blocks and root ───────────────────────────────────────────────────────────────────────
+
+  /** root, Find, Minerr, Maximize, Minimize and Odesolve, which take names, not values, for their variables. */
+  solveForm(name: string, args: Expr[], s: Scope): Value {
+    if (name === 'root') return this.root(args, s);
+    const ctx = this.solveContext;
+    if (name === 'Find' || name === 'Minerr') {
+      if (!ctx?.constraints) throw new EvalError('runtime', `${name} ends a solve block: type Given above the constraints, then ${name} below them`);
+      return this.find(name, args, ctx.constraints, s);
+    }
+    if (name === 'Maximize' || name === 'Minimize') return this.optimum(name, args, ctx?.constraints ?? null, s);
+    if (!ctx?.constraints) throw new EvalError('runtime', 'Odesolve ends a solve block: type Given above the differential equation and its starting values, then Odesolve below them');
+    return this.odesolve(args, ctx, s);
+  }
+
+  /**
+   * Odesolve(t, b[, steps]), or Odesolve((y; z), t, b[, steps]) for a system: the unknown functions from the
+   * block's differential equations and their starting values, solved from the starting point to b. Each
+   * comes back as a function of t, interpolated between the solution's points.
+   */
+  private odesolve(args: Expr[], ctx: SolveContext, s: Scope): Value {
+    const vector = args[0]?.k === 'matrix';
+    const rest = vector ? args.slice(1) : args;
+    const [tv, bv, sv] = rest;
+    if (tv?.k !== 'id' || !bv || rest.length > 3) throw new EvalError('runtime', 'Odesolve takes the variable and the end, as Odesolve(t, 10), and optionally a number of steps');
+    const t = tv.name;
+    const b = requireNum(this.eval(bv, s), "Odesolve's end");
+    const steps = sv ? requireReal(this.eval(sv, s), "Odesolve's number of steps") : 1000;
+    if (!Number.isInteger(steps) || steps < 1) throw new EvalError('runtime', "Odesolve's number of steps must be a positive whole number");
+    const primes = (n: string): number => /'*$/.exec(n)![0].length;
+    const base = (n: string): string => n.slice(0, n.length - primes(n));
+    // A derivative d/dt of an unknown is the same as a prime: d/dt y(t) is y'(t).
+    const rewrite = (e: Expr): Expr => {
+      switch (e.k) {
+        case 'derivative': {
+          const body = rewrite(e.body);
+          if (e.varName === t && body.k === 'call' && body.fn.k === 'id') return { ...body, fn: { k: 'id', name: `${body.fn.name}'` } };
+          return { ...e, body };
+        }
+        case 'op': return { ...e, args: e.args.map(rewrite) };
+        case 'call': return { ...e, fn: rewrite(e.fn), args: e.args.map(rewrite) };
+        case 'matrix': return { ...e, items: e.items.map(rewrite) };
+        default: return e;
+      }
+    };
+    const constraints = ctx.constraints!.map(rewrite);
+    const callsIn = (e: Expr, out: { name: string; arg: Expr }[] = []): { name: string; arg: Expr }[] => {
+      if (e.k === 'call' && e.fn.k === 'id' && e.args.length === 1) out.push({ name: e.fn.name, arg: e.args[0]! });
+      if (e.k === 'op') e.args.forEach((a) => callsIn(a, out));
+      if (e.k === 'call') e.args.forEach((a) => callsIn(a, out));
+      return out;
+    };
+    const mentions = (e: Expr, name: string): boolean => JSON.stringify(e).includes(`{"k":"id","name":${JSON.stringify(name)}}`);
+    // The unknowns: named in a vector, or the function being defined, or the one function the equations call with t.
+    let unknowns: string[];
+    if (vector) {
+      unknowns = (args[0] as Extract<Expr, { k: 'matrix' }>).items.map((x) => {
+        if (x.k !== 'id') throw new EvalError('runtime', "Odesolve's unknowns must be names, as Odesolve((y; z), t, 10)");
+        return x.name;
+      });
+    } else if (ctx.target?.k === 'var') unknowns = [ctx.target.name];
+    else {
+      const found = new Set(constraints.flatMap((c) => callsIn(c).filter((x) => mentions(x.arg, t)).map((x) => base(x.name))));
+      if (found.size !== 1) throw new EvalError('runtime', 'Odesolve needs to know which function to solve for: define it, as y := Odesolve(t, 10)');
+      unknowns = [...found];
+    }
+    const known = new Set(unknowns);
+    const equations: Expr[] = [];
+    const conditions: { u: string; order: number; at: Num; value: Num }[] = [];
+    for (const c of constraints) {
+      if (c.k !== 'op' || c.op !== 'equal') throw new EvalError('runtime', "Odesolve's block holds equations: the differential equations and the starting values, with =");
+      const calls = callsIn(c).filter((x) => known.has(base(x.name)));
+      if (calls.some((x) => mentions(x.arg, t))) {
+        equations.push(c);
+        continue;
+      }
+      // A starting value: y(0) = 1, y'(0) = 0, one call on one side and a value on the other.
+      const [l, r] = c.args as [Expr, Expr];
+      const side = l.k === 'call' && l.fn.k === 'id' && known.has(base(l.fn.name)) ? { call: l, value: r } : r.k === 'call' && r.fn.k === 'id' && known.has(base(r.fn.name)) ? { call: r, value: l } : null;
+      if (!side || side.call.k !== 'call' || side.call.fn.k !== 'id' || side.call.args.length !== 1) {
+        throw new EvalError('runtime', "An Odesolve condition must give one value, as y(0) = 1 or y'(0) = 0");
+      }
+      const name = side.call.fn.name;
+      conditions.push({ u: base(name), order: primes(name), at: requireNum(this.eval(side.call.args[0]!, s), 'a starting point'), value: requireNum(this.eval(side.value, s), 'a starting value') });
+    }
+    if (equations.length !== unknowns.length) {
+      throw new EvalError('runtime', `Odesolve needs ${unknowns.length === 1 ? 'one differential equation' : `${unknowns.length} differential equations`}, one for each unknown function, not ${equations.length}`);
+    }
+    // Each unknown's order: the most primes it has in the equations.
+    const order = new Map(unknowns.map((u) => [u, 0]));
+    for (const e of equations) for (const x of callsIn(e)) if (known.has(base(x.name))) order.set(base(x.name), Math.max(order.get(base(x.name))!, primes(x.name)));
+    for (const [u, m] of order) if (m === 0) throw new EvalError('runtime', `Odesolve's equations must have a derivative of ${u}, as ${u}'(${t})`);
+    const points = new Set(conditions.map((c) => c.at.re));
+    if (points.size > 1) throw new EvalError('unsupported', 'Odesolve with conditions at two points (a boundary value problem) isn\'t supported yet: give every starting value at one point');
+    const a = conditions[0]?.at ?? null;
+    if (!a) throw new EvalError('runtime', `Odesolve needs starting values, as ${unknowns[0]}(0) = 1`);
+    if (a.re === b.re) throw new EvalError('runtime', "Odesolve's end must differ from the starting point");
+    const tDim = a.re !== 0 ? a.dim : b.dim;
+    // The state: for each unknown y of order m, y, y′, … y⁽ᵐ⁻¹⁾, from its starting values.
+    const slots: { u: string; k: number }[] = unknowns.flatMap((u) => Array.from({ length: order.get(u)! }, (_, k) => ({ u, k })));
+    const y0 = new Float64Array(slots.length);
+    const unitOf = new Map<string, Dim>();
+    slots.forEach((slot, i) => {
+      const given = conditions.filter((c) => c.u === slot.u && c.order === slot.k);
+      if (given.length !== 1) throw new EvalError('runtime', `Odesolve needs exactly one starting value for ${slot.u}${"'".repeat(slot.k)}, at ${t} = ${a.re}`);
+      y0[i] = given[0]!.value.re;
+      if (!unitOf.has(slot.u) && !(given[0]!.value.re === 0 && isNoDim(given[0]!.value.dim))) unitOf.set(slot.u, dimMul(given[0]!.value.dim, dimPow(tDim, slot.k)));
+    });
+    for (const c of conditions) if (c.order >= order.get(c.u)!) throw new EvalError('runtime', `Odesolve's starting value for ${c.u}${"'".repeat(c.order)} is one too many: the equation's highest derivative of ${c.u} is order ${order.get(c.u)}`);
+    const dimFor = (u: string, k: number): Dim => dimDiv(unitOf.get(u) ?? NODIM, dimPow(tDim, k));
+    // The highest derivatives, found where the equations hold, by Newton's method from the last ones found.
+    let z = new Float64Array(unknowns.length);
+    const residual = (time: number, y: Float64Array, zz: Float64Array): Float64Array => {
+      const frame = new Scope(s);
+      frame.set(t, num(time, tDim));
+      slots.forEach((slot, i) => {
+        const value = num(y[i]!, dimFor(slot.u, slot.k));
+        frame.set(`${slot.u}${"'".repeat(slot.k)}`, { t: 'fn', name: slot.u, arity: 1, call: () => value });
+      });
+      unknowns.forEach((u, j) => {
+        const value = num(zz[j]!, dimFor(u, order.get(u)!));
+        frame.set(`${u}${"'".repeat(order.get(u)!)}`, { t: 'fn', name: u, arity: 1, call: () => value });
+      });
+      return Float64Array.from(equations, (e) => {
+        if (e.k !== 'op') return 0;
+        const l = requireNum(this.eval(e.args[0]!, frame), 'a side of the differential equation');
+        const r = requireNum(this.eval(e.args[1]!, frame), 'a side of the differential equation');
+        return l.re - r.re;
+      });
+    };
+    const highest = (time: number, y: Float64Array): Float64Array => {
+      let zz = z.slice();
+      for (let iter = 0; iter < 30; iter++) {
+        const r = residual(time, y, zz);
+        const J = Array.from({ length: zz.length }, () => new Array<number>(zz.length).fill(0));
+        for (let j = 0; j < zz.length; j++) {
+          const h = 1e-7 * Math.max(1, Math.abs(zz[j]!));
+          const up = zz.slice();
+          up[j] = zz[j]! + h;
+          const ru = residual(time, y, up);
+          for (let i = 0; i < zz.length; i++) J[i]![j] = (ru[i]! - r[i]!) / h;
+        }
+        const step = solveSmall(J, Array.from(r, (v) => -v));
+        if (!step) throw new EvalError('runtime', `Odesolve can't find the highest derivative${unknowns.length > 1 ? 's' : ''} from the equation${unknowns.length > 1 ? 's' : ''}: each must appear in them`);
+        zz = zz.map((v, j) => v + step[j]!);
+        if (step.every((d, j) => Math.abs(d) <= 1e-13 * Math.max(1, Math.abs(zz[j]!)))) break;
+      }
+      z = zz;
+      return zz;
+    };
+    const f = (time: number, y: Float64Array): Float64Array => {
+      const zz = highest(time, y);
+      const out = new Float64Array(slots.length);
+      slots.forEach((slot, i) => {
+        const m = order.get(slot.u)!;
+        out[i] = slot.k + 1 < m ? y[i + 1]! : zz[unknowns.indexOf(slot.u)]!;
+      });
+      return out;
+    };
+    const grid = odeGrid(f, a.re, b.re, y0, steps, 'Odesolve');
+    const lo = Math.min(a.re, b.re);
+    const hi = Math.max(a.re, b.re);
+    const solved = unknowns.map((u): Fn => {
+      const i = slots.findIndex((slot) => slot.u === u && slot.k === 0);
+      const dim = dimFor(u, 0);
+      return {
+        t: 'fn', name: u, arity: 1,
+        call: ([arg]) => {
+          const at = requireReal(arg!, `${u}'s argument`);
+          if (at < lo - 1e-12 * (hi - lo) || at > hi + 1e-12 * (hi - lo)) throw new EvalError('runtime', `${u} was solved from ${a.re} to ${b.re} only`);
+          return num(hermite(grid.xs, grid.ys.map((v) => v[i]!), grid.dys.map((v) => v[i]!), at), dim);
+        },
+      };
+    });
+    if (solved.length === 1) return solved[0]!;
+    return { t: 'mat', rows: solved.length, cols: 1, re: new Float64Array(solved.length), im: null, dim: NODIM, cells: solved };
+  }
+
+  /** The variables a solver is given, by name, and their values above, the guesses. */
+  private guesses(fn: string, args: Expr[], s: Scope): { names: string[]; x0: Float64Array; dims: Dim[] } {
+    if (args.length === 0) throw new EvalError('runtime', `${fn} needs the variables to solve for, as ${fn}(x, y)`);
+    const names = args.map((a) => {
+      if (a.k !== 'id') throw new EvalError('runtime', `${fn}'s variables must be names, as ${fn}(x, y)`);
+      return a.name;
+    });
+    const values = names.map((n) => {
+      const v = s.lookup(n);
+      if (!v) throw new EvalError('runtime', `${fn} needs a guess for ${n}: define ${n} above, before Given`);
+      if (v.t !== 'num') throw new EvalError('unsupported', `${fn} solves for numbers: ${n} must be a number, not ${v.t === 'mat' ? 'an array' : 'that'}`);
+      if (v.im !== 0) throw new EvalError('unsupported', `${fn} solves for real numbers: ${n}'s guess is complex`);
+      return v;
+    });
+    return { names, x0: Float64Array.from(values, (v) => v.re), dims: values.map((v) => v.dim) };
+  }
+
+  /** A scope where the variables have trial values. */
+  private trial(names: string[], dims: Dim[], x: ArrayLike<number>, s: Scope): Scope {
+    const frame = new Scope(s);
+    names.forEach((n, j) => frame.set(n, num(x[j]!, dims[j]!)));
+    return frame;
+  }
+
+  /** Each constraint as residuals that vanish when it holds: a − b for =, and how far off for <, >, ≤, ≥. */
+  private residuals(constraints: Expr[], scope: Scope): number[] {
+    const out: number[] = [];
+    for (const c of constraints) {
+      if (c.k !== 'op') continue;
+      const a = requireNum(this.eval(c.args[0]!, scope), 'a side of a constraint');
+      const b = requireNum(this.eval(c.args[1]!, scope), 'a side of a constraint');
+      if (!dimEq(a.dim, b.dim) && !(a.re === 0 && a.im === 0) && !(b.re === 0 && b.im === 0)) {
+        throw new EvalError('runtime', 'units do not match: the two sides of a constraint need the same units');
+      }
+      const d = a.re - b.re;
+      if (c.op === 'equal') {
+        out.push(d);
+        if (a.im !== 0 || b.im !== 0) out.push(a.im - b.im);
+      } else if (c.op === 'lessThan' || c.op === 'lessOrEqual') out.push(Math.max(0, d));
+      else out.push(Math.max(0, -d));
+    }
+    return out;
+  }
+
+  /** The answer: one variable alone, several as a vector, each in its own units. */
+  private answer(x: ArrayLike<number>, dims: Dim[]): Value {
+    if (x.length === 1) return num(x[0]!, dims[0]!);
+    if (dims.every((d) => dimEq(d, dims[0]!))) {
+      const m = newMat(x.length, 1, dims[0]!);
+      m.re.set(Array.from(x));
+      return m;
+    }
+    const cells = Array.from(x, (v, j) => num(v, dims[j]!));
+    return { t: 'mat', rows: x.length, cols: 1, re: Float64Array.from(x), im: null, dim: dims[0]!, cells };
+  }
+
+  private find(fn: string, args: Expr[], constraints: Expr[], s: Scope): Value {
+    if (constraints.length === 0) throw new EvalError('runtime', `${fn}'s solve block has no constraints: put equations, such as x + y = 3, between Given and ${fn}`);
+    const { names, x0, dims } = this.guesses(fn, args, s);
+    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints, this.trial(names, dims, x, s)));
+    const ctol = this.ws.ctol ?? 0.001;
+    const holds = (r: Float64Array): boolean => r.every((v) => Math.abs(v) <= ctol);
+    // Each inequality becomes an equation with a slack variable: a < b is a − b + z² = 0. A one-sided penalty
+    // would stall where an equation's residual is flat (from u = −1, u > 0 and u² = 4 stop at u = 0).
+    const sides = constraints.map((c) => (c.k !== 'op' || c.op === 'equal' ? 0 : c.op === 'lessThan' || c.op === 'lessOrEqual' ? 1 : -1));
+    const n = x0.length;
+    const gap = (c: Expr, scope: Scope): number => {
+      if (c.k !== 'op') return 0;
+      const a = requireNum(this.eval(c.args[0]!, scope), 'a side of a constraint');
+      const b = requireNum(this.eval(c.args[1]!, scope), 'a side of a constraint');
+      return a.re - b.re;
+    };
+    // A guess on the wrong side of an inequality is first moved just inside all of them: from there the slack
+    // form can reach a solution on the right side, rather than one beyond the wrong side's equations.
+    let x1 = x0;
+    const unmet = (p: Float64Array): Float64Array => {
+      const scope = this.trial(names, dims, p, s);
+      return Float64Array.from(constraints.flatMap((c, i) => {
+        if (!sides[i]) return [];
+        const d = gap(c, scope);
+        const margin = 1e-3 * Math.max(1, Math.abs(d));
+        return [Math.max(0, sides[i] === 1 ? d + margin : -d + margin)];
+      }));
+    };
+    if (unmet(x0).some((v) => v > 0)) x1 = leastSquares(unmet, x0).x;
+    const start = this.trial(names, dims, x1, s);
+    // A slack starts where it makes a met inequality hold exactly.
+    const z0 = constraints.flatMap((c, i) => (sides[i] ? [Math.sqrt(Math.max(Math.abs(gap(c, start)), 1e-12))] : []));
+    const augmented = (p: Float64Array): Float64Array => {
+      const scope = this.trial(names, dims, p, s);
+      const out: number[] = [];
+      let k = n;
+      constraints.forEach((c, i) => {
+        if (!sides[i]) out.push(...this.residuals([c], scope));
+        else {
+          out.push(gap(c, scope) + sides[i]! * p[k]! ** 2);
+          k++;
+        }
+      });
+      return Float64Array.from(out);
+    };
+    const fit = leastSquares(augmented, Float64Array.from([...x1, ...z0]));
+    const x = fit.x.slice(0, n);
+    const r = res(x);
+    if (fn === 'Find' && !holds(r)) {
+      throw new EvalError('runtime', 'No solution was found. Try other guess values, or check that the constraints can all hold (CTOL sets how nearly they must)');
+    }
+    return this.answer(x, dims);
+  }
+
+  private optimum(fn: string, args: Expr[], constraints: Expr[] | null, s: Scope): Value {
+    const [first, ...vars] = args;
+    const f = first ? this.eval(first, s) : undefined;
+    if (f?.t !== 'fn') throw new EvalError('runtime', `${fn}'s first argument is the function, as ${fn}(f, x)`);
+    const { names, x0, dims } = this.guesses(fn, vars, s);
+    const sign = fn === 'Maximize' ? -1 : 1;
+    const value = (x: Float64Array): number => {
+      const v = requireNum(f.call(Array.from(x, (xi, j) => num(xi, dims[j]!))), `${fn}'s function value`);
+      if (v.im !== 0) throw new EvalError('runtime', `${fn}'s function must give a real number`);
+      return sign * v.re;
+    };
+    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints ?? [], this.trial(names, dims, x, s)));
+    const ctol = this.ws.ctol ?? 0.001;
+    const x = constraints && constraints.length > 0 ? minimizeWithin(value, res, x0, ctol) : minimize(value, x0);
+    if (!x) throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found: the function keeps ${fn === 'Maximize' ? 'rising' : 'falling'} without bound`);
+    if (constraints && constraints.length > 0 && !res(x).every((v) => Math.abs(v) <= ctol)) {
+      throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found that meets the constraints. Try other guess values`);
+    }
+    return this.answer(x, dims);
+  }
+
+  /** root(f(x), x) from x's value as a guess, or root(f(x), x, a, b) between a and b, where f changes sign. */
+  private root(args: Expr[], s: Scope): Value {
+    const [body, v, lo, hi] = args;
+    if (!body || v?.k !== 'id') throw new EvalError('runtime', 'root takes an expression and its variable, as root(x^2 − 2, x), and optionally a and b to search between');
+    if (args.length === 3 || args.length > 4) throw new EvalError('runtime', 'root takes a guess from its variable, or both a and b to search between');
+    const name = v.name;
+    let dim: Dim = NODIM;
+    const f = (x: number): number => {
+      const y = requireNum(this.eval(body, this.bindAt(name, num(x, dim), s)), "root's expression");
+      if (y.im !== 0) throw new EvalError('unsupported', "root finds real roots: the expression became complex");
+      return y.re;
+    };
+    if (lo && hi) {
+      const a = requireNum(this.eval(lo, s), "root's a");
+      const b = requireNum(this.eval(hi, s), "root's b");
+      dim = a.re !== 0 ? a.dim : b.dim;
+      const [fa, fb] = [f(a.re), f(b.re)];
+      if (Math.sign(fa) === Math.sign(fb) && fa !== 0) throw new EvalError('runtime', "root's expression must have opposite signs at a and b, so a root lies between them");
+      return num(brent(f, a.re, b.re), dim);
+    }
+    const guess = s.lookup(name);
+    if (!guess) throw new EvalError('runtime', `root needs a guess: define ${name} above, or give a and b to search between`);
+    if (guess.t !== 'num' || guess.im !== 0) throw new EvalError('unsupported', `root finds real roots from a real guess: ${name} must be a real number`);
+    dim = guess.dim;
+    const x = secant(f, guess.re);
+    if (x === null || !(Math.abs(f(x)) <= this.ws.tol)) throw new EvalError('runtime', 'root found no root near the guess. Try another guess, or give a and b to search between');
+    return num(x, dim);
+  }
 
   callee(fn: Expr, s: Scope): Fn {
     if (fn.k === 'id') {
@@ -663,25 +1076,39 @@ export class Evaluator implements Host {
   }
 
   private closure(name: string, params: string[], body: Expr, scope: Scope): Fn {
+    // A function defined from a solve block, as f(a) := Find(x), keeps its block, whose constraints may use
+    // its parameters, for when it's called later.
+    const block = this.solveContext;
     return {
       t: 'fn',
       name,
       arity: params.length,
       call: (args) => {
-        // Given fewer arguments, as in Mathcad, the result is a function of the rest.
-        if (args.length > 0 && args.length < params.length) {
-          const frame = new Scope(scope);
-          params.slice(0, args.length).forEach((p, i) => frame.set(p, args[i]!));
-          return this.closure(name, params.slice(args.length), body, frame);
+        if (!block) return this.callClosure(name, params, body, scope, args);
+        const outer = this.solveContext;
+        this.solveContext = block;
+        try {
+          return this.callClosure(name, params, body, scope, args);
+        } finally {
+          this.solveContext = outer;
         }
-        if (args.length !== params.length) throw new EvalError('runtime', `${name} takes ${params.length} arguments`);
-        const frame = new Scope(scope);
-        params.forEach((p, i) => frame.set(p, args[i]!));
-        // A program body runs in the arguments' own frame: it's private to this call, so a second one
-        // in between would hold nothing the first doesn't.
-        return body.k === 'program' ? this.runProgramIn(body.body, frame) : this.eval(body, frame);
       },
     };
+  }
+
+  private callClosure(name: string, params: string[], body: Expr, scope: Scope, args: Value[]): Value {
+    // Given fewer arguments, as in Mathcad, the result is a function of the rest.
+    if (args.length > 0 && args.length < params.length) {
+      const frame = new Scope(scope);
+      params.slice(0, args.length).forEach((p, i) => frame.set(p, args[i]!));
+      return this.closure(name, params.slice(args.length), body, frame);
+    }
+    if (args.length !== params.length) throw new EvalError('runtime', `${name} takes ${params.length} arguments`);
+    const frame = new Scope(scope);
+    params.forEach((p, i) => frame.set(p, args[i]!));
+    // A program body runs in the arguments' own frame: it's private to this call, so a second one
+    // in between would hold nothing the first doesn't.
+    return body.k === 'program' ? this.runProgramIn(body.body, frame) : this.eval(body, frame);
   }
 
   assign(t: Target, value: () => Value, body: Expr | null, evalIn: Scope, store: Scope): void {
@@ -861,10 +1288,38 @@ export class Run {
   /** Worksheets being included, innermost last, to stop a sheet that includes itself. */
   private including: string[] = [];
 
-  constructor(ws: Worksheet, private files: Files = NO_FILES, start?: RunStart) {
+  /** The regions in calculation order, for finding a solver's block. Set by whoever runs them. */
+  private ordered: Region[] | null = null;
+  private positions = new Map<string, number>();
+
+  constructor(private ws: Worksheet, private files: Files = NO_FILES, start?: RunStart) {
     this.ev = start?.ev ?? new Evaluator(ws, files);
     this.scope = start?.scope ?? Scope.after(null);
     this.defs = start?.defs ?? new Defs();
+  }
+
+  /** The regions in the order they're calculated, which a solve block is read in. */
+  set order(regions: Region[]) {
+    this.ordered = regions;
+    this.positions = new Map(regions.map((r, i) => [r.id, i]));
+  }
+
+  /**
+   * The constraints of the solve block a region closes: those between it and the Given above it, in
+   * calculation order. null when there's no Given above, or another solver has closed the block since.
+   */
+  private blockFor(region: Region): Expr[] | null {
+    if (!this.ordered) this.order = inOrder(this.ws, 'align');
+    const at = this.positions.get(region.id);
+    if (at === undefined) return null;
+    for (let j = at - 1; j >= 0; j--) {
+      const c = this.ordered![j]!.content;
+      if (isGiven(c)) {
+        return this.ordered!.slice(j + 1, at).flatMap((r) => (isConstraint(r.content) && r.content.k === 'show' ? [r.content.expr] : []));
+      }
+      if (closesBlock(c)) return null;
+    }
+    return null;
   }
 
   /** The value of a display unit, evaluated where the region stands. */
@@ -885,12 +1340,16 @@ export class Run {
     if (!sheet) throw needsFile(file);
     const shown = this.outcomes.length;
     this.including.push(key);
+    // A solve block in the referenced sheet is read in that sheet's order.
+    const outerOrder = this.ordered;
     // Problems inside are reported on this reference, where they can be seen, but the rest of the sheet
     // still runs, as in Mathcad. Files it needs, here or in references of its own, are listed together.
     let inner: unknown = null;
     const needs = new Set<string>();
     try {
-      for (const region of inOrder(sheet, 'align')) {
+      const regions = inOrder(sheet, 'align');
+      this.order = regions;
+      for (const region of regions) {
         const c = region.content;
         if (c.k === 'include') {
           try {
@@ -906,6 +1365,8 @@ export class Run {
     } finally {
       this.including.pop();
       this.outcomes.length = shown;
+      if (outerOrder) this.order = outerOrder;
+      else this.ordered = null;
     }
     if (needs.size > 0) {
       const list = [...needs];
@@ -967,11 +1428,26 @@ export class Run {
       }
       return;
     }
+    if (c.k === 'show' && (isGiven(c) || isConstraint(c))) {
+      // Marks the block as read here, so recalculation knows a solver below depends on it.
+      this.scope = Scope.after(this.scope);
+      this.scope.set(SOLVE_BLOCK, num(0));
+    }
     if (c.k === 'other' || c.k === 'draft' || c.k === 'show') {
       this.outcomes.push({ region });
       return;
     }
     if (c.k === 'sym') throw new Error('symbolic regions go through symbolic()');
+    // A region that calls a solver sees its block's constraints while it's worked out.
+    if (closesBlock(c)) this.ev.solveContext = { constraints: this.blockFor(region), target: c.k === 'define' ? c.target : null };
+    try {
+      this.plainMath(region, c);
+    } finally {
+      this.ev.solveContext = null;
+    }
+  }
+
+  private plainMath(region: Region, c: Extract<Content, { k: 'eval' | 'define' }>): void {
     if (c.k === 'eval') {
       try {
         const value = this.ev.evalRegionExpr(c.expr, this.scope);
@@ -1161,7 +1637,9 @@ export function inOrder(ws: Worksheet, order: OrderKey): Region[] {
 /** Numeric evaluation only. Symbolic regions use the answers stored with them. */
 export function runWorksheet(ws: Worksheet, order: OrderKey = 'align', files?: Files): Outcome[] {
   const run = new Run(ws, files);
-  for (const region of inOrder(ws, order)) {
+  const regions = inOrder(ws, order);
+  run.order = regions;
+  for (const region of regions) {
     const c = region.content;
     if (c.k === 'sym') run.symbolic(region, c, c.stored ? { result: c.stored } : { result: null, error: 'needs symbolic evaluation' });
     else run.plain(region);
@@ -1174,7 +1652,9 @@ export async function runWithSymbolics(
   ws: Worksheet, solve: SymSolver, order: OrderKey = 'align', files?: Files, starting?: (region: Region) => void,
 ): Promise<Outcome[]> {
   const run = new Run(ws, files);
-  for (const region of inOrder(ws, order)) {
+  const regions = inOrder(ws, order);
+  run.order = regions;
+  for (const region of regions) {
     starting?.(region);
     const c = region.content;
     if (c.k === 'sym') run.symbolic(region, c, await solve(c, run.defs, run.scope, ws));

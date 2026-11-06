@@ -10,6 +10,46 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-06
+
+Solve blocks: Find, Minerr, Maximize, Minimize and Odesolve, and root.
+
+### Added
+
+- Solve blocks, as Mathcad's. Define a guess for each unknown, then a region with `Given`, then the
+  constraints, one to a region, then the function that closes the block. A constraint is an equation or an
+  inequality: `x^2 + y^2 = 4` typed in a region of its own is a constraint, not a result to work out.
+  - `Find(x, y, …)` gives the values that make every constraint hold, within CTOL (0.001 unless a Mathcad
+    sheet sets it), or an error when there are none. One unknown gives a number, several a vector, each in
+    its own units. Inequalities (`<`, `>`, `≤`, `≥`) keep the answer on their side.
+  - `Minerr(x, y, …)` gives the nearest it can get, even when the constraints can't all hold.
+  - `Maximize(f, x, …)` and `Minimize(f, x, …)` find where the function f is largest or smallest, alone or
+    inside a solve block, whose constraints then limit where they look.
+  - `Odesolve(t, b)` solves a differential equation and its starting values, written between Given and
+    Odesolve, from the starting point to b, and gives the solution as a function: `y := Odesolve(t, 10)` then
+    `y(2.5) =`. Derivatives may be written with primes, `y''(t) + y(t) = 0`, or with d/dt. `Odesolve((x; y),
+    t, b)` solves a system, and an optional third number sets how many steps it keeps (1000 unless given).
+    Units carry through, so a circuit can be solved in coulombs and seconds.
+- A function defined from a solve block, as `f(a) := Find(x)` with constraints that use a, solves the block
+  again for each argument, as in Mathcad: `f(9)` and `f(16)` from one block. Odesolve works the same way.
+- Every equation and inequality region between Given and the function that closes the block is one of its
+  constraints, as in Mathcad.
+- `root(f(x), x)`, from x's value as a guess, and `root(f(x), x, a, b)`, between a and b where f changes
+  sign, as Mathcad's.
+- Primes after a name, as `y'` and `y''`, typed with the apostrophe key: Mathcad keeps them in the name.
+- Mathcad sheets' solve blocks and CTOL are read, including the form Mathcad saves Find, Minerr, Maximize,
+  Minimize and Odesolve in.
+
+### Known limits
+
+- Find and the rest solve for real numbers, one number per unknown: not complex numbers or whole vectors.
+  Minerr doesn't set Mathcad's ERR variable.
+- Odesolve's starting values must all be at one point: conditions at two points (boundary value problems)
+  aren't supported yet. Its derivatives are primes or first derivatives d/dt; the d²/dt² operator form
+  isn't read from Mathcad sheets yet.
+- Results agree with Mathcad's to the solvers' accuracy: MathMath works to the last digit or two where
+  Mathcad stops at its tolerance, so Mathcad's root(x² − 2, x) is 1.41421356206 and MathMath's 1.41421356237.
+
 ## [0.22.0] - 2026-11-05
 
 Mathcad's differential equation solvers, with units.
