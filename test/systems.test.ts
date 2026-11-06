@@ -165,11 +165,12 @@ describe("Mathcad's Φ and δ", () => {
   test('Φ is the step, 1 from 0 on', () => {
     expect([-1, 0, 2].map((x) => (call('Φ', num(x)) as Num).re)).toEqual([0, 1, 1]);
   });
-  test('δ(m, n) is Kronecker’s; δ(x) alone is Dirac’s impulse', () => {
+  test('δ(m, n) is Kronecker’s; Δ(x) is Dirac’s impulse, as Mathcad writes it', () => {
     expect((call('δ', num(2), num(2)) as Num).re).toBe(1);
     expect((call('δ', num(2), num(3)) as Num).re).toBe(0);
-    expect((call('δ', num(0.5)) as Num).re).toBe(0);
-    expect((call('δ', num(0)) as Num).re).toBe(Infinity);
+    expect(() => call('δ', num(0))).toThrow(/Δ\(x\)/);
+    expect((call('Δ', num(0.5)) as Num).re).toBe(0);
+    expect((call('Δ', num(0)) as Num).re).toBe(Infinity);
   });
 });
 

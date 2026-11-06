@@ -17,8 +17,8 @@ const FUNCTIONS: Record<string, string> = {
   sin: 'sin', cos: 'cos', tan: 'tan', asin: 'asin', acos: 'acos', atan: 'atan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh',
   ln: 'ln', log: 'log10', exp: 'exp', sqrt: 'sqrt', max: 'max', min: 'min', floor: 'floor', ceil: 'ceil', sign: 'sign',
   Re: 're', Im: 'im', sec: 'sec', csc: 'csc', cot: 'cot',
-  // Mathcad's step is Φ; δ with one argument is Dirac's impulse, as transforms give it.
-  'Φ': 'Heaviside', 'δ': 'Dirac',
+  // Mathcad's step is Φ, and Dirac's impulse Δ, as Mathcad 14 shows inverse transforms (probed).
+  'Φ': 'Heaviside', 'Δ': 'Dirac',
 };
 
 const CONSTANTS: Record<string, string> = { 'π': 'pi', e: 'e', '∞': '(+infinity)' };

@@ -502,12 +502,15 @@ export class Evaluator implements Host {
   }
 
   private copyColumn(m: Mat, j: number): Mat {
-    const out = newMat(m.rows, 1, m.dim);
     // Real numbers only: copy the column's numbers, which are stored together.
     if (!m.cells && !m.im) {
+      const out = newMat(m.rows, 1, m.dim);
       out.re.set(m.re.subarray(j * m.rows, (j + 1) * m.rows));
       return out;
     }
+    // Entries with units of their own: the column takes its unit from them, not from the whole matrix, so a
+    // column of volts beside one of seconds comes out in volts even when it starts at 0.
+    const out = newMat(m.rows, 1, m.cells ? NODIM : m.dim);
     for (let i = 0; i < m.rows; i++) setEl(out, i, 0, getEl(m, i, j));
     return out;
   }

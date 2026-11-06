@@ -504,7 +504,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('laplace, t gives a function of s', /→s\+21/.test(xf[0] ?? ''), xf[0]);
   check('invlaplace, s gives a function of t', /→.*sin\(2⋅?t\)/.test(xf[1] ?? ''), xf[1]);
   check('ztrans, n gives a function of z', /→z−2z/.test(xf[2] ?? ''), xf[2]);
-  check('the inverse transform of 1 is δ(t)', /→δ\(t\)$/.test(xf[3] ?? ''), xf[3]);
+  check('the inverse transform of 1 is Δ(t), as Mathcad writes it', /→Δ\(t\)$/.test(xf[3] ?? ''), xf[3]);
   await px.close();
 
   // No closed form must never look like an answer.
