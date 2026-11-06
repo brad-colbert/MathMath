@@ -10,6 +10,51 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-05
+
+Transfer functions, filter design in five families, and Laplace and z-transforms.
+
+### Added
+
+- Transfer functions. A system is (b; a), coefficients constant term first, as `polyroots` and the `coeffs`
+  keyword list them: H(s) = (b₀ + b₁s + …)/(a₀ + a₁s + …). As with filter design, units decide the kind:
+  frequencies and times with units treat it as analog, plain numbers as digital (fractions of the sample
+  rate, and sample numbers). Coefficients written from a circuit's parts may keep their units, the k-th in
+  sᵏ, so an RLC lowpass is `(1; (1; R·C; L·C))`.
+- `freqResponse(H, f)` with f in Hz gives an analog H at s = i·2πf, for Bode plots with `ampToDb`, `arg` and
+  the log axes. Fractions of the sample rate work as before.
+- `stepResponse(H, t)` and `impulseResponse(H, t)`: at times with units, an analog system's response from
+  t = 0, as SciPy's `step` and `impulse` (the impulse response leaves out an impulse at 0 from a direct
+  term); at sample numbers, a digital filter's.
+- `analogPoles` and `analogZeros` (in 1/s), and `digitalPoles` and `digitalZeros` (in the z-plane).
+- `polyroots(v)`, Mathcad's: the roots of a polynomial, coefficients constant term first, which may be
+  complex. Roots are sorted by real part, then imaginary.
+- `unwrapPhase(φ)` removes the jumps of 2π in a phase, as NumPy's `unwrap`, for phase plots past ±180°.
+- Filter design in four more families, each with Lowpass, Highpass, Bandpass and Bandstop forms, as SciPy's:
+  Chebyshev type I (`cheby1Lowpass(n, ripple, f)`, ripple in dB), Chebyshev type II
+  (`cheby2Lowpass(n, attenuation, f)`, f where the stopband starts), elliptic
+  (`ellipLowpass(n, ripple, attenuation, f)`), and Bessel (`besselLowpass(n, f)`, phase-normalized).
+- Analog filter design: every family, Butterworth included, designs an analog H(s) when its edges are
+  frequencies with units, such as `butterLowpass(4, 1·kHz)`, scaled so a₀ = 1. Any frequency with units is
+  read as cycles per second (Hz), since Hz and 1/s are the same unit.
+- The Laplace and z-transform keywords, as Mathcad's: `laplace, t` (result in s), `invlaplace, s` (in t),
+  `ztrans, n` (in z) and `invztrans, z` (in n). A second argument names the result's variable. They are on
+  the Keywords menu. Decimals in the expression are made exact first, so 0.5ⁿ transforms like (1/2)ⁿ.
+- `Φ(x)`, Mathcad's step function (1 from 0 up), and `δ(m, n)`, Mathcad's Kronecker delta. `δ(x)` with one
+  argument is Dirac's impulse, which inverse transforms give: 0 away from 0, ∞ at 0. A transform's variable
+  must have no value on the sheet, as Mathcad requires.
+
+### Changed
+
+- `freqResponse` with frequencies in Hz now evaluates an analog H(s) instead of asking for a fraction of the
+  sample rate.
+
+### Known limits
+
+- A sheet value with time units inside a transformed expression is written in base units, and its seconds
+  `s` can't be told apart from Laplace's `s`. Transform expressions without units, or strip the units first.
+- Bessel filters go up to order 15; past that their poles lose accuracy. The other families go to 20.
+
 ## [0.19.0] - 2026-11-05
 
 Electrical engineering: units, phasors, decibels and standard part values.
