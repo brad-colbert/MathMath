@@ -277,7 +277,8 @@ export class Evaluator {
     const c = CONSTANTS[name];
     if (c) return c;
     const b = this.builtins.get(name);
-    const u = UNITS[name];
+    // µ, the micro sign many keyboards type, is read as μ, the Greek letter Mathcad uses.
+    const u = UNITS[name] ?? UNITS[name.replace(/^µ/, 'μ')];
     const unit = u ? num(u.factor, u.dim) : undefined;
     return called ? (b ?? unit) : (unit ?? b);
   }

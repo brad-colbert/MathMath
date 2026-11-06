@@ -392,6 +392,14 @@ export class Paper {
     return item?.kind === 'math' && item.region.content.k === kind ? item.region : null;
   }
 
+  /** The selected regions that calculate a result: definitions and evaluations. */
+  selectedResults(): Region[] {
+    return [...this.selected].flatMap((id) => {
+      const item = this.doc.find(id);
+      return item?.kind === 'math' && (item.region.content.k === 'eval' || item.region.content.k === 'define') ? [item.region] : [];
+    });
+  }
+
   /** Where the next inserted thing goes: the click waiting for input, or the top of the page. */
   insertionPoint(): { left: number; top: number } {
     if (this.editing?.kind === 'region' && this.editor.value() === '') {

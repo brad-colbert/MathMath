@@ -10,7 +10,7 @@ export interface Chosen { parts: UnitPart[]; factor: number }
 // Dimension index: length, mass, time, current, temperature, substance, luminous intensity.
 const d = (L: number, M: number, T: number, I = 0, K = 0, N = 0, J = 0): Dim => [L, M, T, I, K, N, J];
 
-/** Named units Mathcad chooses. Hz, S and lm are absent: it shows 1/s, 1/Ω and cd. */
+/** Named units Mathcad chooses, in the order it tries them. Hz, S and lm are absent: it shows 1/s, 1/Ω and cd. */
 const NAMED: { name: string; dim: Dim; factor: number }[] = [
   { name: 'N', dim: d(1, 1, -2), factor: 1 },
   { name: 'J', dim: d(2, 1, -2), factor: 1 },
@@ -32,10 +32,21 @@ const BASE: { name: string; index: number }[] = [
   { name: 'A', index: 3 }, { name: 'mol', index: 5 }, { name: 'cd', index: 6 },
 ];
 
+/** The whole number p with dim = unit^p, or 0 if there is none. */
+function powerOf(dim: Dim, unit: Dim): number {
+  const k = unit.findIndex((u) => u !== 0);
+  const p = dim[k]! / unit[k]!;
+  return Number.isInteger(p) && p !== 0 && dimEq(dim, unit.map((u) => u * p)) ? p : 0;
+}
+
 export function chooseUnits(dim: Dim): Chosen {
   if (isNoDim(dim)) return { parts: [], factor: 1 };
-  const named = NAMED.find((n) => dimEq(n.dim, dim));
-  if (named) return { parts: [{ name: named.name, power: 1 }], factor: named.factor };
+  // A whole power of a named unit shows as that power: Mathcad 14 shows conductance as 1/Ω, and Ω², 1/W and
+  // 1/L the same way (probed). S/m and Ω·m are not powers of one unit, so they fall to base units.
+  for (const n of NAMED) {
+    const p = powerOf(dim, n.dim);
+    if (p !== 0) return { parts: [{ name: n.name, power: p }], factor: n.factor ** p };
+  }
   const parts = BASE.flatMap((b): UnitPart[] => {
     const p = dim[b.index]!;
     return Math.abs(p) < 1e-9 ? [] : [{ name: b.name, power: Number(p.toFixed(6)) }];
@@ -43,7 +54,9 @@ export function chooseUnits(dim: Dim): Chosen {
   return { parts, factor: 1 };
 }
 
-const up = (name: string): string => (name === 'Ω' ? '\\Omega' : `\\mathrm{${name}}`);
+/** A unit's name as LaTeX. kΩ and μF stay one name in `\\mathrm`, so the unit editor reads them back whole. */
+export const unitNameLatex = (name: string): string => (name === 'Ω' ? '\\Omega' : `\\mathrm{${name}}`);
+const up = unitNameLatex;
 const power = (p: UnitPart, n: number): string => (n === 1 ? up(p.name) : `${up(p.name)}^{${n}}`);
 
 /** As Mathcad writes them: a fraction when any power is negative. */

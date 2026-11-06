@@ -25,6 +25,14 @@ const PRESSURE = combo([M, 1], [L, -1], [T, -2]);
 const VOLT = combo([M, 1], [L, 2], [T, -3], [I, -1]);
 const FREQ = combo([T, -1]);
 const LUX = combo([CD, 1], [L, -2]);
+const OHM = combo([M, 1], [L, 2], [T, -3], [I, -2]);
+const SIEMENS = combo([M, -1], [L, -2], [T, 3], [I, 2]);
+const FARAD = combo([M, -1], [L, -2], [T, 4], [I, 2]);
+const HENRY = combo([M, 1], [L, 2], [T, -2], [I, -2]);
+const COULOMB = combo([T, 1], [I, 1]);
+const WEBER = combo([M, 1], [L, 2], [T, -2], [I, -1]);
+const TESLA = combo([M, 1], [T, -2], [I, -1]);
+const FIELD = combo([I, 1], [L, -1]);
 
 const u = (factor: number, dim: Dim): Unit => ({ factor, dim });
 
@@ -47,6 +55,23 @@ export const UNITS: Record<string, Unit> = {
   L: u(1e-3, VOL), mL: u(1e-6, VOL), acre: u(4046.8564224, AREA), hectare: u(1e4, AREA),
   mph: u(0.44704, VEL), kph: u(1 / 3.6, VEL), knot: u(1852 / 3600, VEL),
   g: u(9.80665, ACC), c: u(299792458, VEL),
+  // Electrical units, as Mathcad 14 names them (probed): μ is the Greek letter, as Mathcad writes it.
+  'Ω': u(1, OHM), 'kΩ': u(1e3, OHM), 'MΩ': u(1e6, OHM), ohm: u(1, OHM), S: u(1, SIEMENS), mho: u(1, SIEMENS),
+  F: u(1, FARAD), 'μF': u(1e-6, FARAD), nF: u(1e-9, FARAD), pF: u(1e-12, FARAD),
+  H: u(1, HENRY), mH: u(1e-3, HENRY), 'μH': u(1e-6, HENRY),
+  C: u(1, COULOMB), mC: u(1e-3, COULOMB), 'μC': u(1e-6, COULOMB), nC: u(1e-9, COULOMB), pC: u(1e-12, COULOMB),
+  Wb: u(1, WEBER), T: u(1, TESLA), gauss: u(1e-4, TESLA), G: u(1e-4, TESLA), Oe: u(1000 / (4 * Math.PI), FIELD),
+  kA: u(1e3, I), 'μA': u(1e-6, I), nA: u(1e-9, I), pA: u(1e-12, I), 'μV': u(1e-6, VOLT), nV: u(1e-9, VOLT),
+  'μs': u(1e-6, T), ps: u(1e-12, T), 'μW': u(1e-6, POWER), nW: u(1e-9, POWER),
+  // MathMath's own, which Mathcad 14 lacks. VA and Wh are watts and joules, and show as W and J.
+  'mΩ': u(1e-3, OHM), 'GΩ': u(1e9, OHM), mS: u(1e-3, SIEMENS), 'μS': u(1e-6, SIEMENS), mF: u(1e-3, FARAD),
+  nH: u(1e-9, HENRY), pH: u(1e-12, HENRY), mT: u(1e-3, TESLA), 'μT': u(1e-6, TESLA), MV: u(1e6, VOLT),
+  VA: u(1, POWER), kVA: u(1e3, POWER), MVA: u(1e6, POWER), Wh: u(3600, ENERGY), kWh: u(3.6e6, ENERGY),
+  Ah: u(3600, COULOMB), mAh: u(3.6, COULOMB), eV: u(1.602176634e-19, ENERGY),
+  // Typed without the Greek letter, as um and us are. mohm is milliohms and Mohm megohms.
+  kohm: u(1e3, OHM), Mohm: u(1e6, OHM), mohm: u(1e-3, OHM), Gohm: u(1e9, OHM),
+  uF: u(1e-6, FARAD), uH: u(1e-6, HENRY), uC: u(1e-6, COULOMB), uA: u(1e-6, I), uV: u(1e-6, VOLT),
+  uW: u(1e-6, POWER), uS: u(1e-6, SIEMENS), uT: u(1e-6, TESLA),
 };
 
 /** Long names used in stored results. */
@@ -55,6 +80,7 @@ const LONG: Record<string, string> = {
   mile: 'mi', nautical_mile: 'nmi', second: 's', minute: 'min', hour: 'hr', kilogram: 'kg', gram: 'gm', ampere: 'A',
   kelvin: 'K', mole: 'mol', candela: 'cd', lumen: 'lm', lux: 'lx', radian: 'rad', degree: 'deg', steradian: 'sr',
   newton: 'N', joule: 'J', watt: 'W', pascal: 'Pa', kilopascal: 'kPa', volt: 'V', hertz: 'Hz',
+  ohm: 'Ω', farad: 'F', henry: 'H', coulomb: 'C', weber: 'Wb', tesla: 'T',
   gravitational_acceleration: 'g',
 };
 

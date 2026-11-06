@@ -9,6 +9,7 @@ import { complexTransform, realForward, realInverse } from './fourier.js';
 import { normal } from './random.js';
 import { butterFns, convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
 import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
+import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
@@ -29,8 +30,8 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IMAGE_ARITY[name] ?? [0, Infinity];
-    const say = lo === hi ? `${lo}` : `${lo} or ${hi}`;
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? [0, Infinity];
+    const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
       return f(...args);
@@ -420,6 +421,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...butterFns, ...filterFns } as unknown as Record<string, Impl>),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
+    // Electrical engineering (see electrical.ts).
+    ...withArity(electricalFns),
     readWav: (source) => {
       const audio = wavFile(source, 'readWav');
       const frames = audio.channels[0]?.length ?? 0;

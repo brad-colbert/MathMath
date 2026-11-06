@@ -1927,6 +1927,52 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await typed.close();
 }
 
+// Electrical: typed units, and complex results switched to magnitude∠angle from Format.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['Z\\coloneq 3\\cdot \\Omega+4\\mathrm{i}\\cdot \\Omega', 'Z=', '\\mathrm{phasor}\\left(2,90\\cdot \\mathrm{deg}\\right)=', '\\mathrm{parallel}\\left(Z,Z\\right)='];
+  ws.regions = lines.map((l, k) => ({ id: `e${k}`, left: 60, top: 40 + k * 40 - 8, alignX: 60, alignY: 40 + k * 40, disabled: false, content: readRegion(l) }));
+  await page.evaluate((t) => (window as any).mathmath.load('ac.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  const value = (id: string) => page.evaluate((i) => (window as any).mathmath.doc.outcomes.get(i)?.value ?? '', id);
+  check('complex results show as re + im·i at first', (await value('e1')) === '3+4\\mathrm{i}\\ \\Omega' && (await value('e3')).startsWith('1.5+2'), [await value('e1'), await value('e3')]);
+  const center = (id: string) => page.evaluate((i) => {
+    const r = document.querySelector<HTMLElement>(`[data-id="${i}"]`)!.getBoundingClientRect();
+    return { x: r.left + 8, y: r.top + r.height / 2 };
+  }, id);
+  const a = await center('e1');
+  const b = await center('e2');
+  await page.keyboard.down('Shift');
+  await page.mouse.click(a.x, a.y);
+  await page.mouse.click(b.x, b.y);
+  await page.keyboard.up('Shift');
+  await sleep(80);
+  const pick = (label: string) => page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === l)!.click(), label);
+  await pick('Complex results as magnitude∠angle');
+  await idle(page);
+  await sleep(80);
+  check('Format → magnitude∠angle switches every selected result', (await value('e1')) === '5\\angle {53.13}^{\\circ}\\ \\Omega' && (await value('e2')) === '2\\angle {90}^{\\circ}', [await value('e1'), await value('e2')]);
+  check('results not selected stay as they were', (await value('e3')).startsWith('1.5+2'), await value('e3'));
+  await pick('Complex results as magnitude∠angle');
+  await idle(page);
+  await sleep(80);
+  check('picking it again switches them back', (await value('e1')) === '3+4\\mathrm{i}\\ \\Omega', await value('e1'));
+  await page.close();
+
+  const typed = await fresh();
+  await type(typed, 72, 72, 'R:4.7*kohm');
+  await type(typed, 72, 120, 'C:100*nF');
+  await type(typed, 72, 168, '1/(2*pi', R, '*R*C', R, '=');
+  await type(typed, 72, 260, 'G:2*Omega');
+  const shownTyped = await shown(typed);
+  const typedModel = await model(typed);
+  check('kohm and nF typed in the editor are units', typedModel.regions[0]?.content.value?.args?.[1]?.name === 'kohm' && !(await typed.evaluate(() => document.querySelector('.region.error'))), [typedModel.regions[0]?.content, shownTyped]);
+  check('an RC corner frequency comes out in 1/s', /338\.6/.test(shownTyped[2] ?? ''), shownTyped);
+  check('Omega typed alone is the ohm', typedModel.regions[3]?.content.value?.args?.[1]?.name === 'Ω', typedModel.regions[3]?.content);
+  await typed.close();
+}
+
 // Printing: one PDF page per sheet page, sized from the worksheet.
 {
   const page = await fresh();

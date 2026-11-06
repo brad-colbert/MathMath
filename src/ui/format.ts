@@ -1,5 +1,5 @@
 /** Shows a computed value as LaTeX, following the worksheet's number format. */
-import { chooseUnits, unitsLatex } from '../engine/display-units.js';
+import { chooseUnits, unitNameLatex, unitsLatex } from '../engine/display-units.js';
 import { shortUnit } from '../engine/units.js';
 import { type Dim, type Mat, NODIM, type Num, type Value, dimDiv, getEl, isNoDim } from '../engine/values.js';
 import type { Expr, NumberFormat, StoredResult, StoredValue } from '../model/ast.js';
@@ -29,7 +29,19 @@ export function formatNumber(x: number, f: NumberFormat): string {
   return fixed(x, f);
 }
 
-function complex(n: { re: number; im: number }, f: NumberFormat): string {
+/** Magnitude∠angle, the angle in degrees, as phasors are written. */
+function polarForm(n: { re: number; im: number }, f: NumberFormat): string {
+  const r = Math.hypot(n.re, n.im);
+  // Braced, so the minus of a negative angle is a sign rather than a subtraction.
+  return `${formatNumber(r, f)}\\angle {${formatNumber(r === 0 ? 0 : (Math.atan2(n.im, n.re) * 180) / Math.PI, f)}}^{\\circ}`;
+}
+
+/**
+ * A complex number as re+im·i, or as magnitude∠angle when the format asks for polar. `polar` is set for every
+ * element of a matrix that holds a complex number, so a column of phasors reads alike even where one is real.
+ */
+function complex(n: { re: number; im: number }, f: NumberFormat, polar = f.polar === true && n.im !== 0): string {
+  if (polar) return polarForm(n, f);
   if (n.im === 0) return formatNumber(n.re, f);
   const im = formatNumber(Math.abs(n.im), f);
   if (n.re === 0) return `${n.im < 0 ? '-' : ''}${im}\\mathrm{i}`;
@@ -49,7 +61,7 @@ export function unitTex(e: Expr): string {
   const t = (x: Expr): string => unitTex(x);
   switch (e.k) {
     case 'real': return String(e.v);
-    case 'id': return e.name === 'Ω' ? '\\Omega' : `\\mathrm{${e.name.replace(/[\\{}_^]/g, '')}}`;
+    case 'id': return unitNameLatex(e.name.replace(/[\\{}_^]/g, ''));
     case 'op': {
       const [a, b] = e.args;
       if (e.op === 'mult') return `${t(a!)}\\cdot ${t(b!)}`;
@@ -143,9 +155,10 @@ export function formatValue(v: Value, f: NumberFormat, unit?: DisplayUnit): stri
     case 'mat': {
       const m = v as Mat;
       const u = unitFor(m.dim, unit);
+      const polar = f.polar === true && !m.cells && m.im !== null && m.im.some((x) => x !== 0);
       const body = grid(m.rows, m.cols, (i, j) => {
         const el = getEl(m, i, j);
-        return el.t === 'num' ? complex(scaled(el, u), f) : formatValue(el, f);
+        return el.t === 'num' ? complex(scaled(el, u), f, polar) : formatValue(el, f);
       });
       return withUnit(body, u.latex);
     }

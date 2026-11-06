@@ -95,6 +95,8 @@ export interface NumberFormat {
   precision: number;
   exponent: number;
   trailingZeros: boolean;
+  /** Complex results as magnitude∠angle in degrees, MathMath's own option. Left out when off. */
+  polar?: boolean;
 }
 
 export type Content =
