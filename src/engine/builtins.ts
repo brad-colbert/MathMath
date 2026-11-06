@@ -10,6 +10,7 @@ import { normal } from './random.js';
 import { convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
 import { IIR_ARITY, iirFns } from './iir.js';
 import { SYSTEM_ARITY, systemFns } from './systems.js';
+import { ODE_ARITY, odeFns } from './ode.js';
 import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
 import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { parseTable } from './table.js';
@@ -31,7 +32,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -222,12 +223,14 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       })(a);
     },
     sqrt: scalar((x) => pow(x, num(0.5))),
-    // Mathcad's Heaviside step, with Φ(0) = 1, and Kronecker's δ(m, n). δ with one argument is Dirac's
-    // impulse, as Laplace transforms give it: 0 away from 0, infinite at 0.
+    // Mathcad's Heaviside step, with Φ(0) = 1; Kronecker's δ(m, n); and Δ(x), Dirac's impulse as Mathcad 14
+    // writes it in inverse Laplace transforms: 0 away from 0, infinite at 0.
     'Φ': scalar((x) => num(realOf(x, 'Φ') < 0 ? 0 : 1)),
-    'δ': (m, n) => (n === undefined
-      ? scalar((x) => num(realOf(x, 'δ') === 0 ? Infinity : 0))(m!)
-      : num(requireReal(m!, "δ's first argument") === requireReal(n, "δ's second argument") ? 1 : 0)),
+    'δ': (m, n) => {
+      if (n === undefined) throw new EvalError('runtime', "δ(m, n) is Kronecker's delta and takes two arguments. Dirac's impulse is Δ(x)");
+      return num(requireReal(m!, "δ's first argument") === requireReal(n, "δ's second argument") ? 1 : 0);
+    },
+    'Δ': scalar((x) => num(realOf(x, 'Δ') === 0 ? Infinity : 0)),
     sign: keepDimless(Math.sign), floor: keepDim1(Math.floor), ceil: keepDim1(Math.ceil), trunc: keepDim1(Math.trunc),
     round: (a, b) => {
       const p = 10 ** (b ? requireReal(b) : 0);
@@ -432,6 +435,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     // MathMath's own signal processing (see signal.ts).
     ...withArity({ convolve, correlate, ...windowFns, ...firFns, ...filterFns } as unknown as Record<string, Impl>),
     ...withArity({ ...iirFns, ...systemFns }),
+    // Differential equations (see ode.ts).
+    ...withArity(odeFns),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // Electrical engineering (see electrical.ts).

@@ -208,14 +208,14 @@ describe('Laplace and z-transforms, as Mathcad keywords', () => {
     expect(buildRequest(op('pow', R(2), V('n')), [{ name: 'ztrans', args: [V('n')] }], new Printer()).command).toBe('ztrans((2^v0),v0,v1)');
     expect(buildRequest(V('z'), [{ name: 'invztrans', args: [V('z')] }], new Printer()).command).toBe('invztrans(v0,v0,v1)');
   });
-  test("Giac's step and impulse come back as Mathcad's Φ and δ", () => {
+  test("Giac's step and impulse come back as Mathcad's Φ and Δ", () => {
     const p = new Printer();
     p.name('t');
     const req = buildRequest(t, [], p);
     expect(readAnswer('Heaviside(v0-1)', sym(t), req, p)).toEqual({
       result: { k: 'call', fn: V('Φ'), args: [op('minus', V('t'), R(1))] },
     });
-    expect(readAnswer('Dirac(v0)', sym(t), req, p)).toEqual({ result: { k: 'call', fn: V('δ'), args: [V('t')] } });
+    expect(readAnswer('Dirac(v0)', sym(t), req, p)).toEqual({ result: { k: 'call', fn: V('Δ'), args: [V('t')] } });
   });
   test('a transform the engine can’t do says so', () => {
     const c = sym(t, { name: 'laplace', args: [t] });

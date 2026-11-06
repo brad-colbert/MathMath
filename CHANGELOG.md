@@ -10,6 +10,48 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-05
+
+Mathcad's differential equation solvers, with units.
+
+### Added
+
+- Mathcad's ordinary differential equation solvers. Each takes the starting values, the interval x1 to x2,
+  and D(x, y), a function giving the vector of derivatives, and gives a matrix with x in the first column
+  and a column for each value of y. As in Mathcad 14, y may start as a single number, x2 may be below x1,
+  and D always receives y as a vector.
+  - `rkfixed(y, x1, x2, n, D)`: fixed-step fourth-order Runge–Kutta, matching Mathcad 14's results to the
+    last digit.
+  - `Rkadapt`, `Bulstoer` and `Adams(…, [tol])`, answers at n + 1 evenly spaced points, and `rkadapt` and
+    `bulstoer(y, x1, x2, acc, D, kmax, save)`, answers at the solver's own steps. These share one adaptive
+    Runge–Kutta solver (Dormand–Prince 5(4)).
+  - For stiff equations: `Stiffb` and `Stiffr(…, D, J)` and `stiffb` and `stiffr(y, x1, x2, acc, D, J, kmax,
+    save)`, whose Jacobian J(x, y) has ∂D/∂x in its first column, then ∂D/∂y; and `Radau(…, D, [J], [M],
+    [tol])`, `BDF` and `AdamsBDF(…, D, [J], [tol])`, whose Jacobian is ∂D/∂y alone and can be left out. `M`
+    is a constant mass matrix, for M·y′ = D. These share one stiff solver (Rosenbrock 4(3)).
+- Units in the differential equation solvers, which Mathcad 14 refuses: x may have a unit and each value
+  of y its own, so a circuit's voltages and currents can be solved in volts, amps and seconds. D's values
+  must be in y's units per x's. A start of 0 takes its unit from D, so (0·V; 0·A) works.
+
+### Changed
+
+- Dirac's impulse is now Δ(x), as Mathcad 14 writes it in inverse Laplace transforms, and `δ(m, n)` is only
+  Kronecker's delta, as in Mathcad. 0.20.0 used δ(x) for both.
+- The second argument to `laplace`, `invlaplace`, `ztrans` and `invztrans` is MathMath's own: Mathcad 14
+  won't open a sheet that uses it.
+
+### Fixed
+
+- A column taken out of a matrix whose entries have different units, as M⟨1⟩, took the first column's unit
+  where it started at 0. It now takes its own.
+
+### Known limits
+
+- `Odesolve` isn't supported yet: it works inside a Given solve block, which MathMath doesn't have.
+- The adaptive and stiff solvers agree with Mathcad's to each method's accuracy, not digit for digit; with
+  no tolerance given they work to 10⁻⁹, tighter than Mathcad's defaults. `rkadapt` and the other solvers that
+  keep their own steps choose different steps from Mathcad's.
+
 ## [0.21.0] - 2026-11-05
 
 Programs and user functions run about three times faster.
