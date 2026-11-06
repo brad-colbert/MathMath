@@ -2,6 +2,7 @@ import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/as
 import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
+import { Compiler, type Host, type ProgramState } from './compile.js';
 import { type Pixels, type Written, pixels } from './image.js';
 import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
@@ -231,8 +232,10 @@ const CONSTANTS: Record<string, Num> = {
   'π': num(Math.PI), e: num(Math.E), '∞': num(1e307), '%': num(0.01),
 };
 
-export class Evaluator {
+export class Evaluator implements Host {
   private builtins: Map<string, Fn>;
+  /** Expressions and programs as closures, built once per tree node. */
+  private compiler = new Compiler(this);
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
   private corners: { at: number; tables: Set<Float64Array> } | null = null;
   constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { exactCompare?: boolean; zeroOverZero?: boolean }, files?: Files) {
@@ -283,7 +286,41 @@ export class Evaluator {
     return called ? (b ?? unit) : (unit ?? b);
   }
 
+  /** Element by element (`vec`, under the vectorize arrow) is interpreted; everything else runs compiled. */
   eval(e: Expr, s: Scope, vec = false): Value {
+    return vec ? this.evalGeneric(e, s, true) : this.compiler.expr(e)(s);
+  }
+
+  get exactCompare(): boolean {
+    return this.ws.exactCompare !== false;
+  }
+
+  get zeroOverZero(): boolean {
+    return this.ws.zeroOverZero === true;
+  }
+
+  isBuiltinIf(f: Fn): boolean {
+    return f.name === 'if' && f === this.builtinIf;
+  }
+
+  evalOpValues(op: 'plus' | 'minus' | 'mult', a: Value, b: Value): Value {
+    return op === 'plus' ? addV(a, b) : op === 'minus' ? subV(a, b) : mulV(a, b);
+  }
+
+  divideValues(a: Value, b: Value): Value {
+    return this.divide(a, b, false);
+  }
+
+  powerValues(a: Value, b: Value): Value {
+    return this.power(a, b, false);
+  }
+
+  compareValues(a: Value, b: Value, test: (c: number) => boolean): Value {
+    return this.compare(a, b, test);
+  }
+
+  /** The interpreter. The compiled closures fall back to it for anything they don't handle. */
+  evalGeneric(e: Expr, s: Scope, vec: boolean): Value {
     switch (e.k) {
       case 'real': return num(e.v);
       case 'imag': return num(0, NODIM, e.v);
@@ -335,7 +372,7 @@ export class Evaluator {
     return { t: 'range', first: first.re, step: second.re - first.re, last: last.re, dim: unit?.dim ?? second.dim };
   }
 
-  private evalOp(op: string, args: Expr[], s: Scope, vec: boolean): Value {
+  evalOp(op: string, args: Expr[], s: Scope, vec: boolean): Value {
     if (op === 'vectorize') return this.eval(args[0]!, s, true);
     const a = this.eval(args[0]!, s, vec);
     const b = args[1] ? this.eval(args[1], s, vec) : undefined;
@@ -355,7 +392,8 @@ export class Evaluator {
         if (a.t !== 'mat') throw new EvalError('runtime', 'Σ with nothing under it adds up a vector. To add up over a range variable, put it under the Σ: type $');
         return sumV(a);
       case 'crossProduct': return cross(requireMat(a), requireMat(b!));
-      case 'indexer': return this.index(a, args.slice(1).map((i) => this.eval(i, s, vec)));
+      // The first index is b, already worked out: working it out again would draw rnd twice.
+      case 'indexer': return this.index(a, [b!, ...args.slice(2).map((i) => this.eval(i, s, vec))]);
       case 'matcol': return this.column(requireMat(a), b!);
       case 'equal': return this.compare(a, b!, (c) => c === 0);
       case 'notEqual': return this.compare(a, b!, (c) => c !== 0);
@@ -399,11 +437,12 @@ export class Evaluator {
     });
   }
 
-  private position(v: Value): number {
-    return Math.trunc(requireReal(v, 'index') + 1e-9 * Math.sign(requireReal(v, 'index'))) - this.ws.origin;
+  position(v: Value): number {
+    const x = requireReal(v, 'index');
+    return Math.trunc(x + 1e-9 * Math.sign(x)) - this.ws.origin;
   }
 
-  private index(base: Value, idx: Value[]): Value {
+  index(base: Value, idx: Value[]): Value {
     const first = idx[0];
     if (first?.t === 'mat') return mapMat(first, (i) => this.index(base, [i, ...idx.slice(1)]));
     const m = requireMat(base, 'indexed value');
@@ -416,6 +455,36 @@ export class Evaluator {
     if (idx.length === 1 && m.cols > 1) throw new EvalError('runtime', 'matrix needs two indices');
     if (i < 0 || j < 0 || i >= m.rows || j >= m.cols) throw new EvalError('runtime', 'index out of bounds');
     return getEl(m, i, j);
+  }
+
+  /** index() for one or two indices, without building an array of them: the compiled indexer's path. */
+  indexAt(base: Value, a: Value, b: Value | undefined): Value {
+    if (a.t === 'mat' || base.t !== 'mat') return this.index(base, b ? [a, b] : [a]);
+    const i = this.position(a);
+    const j = b ? this.position(b) : 0;
+    if (!b && base.cols > 1 && base.rows === 1) {
+      if (i < 0 || i >= base.cols) throw new EvalError('runtime', 'index out of bounds');
+      return getEl(base, 0, i);
+    }
+    if (!b && base.cols > 1) throw new EvalError('runtime', 'matrix needs two indices');
+    if (i < 0 || j < 0 || i >= base.rows || j >= base.cols) throw new EvalError('runtime', 'index out of bounds');
+    return getEl(base, i, j);
+  }
+
+  /**
+   * `name[i, j] := v` at positions already worked out, as assign() does. A real number into a real matrix
+   * this scope already owns, inside its size and in its units, is written in place.
+   */
+  setAt(name: string, store: Scope, i: number, j: number, v: Value): void {
+    if (i < 0 || j < 0) throw new EvalError('runtime', 'index out of bounds');
+    const old = store.lookup(name);
+    if (old?.t === 'mat' && old.owner === store && !old.cells && !old.im && i < old.rows && j < old.cols
+      && v.t === 'num' && v.im === 0 && dimEq(v.dim, old.dim)) {
+      old.re[i + j * old.rows] = v.re;
+      old.version = (old.version ?? 0) + 1;
+      return;
+    }
+    this.ownedMatrix(name, store, i + 1, j + 1, (m) => setEl(m, i, j, v));
   }
 
   private column(m: Mat, b: Value): Mat {
@@ -453,7 +522,7 @@ export class Evaluator {
 
   private builtinIf: Fn = { t: 'fn', name: 'if', call: () => num(0) };
 
-  private callee(fn: Expr, s: Scope): Fn {
+  callee(fn: Expr, s: Scope): Fn {
     if (fn.k === 'id') {
       const v = fn.name === 'if' && !s.lookup('if') ? this.builtinIf : this.resolve(fn.name, s, true);
       if (!v) throw new EvalError('undefined-function', fn.name);
@@ -605,7 +674,9 @@ export class Evaluator {
         if (args.length !== params.length) throw new EvalError('runtime', `${name} takes ${params.length} arguments`);
         const frame = new Scope(scope);
         params.forEach((p, i) => frame.set(p, args[i]!));
-        return this.eval(body, frame);
+        // A program body runs in the arguments' own frame: it's private to this call, so a second one
+        // in between would hold nothing the first doesn't.
+        return body.k === 'program' ? this.runProgramIn(body.body, frame) : this.eval(body, frame);
       },
     };
   }
@@ -663,73 +734,18 @@ export class Evaluator {
     store.set(name, m);
   }
 
-  private runProgram(body: Stmt[], s: Scope): Value {
-    const frame = new Scope(s);
+  runProgram(body: Stmt[], s: Scope): Value {
+    return this.runProgramIn(body, new Scope(s));
+  }
+
+  private runProgramIn(body: Stmt[], frame: Scope): Value {
     const state: ProgramState = { value: null, returned: false, ifTaken: false };
-    this.execBlock(body, frame, state);
+    this.compiler.block(body)(frame, state);
     if (!state.value) throw new EvalError('runtime', 'program has no value');
     return state.value;
   }
 
-  private execBlock(body: Stmt[], s: Scope, st: ProgramState): void {
-    for (const stmt of body) {
-      this.exec(stmt, s, st);
-      if (st.returned) return;
-    }
-  }
-
-  private exec(stmt: Stmt, s: Scope, st: ProgramState): void {
-    if (stmt.k !== 'if' && stmt.k !== 'otherwise') st.ifTaken = false;
-    switch (stmt.k) {
-      case 'assign':
-        if (stmt.target.k === 'fn') {
-          this.assign(stmt.target, () => num(0), stmt.value, s, s);
-          return;
-        }
-        this.assign(stmt.target, () => (st.value = this.eval(stmt.value, s)), null, s, s);
-        return;
-      case 'if': {
-        // Each `if` runs on its own merits. `otherwise` runs only if none before it in the run did.
-        const earlier = st.ifTaken;
-        const taken = truthy(this.eval(stmt.cond, s));
-        if (taken) this.exec(stmt.then, s, st);
-        st.ifTaken = earlier || taken;
-        return;
-      }
-      case 'otherwise': {
-        const skip = st.ifTaken;
-        st.ifTaken = false;
-        if (!skip) this.exec(stmt.then, s, st);
-        return;
-      }
-      case 'for': {
-        const iter = this.eval(stmt.iter, s);
-        for (const v of this.iterate(iter)) {
-          s.set(stmt.varName, v);
-          this.exec(stmt.body, s, st);
-          if (st.returned) return;
-        }
-        return;
-      }
-      case 'while':
-        while (truthy(this.eval(stmt.cond, s))) {
-          this.exec(stmt.body, s, st);
-          if (st.returned) return;
-        }
-        return;
-      case 'return':
-        st.value = this.eval(stmt.value, s);
-        st.returned = true;
-        return;
-      case 'block':
-        this.execBlock(stmt.body, s, st);
-        return;
-      case 'expr':
-        st.value = this.eval(stmt.e, s);
-    }
-  }
-
-  private *iterate(v: Value): Generator<Value> {
+  *iterate(v: Value): Generator<Value> {
     if (v.t === 'range') {
       const n = rangeCount(v);
       for (let i = 0; i < n; i++) yield num(v.first + i * v.step, v.dim);
@@ -804,12 +820,6 @@ export class Evaluator {
 }
 
 type Sym = Extract<Content, { k: 'sym' }>;
-
-interface ProgramState {
-  value: Value | null;
-  returned: boolean;
-  ifTaken: boolean;
-}
 
 const sortKey: Record<OrderKey, (r: Region) => [number, number]> = {
   align: (r) => [r.alignY, r.alignX],
