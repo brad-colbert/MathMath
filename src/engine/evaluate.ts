@@ -3,7 +3,7 @@ import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
-import { brent, leastSquares, minimize, minimizeWithin, secant } from './solve.js';
+import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
 import { odeGrid } from './ode.js';
 import { type Pixels, type Written, pixels } from './image.js';
 import {
@@ -692,23 +692,35 @@ export class Evaluator implements Host {
     const order = new Map(unknowns.map((u) => [u, 0]));
     for (const e of equations) for (const x of callsIn(e)) if (known.has(base(x.name))) order.set(base(x.name), Math.max(order.get(base(x.name))!, primes(x.name)));
     for (const [u, m] of order) if (m === 0) throw new EvalError('runtime', `Odesolve's equations must have a derivative of ${u}, as ${u}'(${t})`);
-    const points = new Set(conditions.map((c) => c.at.re));
-    if (points.size > 1) throw new EvalError('unsupported', 'Odesolve with conditions at two points (a boundary value problem) isn\'t supported yet: give every starting value at one point');
-    const a = conditions[0]?.at ?? null;
-    if (!a) throw new EvalError('runtime', `Odesolve needs starting values, as ${unknowns[0]}(0) = 1`);
+    if (conditions.length === 0) throw new EvalError('runtime', `Odesolve needs starting values, as ${unknowns[0]}(0) = 1`);
+    const points = [...new Set(conditions.map((c) => c.at.re))];
+    if (points.length > 2) throw new EvalError('runtime', `Odesolve's conditions can be at two points at most, not ${points.length}`);
+    // With conditions at two points, the solution starts from the one farther from the end, as Mathcad's does,
+    // and the conditions at the other are met by shooting.
+    points.sort((p, q) => Math.abs(q - b.re) - Math.abs(p - b.re) || p - q);
+    const a = conditions.find((c) => c.at.re === points[0])!.at;
+    const far = points.length === 2 ? points[1]! : null;
     if (a.re === b.re) throw new EvalError('runtime', "Odesolve's end must differ from the starting point");
-    const tDim = a.re !== 0 ? a.dim : b.dim;
+    const tDim = [a, ...conditions.map((c) => c.at), b].find((v) => v.re !== 0)?.dim ?? NODIM;
     // The state: for each unknown y of order m, y, y′, … y⁽ᵐ⁻¹⁾, from its starting values.
     const slots: { u: string; k: number }[] = unknowns.flatMap((u) => Array.from({ length: order.get(u)! }, (_, k) => ({ u, k })));
-    const y0 = new Float64Array(slots.length);
+    const prime = (u: string, k: number): string => `${u}${"'".repeat(k)}`;
+    for (const c of conditions) if (c.order >= order.get(c.u)!) throw new EvalError('runtime', `Odesolve's starting value for ${prime(c.u, c.order)} is one too many: the equation's highest derivative of ${c.u} is order ${order.get(c.u)}`);
     const unitOf = new Map<string, Dim>();
+    for (const c of conditions) if (!unitOf.has(c.u) && !(c.value.re === 0 && isNoDim(c.value.dim))) unitOf.set(c.u, dimMul(c.value.dim, dimPow(tDim, c.order)));
+    const y0 = new Float64Array(slots.length);
+    const free: number[] = [];
     slots.forEach((slot, i) => {
-      const given = conditions.filter((c) => c.u === slot.u && c.order === slot.k);
-      if (given.length !== 1) throw new EvalError('runtime', `Odesolve needs exactly one starting value for ${slot.u}${"'".repeat(slot.k)}, at ${t} = ${a.re}`);
-      y0[i] = given[0]!.value.re;
-      if (!unitOf.has(slot.u) && !(given[0]!.value.re === 0 && isNoDim(given[0]!.value.dim))) unitOf.set(slot.u, dimMul(given[0]!.value.dim, dimPow(tDim, slot.k)));
+      const given = conditions.filter((c) => c.u === slot.u && c.order === slot.k && c.at.re === a.re);
+      if (given.length > 1 || (given.length === 0 && far === null)) throw new EvalError('runtime', `Odesolve needs exactly one starting value for ${prime(slot.u, slot.k)}, at ${t} = ${a.re}`);
+      if (given.length === 1) y0[i] = given[0]!.value.re;
+      else free.push(i);
     });
-    for (const c of conditions) if (c.order >= order.get(c.u)!) throw new EvalError('runtime', `Odesolve's starting value for ${c.u}${"'".repeat(c.order)} is one too many: the equation's highest derivative of ${c.u} is order ${order.get(c.u)}`);
+    const targets = conditions.filter((c) => c.at.re === far).map((c) => ({ i: slots.findIndex((slot) => slot.u === c.u && slot.k === c.order), value: c.value.re, c }));
+    for (const x of targets) if (targets.some((y) => y !== x && y.i === x.i)) throw new EvalError('runtime', `Odesolve has two conditions for ${prime(x.c.u, x.c.order)} at ${t} = ${far}`);
+    if (targets.length !== free.length) {
+      throw new EvalError('runtime', `Odesolve needs ${slots.length} condition${slots.length === 1 ? '' : 's'}, as many as the equations' orders add up to, not ${conditions.length}`);
+    }
     const dimFor = (u: string, k: number): Dim => dimDiv(unitOf.get(u) ?? NODIM, dimPow(tDim, k));
     // The highest derivatives, found where the equations hold, by Newton's method from the last ones found.
     let z = new Float64Array(unknowns.length);
@@ -730,22 +742,40 @@ export class Evaluator implements Host {
         return l.re - r.re;
       });
     };
+    // ∂(the equations)/∂(the highest derivatives), kept from call to call while Newton's steps keep shrinking fast.
+    let kept: number[][] | null = null;
+    const slopes = (time: number, y: Float64Array, zz: Float64Array, r: Float64Array): number[][] => {
+      const J = Array.from({ length: zz.length }, () => new Array<number>(zz.length).fill(0));
+      for (let j = 0; j < zz.length; j++) {
+        const h = 1e-7 * Math.max(1, Math.abs(zz[j]!));
+        const up = zz.slice();
+        up[j] = zz[j]! + h;
+        const ru = residual(time, y, up);
+        for (let i = 0; i < zz.length; i++) J[i]![j] = (ru[i]! - r[i]!) / h;
+      }
+      return J;
+    };
     const highest = (time: number, y: Float64Array): Float64Array => {
       let zz = z.slice();
+      let fresh = false;
+      let prev = Infinity;
       for (let iter = 0; iter < 30; iter++) {
         const r = residual(time, y, zz);
-        const J = Array.from({ length: zz.length }, () => new Array<number>(zz.length).fill(0));
-        for (let j = 0; j < zz.length; j++) {
-          const h = 1e-7 * Math.max(1, Math.abs(zz[j]!));
-          const up = zz.slice();
-          up[j] = zz[j]! + h;
-          const ru = residual(time, y, up);
-          for (let i = 0; i < zz.length; i++) J[i]![j] = (ru[i]! - r[i]!) / h;
+        if (!kept) {
+          kept = slopes(time, y, zz, r);
+          fresh = true;
         }
-        const step = solveSmall(J, Array.from(r, (v) => -v));
+        let step = solveSmall(kept, Array.from(r, (v) => -v));
+        const size = (d: number[]): number => Math.max(...d.map((v, j) => Math.abs(v) / Math.max(1, Math.abs(zz[j]!))));
+        if (!fresh && (!step || size(step) > 0.1 * prev)) {
+          kept = slopes(time, y, zz, r);
+          fresh = true;
+          step = solveSmall(kept, Array.from(r, (v) => -v));
+        }
         if (!step) throw new EvalError('runtime', `Odesolve can't find the highest derivative${unknowns.length > 1 ? 's' : ''} from the equation${unknowns.length > 1 ? 's' : ''}: each must appear in them`);
         zz = zz.map((v, j) => v + step[j]!);
-        if (step.every((d, j) => Math.abs(d) <= 1e-13 * Math.max(1, Math.abs(zz[j]!)))) break;
+        prev = size(step);
+        if (prev <= 1e-13) break;
       }
       z = zz;
       return zz;
@@ -759,7 +789,33 @@ export class Evaluator implements Host {
       });
       return out;
     };
-    const grid = odeGrid(f, a.re, b.re, y0, steps, 'Odesolve');
+    let grid: { xs: number[]; ys: Float64Array[]; dys: Float64Array[] };
+    if (far === null) grid = odeGrid(f, a.re, b.re, y0, steps, 'Odesolve');
+    else {
+      // Conditions at two points: multiple shooting from a to the far point, with more segments if the
+      // first try doesn't converge, then on to b if it lies beyond.
+      const failed = new EvalError('runtime', `Odesolve can't meet the conditions at both points, ${t} = ${a.re} and ${t} = ${far}: the problem may have no solution`);
+      const flow = (x1: number, x2: number, y: Float64Array): Float64Array => odeGrid(f, x1, x2, y, 1, 'Odesolve').ys[1]!;
+      let solved: ReturnType<typeof multipleShooting> = 'unmet';
+      let nodes: number[] = [];
+      for (const M of [8, 64]) {
+        nodes = Array.from({ length: M + 1 }, (_, k) => (k === M ? far : a.re + ((far - a.re) * k) / M));
+        solved = multipleShooting({ y0, free, targets, nodes, flow });
+        if (solved !== 'unmet') break;
+      }
+      if (typeof solved === 'string') throw failed;
+      const beyond = Math.abs(b.re - a.re) > Math.abs(far - a.re) && Math.sign(b.re - a.re) === Math.sign(far - a.re);
+      const span = Math.abs((beyond ? b.re : far) - a.re);
+      const per = (x1: number, x2: number): number => Math.max(1, Math.ceil((steps * Math.abs(x2 - x1)) / span));
+      const parts = solved.starts.map((y, k) => odeGrid(f, nodes[k]!, nodes[k + 1]!, y, per(nodes[k]!, nodes[k + 1]!), 'Odesolve'));
+      if (beyond) parts.push(odeGrid(f, far, b.re, solved.end, per(far, b.re), 'Odesolve'));
+      grid = { xs: [a.re], ys: [parts[0]!.ys[0]!], dys: [parts[0]!.dys[0]!] };
+      for (const g of parts) {
+        grid.xs.push(...g.xs.slice(1));
+        grid.ys.push(...g.ys.slice(1));
+        grid.dys.push(...g.dys.slice(1));
+      }
+    }
     const lo = Math.min(a.re, b.re);
     const hi = Math.max(a.re, b.re);
     const solved = unknowns.map((u): Fn => {

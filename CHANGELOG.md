@@ -10,6 +10,33 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-06
+
+Odesolve with conditions at two points (boundary value problems).
+
+### Added
+
+- Odesolve with conditions at two points (boundary value problems), as Mathcad's: `y(0) = 0` and `y(1) = 1`,
+  or a slope at the far end, `y'(1) = 0`. As in Mathcad, the solution runs from the point farther from the
+  end, so the second point may lie inside the interval or past its end, and the conditions may come in either
+  order. Linear and nonlinear equations, higher orders, systems and units all work: a hanging cable,
+  `y'' = w/H·√(1 + y'²)` between supports at 0 m and 100 m, sags 12.76 m at the middle.
+- Fast-growing solutions come out right. Odesolve splits the interval into segments and solves for every
+  joint at once (multiple shooting), so `y'' = 100·y` with `y(0) = 1` and `y(5) = 0` is accurate, where Mathcad
+  14's answer is wrong by orders of magnitude and it gives up over a longer interval.
+- When no solution meets the conditions, as `y'' + y = 0` with `y(0) = 0` and `y(π) = 1`, Odesolve says so
+  instead of giving one that only seems to.
+
+### Fixed
+
+- The ODE solvers could stop with "the step size became too small" when a step landed a rounding error short
+  of a point they had to reach.
+
+### Known limits
+
+- Odesolve's conditions can be at two points at most, and each gives one value, as `y(1) = 0` or `y'(1) = 0`,
+  as in Mathcad: a combination such as `y(1) + y'(1) = 0` isn't accepted.
+
 ## [0.23.0] - 2026-11-06
 
 Solve blocks: Find, Minerr, Maximize, Minimize and Odesolve, and root.

@@ -364,7 +364,9 @@ function integrate(st: Stepper, x: number, y: Float64Array, target: number, h: {
   let steps = 0;
   while ((target - x) * dir > 0) {
     let hv = Math.min(Math.abs(h.v), Math.abs(target - x)) * dir;
-    const last = Math.abs(hv) >= Math.abs(target - x) * (1 - 1e-12);
+    // A step that would stop a rounding error short of the target goes all the way: the sliver left over
+    // would be too small to take.
+    const last = Math.abs(hv) >= Math.abs(target - x) * (1 - 1e-12) || Math.abs(target - x) - Math.abs(hv) < 1e-12 * Math.max(Math.abs(x), 1);
     if (last) hv = target - x;
     if (Math.abs(hv) < 1e-14 * Math.max(Math.abs(x), 1)) throw new EvalError('runtime', `${fn}: the step size became too small at x = ${x.toPrecision(6)}. The equations may be stiff: try Radau or Stiffr`);
     if (++steps > MAX_STEPS) throw new EvalError('runtime', `${fn} took over ${MAX_STEPS} steps without reaching x2. The equations may be stiff: try Radau or Stiffr`);

@@ -102,9 +102,87 @@ describe('Odesolve', () => {
     expect(v.re).toBeCloseTo(5 * Math.exp(-1), 9);
     expect([...v.dim]).toEqual([2, 1, -3, -1, 0, 0, 0]);
   });
-  test('what it needs: an equation per unknown, its starting values, at one point', () => {
+  test('what it needs: an equation per unknown and its starting values', () => {
     expect(() => last('\\mathrm{Given}', "y'\\left(t\\right)=y\\left(t\\right)", 'y\\coloneq \\mathrm{Odesolve}\\left(t,1\\right)')).toThrow(/starting values/);
-    expect(() => last('\\mathrm{Given}', "y''\\left(t\\right)=-y\\left(t\\right)", 'y\\left(0\\right)=0', 'y\\left(1\\right)=1', 'y\\coloneq \\mathrm{Odesolve}\\left(t,1\\right)')).toThrow(/two points/);
+    expect(() => last('\\mathrm{Given}', "y''\\left(t\\right)=-y\\left(t\\right)", 'y\\left(0\\right)=0', 'y\\coloneq \\mathrm{Odesolve}\\left(t,1\\right)')).toThrow(/one starting value for y'/);
+  });
+});
+
+/** An Odesolve block for y, from the equation and conditions, as y := Odesolve(t, end), giving y. */
+const odesolve = (end: string, ...lines: string[]): Value => last('\\mathrm{Given}', ...lines, `y\\coloneq \\mathrm{Odesolve}\\left(t,${end}\\right)`, 'y=');
+const HALF_PI = '1.5707963267949';
+
+describe('Odesolve with conditions at two points', () => {
+  test("y'' + y = 0 from y(0) = 0 to y(π/2) = 1 is sin", () => {
+    // Mathcad 14 gave y(1) = 0.841469884, 1.1·10⁻⁶ from sin 1.
+    const y = odesolve(HALF_PI, "y''\\left(t\\right)+y\\left(t\\right)=0", 'y\\left(0\\right)=0', `y\\left(${HALF_PI}\\right)=1`);
+    for (const x of [0, 0.4, 1, Math.PI / 2]) expect(call(y, x)).toBeCloseTo(Math.sin(x), 8);
+  });
+  test('a derivative at the far end, and the conditions in either order', () => {
+    // Mathcad 14: w(1) = 0.500000006 for t − t²/2, and p(0.5) = 0.125 for t³.
+    const w = odesolve('1', "y''\\left(t\\right)=-1", 'y\\left(0\\right)=0', "y'\\left(1\\right)=0");
+    expect(call(w, 1)).toBeCloseTo(0.5, 10);
+    const p = odesolve('1', "y''\\left(t\\right)=6\\cdot t", 'y\\left(1\\right)=1', 'y\\left(0\\right)=0');
+    expect(call(p, 0.5)).toBeCloseTo(0.125, 10);
+  });
+  test('a nonlinear equation: Bratu, from the guess 0 to the lower of its two solutions', () => {
+    // Mathcad 14: q(0.5) = 0.140539963. The exact value is 0.1405392159…
+    const q = odesolve('1', "y''\\left(t\\right)+e^{y\\left(t\\right)}=0", 'y\\left(0\\right)=0', 'y\\left(1\\right)=0');
+    expect(call(q, 0.5)).toBeCloseTo(0.14053921, 7);
+  });
+  test('the solution runs from the point farther from the end: the second point may be inside or beyond', () => {
+    // Mathcad 14: v(2) = 0.909273117 with the second point inside; g(1) = 1 with it past the end, and
+    // g(1.5) is outside the solution, as h(0.5) is when both points come before the end.
+    const v = odesolve('2', "y''\\left(t\\right)+y\\left(t\\right)=0", 'y\\left(0\\right)=0', `y\\left(1\\right)=${Math.sin(1)}`);
+    expect(call(v, 2)).toBeCloseTo(Math.sin(2), 9);
+    const g = odesolve('1', "y''\\left(t\\right)=0", 'y\\left(0\\right)=0', 'y\\left(2\\right)=2');
+    expect(call(g, 1)).toBeCloseTo(1, 12);
+    expect(() => call(g, 1.5)).toThrow(/solved from 0 to 1/);
+    const h = odesolve('3', "y''\\left(t\\right)=0", 'y\\left(1\\right)=1', 'y\\left(2\\right)=2');
+    expect(call(h, 3)).toBeCloseTo(3, 12);
+    expect(() => call(h, 0.5)).toThrow(/solved from 1 to 3/);
+  });
+  test('a third-order equation, and a system with its conditions on one unknown', () => {
+    // Mathcad 14: u(0.5) = 0.250000002; a(1) = 0.841469884 and b(0) = 0.999999995.
+    const u = odesolve('1', "y'''\\left(t\\right)=0", 'y\\left(0\\right)=0', "y'\\left(0\\right)=0", 'y\\left(1\\right)=1');
+    expect(call(u, 0.5)).toBeCloseTo(0.25, 10);
+    const s = last('\\mathrm{Given}', "a'\\left(t\\right)=b\\left(t\\right)", "b'\\left(t\\right)=-a\\left(t\\right)", 'a\\left(0\\right)=0', `a\\left(${HALF_PI}\\right)=1`,
+      `\\begin{pmatrix}a\\\\b\\end{pmatrix}\\coloneq \\mathrm{Odesolve}\\left(\\begin{pmatrix}a\\\\b\\end{pmatrix},t,${HALF_PI}\\right)`, 'b\\left(0\\right)=');
+    expect(re(s)).toBeCloseTo(1, 8);
+  });
+  test('a solution that grows fast, where shooting from one end alone loses it', () => {
+    // y'' = 100·y, y(0) = 1, y(5) = 0: sinh(10·(5 − t))/sinh 50. Mathcad 14 gives −9.6·10⁻⁹ at 2.5, for 1.39·10⁻¹¹.
+    const y = odesolve('5', "y''\\left(t\\right)=100\\cdot y\\left(t\\right)", 'y\\left(0\\right)=1', 'y\\left(5\\right)=0');
+    for (const x of [0.5, 1, 2.5]) expect(call(y, x)).toBeCloseTo(Math.sinh(10 * (5 - x)) / Math.sinh(50), 10);
+    // y'' = y over 0 to 10 once stopped a hair short of a point it had to reach.
+    const w = odesolve('10', "y''\\left(t\\right)=y\\left(t\\right)", 'y\\left(0\\right)=1', 'y\\left(10\\right)=0');
+    expect(call(w, 5)).toBeCloseTo(Math.sinh(5) / Math.sinh(10), 9);
+  });
+  test('a cable sagging under its own weight, in metres', () => {
+    // y'' = k·√(1 + y'²) between supports at 0 and 100 m, both at 0 m: a catenary, (cosh(k·(x − 50 m)) − cosh(50 m·k))/k.
+    const y = last('k\\coloneq 0.01\\cdot \\mathrm{m}^{-1}', '\\mathrm{Given}', "y''\\left(x\\right)=k\\cdot \\sqrt{1+y'\\left(x\\right)^2}",
+      'y\\left(0\\cdot \\mathrm{m}\\right)=0\\cdot \\mathrm{m}', 'y\\left(100\\cdot \\mathrm{m}\\right)=0\\cdot \\mathrm{m}', 'y\\coloneq \\mathrm{Odesolve}\\left(x,100\\cdot \\mathrm{m}\\right)',
+      'y\\left(50\\cdot \\mathrm{m}\\right)=') as Num;
+    expect(y.re).toBeCloseTo(100 * (1 - Math.cosh(0.5)), 7);
+    expect([...y.dim]).toEqual([1, 0, 0, 0, 0, 0, 0]);
+    // Ten times as heavy: a sag of 732 m, which Newton's method reaches only by shorter steps on the way.
+    const deep = last('k\\coloneq 0.1\\cdot \\mathrm{m}^{-1}', '\\mathrm{Given}', "y''\\left(x\\right)=k\\cdot \\sqrt{1+y'\\left(x\\right)^2}",
+      'y\\left(0\\cdot \\mathrm{m}\\right)=0\\cdot \\mathrm{m}', 'y\\left(100\\cdot \\mathrm{m}\\right)=0\\cdot \\mathrm{m}', 'y\\coloneq \\mathrm{Odesolve}\\left(x,100\\cdot \\mathrm{m}\\right)',
+      'y\\left(50\\cdot \\mathrm{m}\\right)=') as Num;
+    expect(deep.re / (10 * (1 - Math.cosh(5)))).toBeCloseTo(1, 8);
+  });
+  test("errors as Mathcad's: no solution, three points, a condition that isn't a value, too many", () => {
+    // Mathcad 14: "Root finder failed to converge", "Error in initial conditions", "Too few initial conditions".
+    expect(() => odesolve('3.14159265358979', "y''\\left(t\\right)+y\\left(t\\right)=0", 'y\\left(0\\right)=0', 'y\\left(3.14159265358979\\right)=1')).toThrow(/can't meet the conditions at both points/);
+    expect(() => odesolve('1', "y'''\\left(t\\right)=0", 'y\\left(0\\right)=0', 'y\\left(0.5\\right)=0.25', 'y\\left(1\\right)=1')).toThrow(/two points at most/);
+    expect(() => odesolve('1', "y''\\left(t\\right)=-1", 'y\\left(0\\right)=0', "y\\left(1\\right)+y'\\left(1\\right)=0")).toThrow(/must give one value/);
+    expect(() => odesolve('1', "y''\\left(t\\right)=-1", 'y\\left(0\\right)=0', "y'\\left(0\\right)=0", 'y\\left(1\\right)=0')).toThrow(/needs 2 conditions/);
+    expect(() => odesolve('1', "y'\\left(t\\right)=1", 'y\\left(0\\right)=0', 'y\\left(1\\right)=0')).toThrow(/needs 1 condition,/);
+    expect(() => odesolve('1', "y''\\left(t\\right)=-1", 'y\\left(0\\right)=0', 'y\\left(1\\right)=0', 'y\\left(1\\right)=1')).toThrow(/two conditions for y at t = 1/);
+  });
+  test('a starting value nothing fixes stays at 0, as in Mathcad', () => {
+    // z'' = 0 with z'(0) = z'(1) = 1: Mathcad 14 gives z(1) = 1.
+    expect(call(odesolve('1', "y''\\left(t\\right)=0", "y'\\left(0\\right)=1", "y'\\left(1\\right)=1"), 1)).toBeCloseTo(1, 12);
   });
 });
 

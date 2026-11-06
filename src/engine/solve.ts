@@ -62,16 +62,17 @@ export interface Fit {
 
 /**
  * Levenberg–Marquardt: x making the residuals as near 0 as it can, in the least-squares sense, starting at
- * x0. Stops when a step no longer improves them, or the residuals vanish.
+ * x0. Stops when a step no longer improves them, or the residuals vanish. jac gives ∂rᵢ/∂xⱼ when the caller
+ * can work it out more cheaply than by differences of every residual.
  */
-export function leastSquares(res: (x: Vec) => Vec, x0: Vec, maxIter = 500): Fit {
+export function leastSquares(res: (x: Vec) => Vec, x0: Vec, maxIter = 500, jac?: (x: Vec) => number[][]): Fit {
   let x = x0.slice();
   let r = res(x);
   let cost = sumSq(r);
   let lambda = 1e-3;
   const n = x.length;
   for (let iter = 0; iter < maxIter && cost > 0; iter++) {
-    const J = jacobian(res, x, r.length);
+    const J = jac ? jac(x) : jacobian(res, x, r.length);
     // (JᵀJ + λ·diag(JᵀJ)) δ = −Jᵀr
     const JtJ = Array.from({ length: n }, (_, a) => Array.from({ length: n }, (_, b) => J.reduce((s, row) => s + row[a]! * row[b]!, 0)));
     const Jtr = Array.from({ length: n }, (_, a) => J.reduce((s, row, i) => s + row[a]! * r[i]!, 0));
@@ -100,6 +101,72 @@ export function leastSquares(res: (x: Vec) => Vec, x0: Vec, maxIter = 500): Fit 
       lambda *= 10;
     }
     if (!improved) break;
+  }
+  return { x, r };
+}
+
+/**
+ * Newton's method on a square system, keeping the Jacobian while its steps still cut the residuals well, and
+ * Levenberg–Marquardt steps from a fresh one when a Newton step doesn't help: a singular system, or a guess
+ * too far out. A linear system takes one Jacobian. Stops when done says the residuals are small enough, when
+ * no step makes them smaller, or when they're already good enough and fresh Jacobians barely help.
+ */
+export function newtonSystem(res: (x: Vec) => Vec, x0: Vec, jac: (x: Vec) => number[][], done: (x: Vec, r: Vec) => boolean, good: (x: Vec, r: Vec) => boolean, maxIter = 100): Fit {
+  let x = x0.slice();
+  let r = res(x);
+  let cost = sumSq(r);
+  let J: number[][] | null = null;
+  let fresh = false;
+  // Steps from fresh Jacobians that barely help, in a row: the residuals are down to the noise in them.
+  let poor = 0;
+  const take = (step: number[]): boolean => {
+    const next = x.map((v, j) => v + step[j]!);
+    const rn = res(next);
+    const cn = sumSq(rn);
+    if (!(Number.isFinite(cn) && cn < cost)) return false;
+    const small = step.every((s, j) => Math.abs(s) <= 4 * EPS * Math.max(Math.abs(next[j]!), 1e-300));
+    const gain = cost - cn;
+    if (fresh) poor = cn > 0.01 * cost && good(next, rn) ? poor + 1 : 0;
+    if (cn > 0.01 * cost) J = null;
+    x = next;
+    r = rn;
+    cost = cn;
+    fresh = false;
+    if (small || gain <= EPS * EPS * cost || poor >= 2) maxIter = 0;
+    return true;
+  };
+  for (let iter = 0; iter < maxIter && cost > 0 && !done(x, r); iter++) {
+    if (!J) {
+      J = jac(x);
+      fresh = true;
+    }
+    const step = solveLinear(J, Array.from(r, (v) => -v));
+    if (step && step.every(Number.isFinite) && take(step)) continue;
+    if (!fresh) {
+      J = null;
+      continue;
+    }
+    // Damped Newton: part of the way along the step, which still points downhill.
+    let damped = false;
+    if (step && step.every(Number.isFinite)) {
+      for (let t = 0.5; t >= 1 / 1024 && !damped; t /= 2) {
+        damped = take(step.map((v) => v * t));
+        // A step cut short says the system is far from linear here: work out the Jacobian afresh.
+        if (damped) J = null;
+      }
+    }
+    if (damped) continue;
+    const n = x.length;
+    const Jm = J!;
+    const JtJ = Array.from({ length: n }, (_, a) => Array.from({ length: n }, (_, b) => Jm.reduce((s, row) => s + row[a]! * row[b]!, 0)));
+    const Jtr = Array.from({ length: n }, (_, a) => Jm.reduce((s, row, i) => s + row[a]! * r[i]!, 0));
+    let took = false;
+    for (let lambda = 1e-6; lambda <= 1e12 && !took; lambda *= 10) {
+      const A = JtJ.map((row, a) => row.map((v, b) => (a === b ? v + lambda * Math.max(v, 1e-12) : v)));
+      const lm = solveLinear(A, Jtr.map((v) => -v));
+      took = !!lm && lm.every(Number.isFinite) && take(lm);
+    }
+    if (!took) break;
   }
   return { x, r };
 }
@@ -249,4 +316,151 @@ export function secant(f: (x: number) => number, x0: number): number | null {
     if (Math.abs(b - a) <= 4 * EPS * Math.max(Math.abs(b), 1e-300)) return b;
   }
   return null;
+}
+
+/**
+ * Whether the far conditions of a boundary value problem fix the free starting values well. J holds each
+ * condition's response to each free value; S the largest response of the condition's quantity anywhere
+ * along the way. y'' + y = 0 with y(0) = 0 and y(π) = 1 moves y everywhere but leaves y(π) at 0, so no
+ * amplitude meets it. A starting value that nothing depends on is left alone, as Mathcad leaves it at its guess.
+ */
+export function wellPosed(J: number[][], S: number[][]): boolean {
+  const n = J[0]?.length ?? 0;
+  // Scale each starting value, then each condition, by its largest response, leaving out those with none.
+  const cols = [...Array(n).keys()].filter((j) => S.some((row) => row[j]! > 0));
+  const colScale = cols.map((j) => 1 / Math.max(...S.map((row) => row[j]!)));
+  const rows = [...S.keys()].filter((i) => cols.some((j) => S[i]![j]! > 0));
+  if (rows.length !== cols.length || rows.length === 0) return true;
+  const A = rows.map((i) => {
+    const rowScale = 1 / Math.max(...cols.map((j, c) => S[i]![j]! * colScale[c]!));
+    return cols.map((j, c) => J[i]![j]! * colScale[c]! * rowScale);
+  });
+  // Its smallest singular value is at least 1/‖A⁻¹‖ and at most √k/‖A⁻¹‖, in the Frobenius norm.
+  let sum = 0;
+  for (let c = 0; c < A.length; c++) {
+    const col = solveLinear(A, A.map((_, r) => (r === c ? 1 : 0)));
+    if (!col) return false;
+    sum += col.reduce((acc, v) => acc + v * v, 0);
+  }
+  return 1 / Math.sqrt(sum) > 1e-6;
+}
+
+export interface BoundaryProblem {
+  /** The state at the start; the free entries are unknown. */
+  y0: Vec;
+  free: number[];
+  /** Conditions on the state at the far point, as many as there are free entries. */
+  targets: { i: number; value: number }[];
+  /** The segments' ends, from the start to the far point. */
+  nodes: number[];
+  /** The state at x2 from the state y at x1. */
+  flow(x1: number, x2: number, y: Vec): Vec;
+}
+
+/**
+ * A boundary value problem by multiple shooting: the free starting values and the state at each node
+ * between, solved together so each segment ends where the next begins and the far conditions hold. Short
+ * segments keep a solution that grows fast, as e^(10 t), from swamping the one that decays. Gives each
+ * segment's starting state and the state at the far point, or why it failed.
+ */
+export function multipleShooting(bp: BoundaryProblem): { starts: Vec[]; end: Vec } | 'unmet' | 'ill-posed' {
+  const { y0, free, targets, nodes, flow } = bp;
+  const N = y0.length;
+  const nf = free.length;
+  const M = nodes.length - 1;
+  const U = nf + (M - 1) * N;
+  const state = (z: Vec, k: number): Vec => {
+    if (k > 0) return z.slice(nf + (k - 1) * N, nf + k * N);
+    const y = y0.slice();
+    free.forEach((i, j) => (y[i] = z[j]!));
+    return y;
+  };
+  const residual = (z: Vec): Vec => {
+    const F = new Float64Array(U);
+    try {
+      for (let k = 0; k < M; k++) {
+        const e = flow(nodes[k]!, nodes[k + 1]!, state(z, k));
+        if (k < M - 1) for (let i = 0; i < N; i++) F[k * N + i] = e[i]! - z[nf + k * N + i]!;
+        else targets.forEach((t, j) => (F[(M - 1) * N + j] = e[t.i]! - t.value));
+      }
+    } catch {
+      F.fill(NaN);
+    }
+    return F;
+  };
+  // ∂(state at the end of segment k)/∂(its starting state), by central differences: the first segment's
+  // by the free values only.
+  const segment = (z: Vec, k: number): number[][] => {
+    const s = state(z, k);
+    const cols = k === 0 ? free : [...Array(N).keys()];
+    const G = Array.from({ length: N }, () => new Array<number>(cols.length).fill(0));
+    cols.forEach((c, j) => {
+      const h = delta(s[c]!);
+      const up = s.slice();
+      const down = s.slice();
+      up[c] = s[c]! + h;
+      down[c] = s[c]! - h;
+      const eu = flow(nodes[k]!, nodes[k + 1]!, up);
+      const ed = flow(nodes[k]!, nodes[k + 1]!, down);
+      for (let i = 0; i < N; i++) G[i]![j] = (eu[i]! - ed[i]!) / (2 * h);
+    });
+    return G;
+  };
+  const jac = (z: Vec): number[][] => {
+    const J = Array.from({ length: U }, () => new Array<number>(U).fill(0));
+    for (let k = 0; k < M; k++) {
+      const G = segment(z, k);
+      const col0 = k === 0 ? 0 : nf + (k - 1) * N;
+      const out = k < M - 1 ? [...Array(N).keys()].map((i) => ({ row: k * N + i, i })) : targets.map((t, j) => ({ row: (M - 1) * N + j, i: t.i }));
+      for (const { row, i } of out) G[i]!.forEach((v, j) => (J[row]![col0 + j] = v));
+      if (k < M - 1) for (let i = 0; i < N; i++) J[k * N + i]![nf + k * N + i] = -1;
+    }
+    return J;
+  };
+  // The guesses: the free values 0, and each node where the solution from there reaches it.
+  const z0 = new Float64Array(U);
+  try {
+    let y = state(z0, 0);
+    for (let k = 1; k < M; k++) {
+      y = flow(nodes[k - 1]!, nodes[k]!, y);
+      if (!y.every(Number.isFinite)) break;
+      z0.set(y, nf + (k - 1) * N);
+    }
+  } catch {
+    // The rest of the nodes start at 0.
+  }
+  // Each quantity's size, from the nodes, and whether every joint and condition is out by no more than a
+  // hair of it.
+  const sizes = (z: Vec): number[] => Array.from({ length: N }, (_, i) => Math.max(...Array.from({ length: M }, (_, k) => Math.abs(state(z, k)[i]!))));
+  const within = (z: Vec, r: Vec, tol: number, end?: Vec): boolean => {
+    const size = sizes(z).map((v, i) => Math.max(v, end ? Math.abs(end[i]!) : 0));
+    const near = (v: number, i: number, also = 0): boolean => Math.abs(v) <= tol * Math.max(size[i]!, Math.abs(also), 1e-300);
+    for (let k = 0; k < M - 1; k++) for (let i = 0; i < N; i++) if (!near(r[k * N + i]!, i)) return false;
+    return targets.every((t, j) => near(r[(M - 1) * N + j]!, t.i, t.value));
+  };
+  let fit: Fit;
+  let G: number[][][];
+  try {
+    fit = newtonSystem(residual, z0, jac, (z, r) => within(z, r, 1e-12), (z, r) => within(z, r, 1e-9));
+    G = Array.from({ length: M }, (_, k) => segment(fit.x, k));
+  } catch {
+    return 'unmet';
+  }
+  const starts = Array.from({ length: M }, (_, k) => state(fit.x, k));
+  let end: Vec;
+  try {
+    end = flow(nodes[M - 1]!, nodes[M]!, starts[M - 1]!);
+  } catch {
+    return 'unmet';
+  }
+  if (!within(fit.x, fit.r, 1e-8, end)) return 'unmet';
+  // The far conditions' responses to the free values, by chaining the segments: at each node, and at the far point.
+  let phi = G[0]!;
+  const S = targets.map((t) => phi[t.i]!.map((v, j) => Math.max(Math.abs(v), free[j] === t.i ? 1 : 0)));
+  for (let k = 1; k < M; k++) {
+    phi = G[k]!.map((row) => free.map((_, j) => row.reduce((acc, v, c) => acc + v * phi[c]![j]!, 0)));
+    targets.forEach((t, r) => phi[t.i]!.forEach((v, j) => (S[r]![j] = Math.max(S[r]![j]!, Math.abs(v)))));
+  }
+  const J = targets.map((t) => phi[t.i]!.slice());
+  return wellPosed(J, S) ? { starts, end } : 'ill-posed';
 }
