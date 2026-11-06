@@ -10,6 +10,43 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-05
+
+Electrical engineering: units, phasors, decibels and standard part values.
+
+### Added
+
+- Electrical units, with the names and values Mathcad 14 uses, so sheets that use them now calculate:
+  ohms (`Ω`, `kΩ`, `MΩ`, `ohm`), siemens (`S`, `mho`), farads (`F`, `μF`, `nF`, `pF`), henries (`H`, `mH`,
+  `μH`), coulombs (`C` to `pC`), `Wb`, teslas (`T`, `gauss`, `G`), `Oe`, and smaller amps, volts, seconds
+  and watts (`kA`, `μA`, `nA`, `pA`, `μV`, `nV`, `μs`, `ps`, `μW`, `nW`). Results already showed in ohms,
+  farads and henries.
+- More units that Mathcad 14 lacks: `mΩ`, `GΩ`, `mS`, `μS`, `mF`, `nH`, `pH`, `mT`, `μT`, `MV`, `VA`,
+  `kVA`, `MVA`, `Wh`, `kWh`, `Ah`, `mAh` and `eV`. VA shows as W and Wh as J, since they measure the same
+  thing.
+- Ways to type units without Greek letters: `kohm`, `Mohm`, `mohm` (milliohms) and `Gohm`, and `u` for
+  micro (`uF`, `uH`, `uA`, `uV`, `uC`, `uW`, `uS`, `uT`). Typing `Omega` alone gives `Ω`. The
+  micro sign `µ` that many keyboards type is read as `μ`.
+- `parallel(Z1, Z2, …)`: resistors or impedances in parallel, or capacitors in series. It also takes a
+  vector, works with complex impedances, and keeps units.
+- `phasor(r, θ)`: the complex number r∠θ. θ is in radians, so `30·deg` works.
+- Decibels: `powerToDb` (10·log of a power ratio), `ampToDb` (20·log of a voltage, current or gain ratio's
+  magnitude), and `dbToPower` and `dbToAmp` to convert back. `wattsToDbm` and `dbmToWatts` convert between
+  power and dBm. They work element by element, so `ampToDb` of a frequency response gives its level in dB.
+- `standardValue(x, n)`: the nearest standard part value in the E3, E6, E12, E24, E48, E96 or E192 series
+  (IEC 60063), nearest by ratio, as tolerances are, and keeping units. `standardValue(4.8·μF, 12)` is 4.7 μF.
+- Format → Complex results as magnitude∠angle shows the selected results as phasors, such as 5∠53.13° Ω,
+  with the angle in degrees. Pick it again to switch back. Several results can be selected at once
+  (Shift-click), and a matrix with any complex number in it shows all its elements this way.
+  The `.mathmath` file format stores this option, `polar`, in a result's number format. Older files read
+  unchanged, and the format version stays 1.
+
+### Changed
+
+- A result whose units are a whole power of one named unit now shows in that unit, as Mathcad 14 does:
+  conductance as 1/Ω rather than base units, and likewise Ω², 1/W and 1/L. Units that combine several, such
+  as S/m, still show in base units.
+
 ## [0.18.0] - 2026-11-05
 
 Image processing.

@@ -335,6 +335,12 @@ export class Doc {
     this.touched();
   }
 
+  /** Changes several regions at once, as one step to undo. */
+  updateAll(regions: Region[], change: (c: Content) => Content): void {
+    for (const region of regions) region.content = change(region.content);
+    this.touched();
+  }
+
   addText(left: number, y: number): TextRegion {
     const region: TextRegion = { id: String(this.nextId++), left, top: y - 8, width: 0, height: 0, text: '' };
     this.ws.texts.push(region);

@@ -8,7 +8,7 @@ import { toggleTitles } from '../ui/slots.js';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
-import type { Content, Worksheet } from '../model/ast.js';
+import type { Content, NumberFormat, Worksheet } from '../model/ast.js';
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { Doc } from './document.js';
 
@@ -375,7 +375,7 @@ const plotMenu = document.createElement('details');
 plotMenu.className = 'menu';
 const plotSummary = document.createElement('summary');
 plotSummary.textContent = 'Format';
-plotSummary.title = 'Options for the selected plot or image';
+plotSummary.title = 'Options for the selected plot, image or results';
 plotSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const plotList = document.createElement('div');
 plotMenu.append(plotSummary, plotList);
@@ -441,6 +441,29 @@ for (const [label, kind, change] of formats) {
       return;
     }
     doc.update(region, change);
+  });
+  plotList.appendChild(b);
+}
+{
+  // Several results can be switched at once: an AC sheet is full of them.
+  const b = document.createElement('button');
+  b.textContent = 'Complex results as magnitude∠angle';
+  b.title = 'Show the selected complex results as phasors, magnitude∠angle in degrees, or back as re + im·i';
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const regions = paper.selectedResults();
+    if (regions.length === 0) {
+      doc.onProblem('Select one or more results first');
+      return;
+    }
+    const formatOf = (c: Content): NumberFormat => (c.k === 'eval' || c.k === 'define' ? c.format : undefined) ?? doc.ws.format;
+    const on = !regions.every((r) => formatOf(r.content).polar);
+    doc.updateAll(regions, (c) => {
+      if (c.k !== 'eval' && c.k !== 'define') return c;
+      const { polar: _, ...rest } = formatOf(c);
+      return { ...c, format: on ? { ...rest, polar: true } : rest };
+    });
   });
   plotList.appendChild(b);
 }
