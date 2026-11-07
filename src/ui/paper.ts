@@ -413,6 +413,37 @@ export class Paper {
     return { left: this.doc.ws.page.margins.left, top: this.doc.ws.page.margins.top };
   }
 
+  /**
+   * Puts an example's lines on the sheet, a region each, top to bottom: where math was about to be typed, or
+   * else below everything. One step to undo. Returns the new regions' ids.
+   */
+  insertExample(lines: string[]): string[] {
+    let at: { left: number; top: number };
+    if (this.editing?.kind === 'region' && this.editor.value() === '') at = this.insertionPoint();
+    else {
+      this.commitAll();
+      const top = this.sheet.getBoundingClientRect().top;
+      let bottom = this.doc.ws.page.margins.top - 24;
+      for (const el of this.views.values()) bottom = Math.max(bottom, (el.getBoundingClientRect().bottom - top) / PT);
+      at = { left: this.doc.ws.page.margins.left, top: bottom + 24 };
+    }
+    const ids: string[] = [];
+    let y = at.top + 8;
+    this.doc.batch(() => {
+      for (const line of lines) {
+        const region = this.doc.addMath(at.left, Math.round(y / GRID) * GRID);
+        this.doc.setMath(region, line);
+        ids.push(region.id);
+        // Room for the line's height: a matrix is taller by its rows.
+        const rows = Math.max(1, ...[...line.matchAll(/\\begin\{pmatrix\}(.*?)\\end\{pmatrix\}/g)].map((m) => m[1]!.split('\\\\').length));
+        y += Math.max(32, 16 * rows + 18);
+      }
+    });
+    this.select(ids);
+    requestAnimationFrame(() => this.views.get(ids[0]!)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    return ids;
+  }
+
   /** Starts a plot where math was about to be typed. */
   insertPlot(): void {
     if (this.editing?.kind === 'region' && this.editor.value() === '') this.startPlotFromEmpty();

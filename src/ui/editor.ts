@@ -151,6 +151,13 @@ export class Editor {
     f.position = f.lastOffset;
   }
 
+  /** The math before and after the caret, for finding the name it's on. */
+  aroundCaret(): { before: string; after: string } {
+    const f = this.field;
+    const at = f.position;
+    return { before: f.getValue(0, at, 'latex-unstyled'), after: f.getValue(at, f.lastOffset, 'latex-unstyled') };
+  }
+
   /** The math as parsed by the editor, not an echo of what was set. */
   value(): string {
     return this.field.getValue('latex-unstyled');

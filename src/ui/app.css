@@ -113,7 +113,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 
 @media print {
   html, body { display: block; height: auto; background: #fff; }
-  #toolbar, #needs-bar, #crosshair, #marquee, #editor, .ghost-answer, #trace-panel, .pagebreak, .pagecolumn { display: none; }
+  #toolbar, #needs-bar, #crosshair, #marquee, #editor, .ghost-answer, #trace-panel, #help-panel, .pagebreak, .pagecolumn { display: none; }
   #desk { overflow: visible; padding: 0; }
   #sheet { margin: 0; box-shadow: none; width: var(--print-width) !important; height: var(--print-height) !important; overflow: clip; }
   .region.past-page { display: none; }
@@ -128,3 +128,34 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region .saves button { font: 9pt system-ui, sans-serif; padding: 1pt 6pt; border: 1px solid #9ab; border-radius: 3px; background: #f4f8fc; color: #234; cursor: pointer; }
 .region .saves button:hover { background: #e3eefa; }
 @media print { .region .saves { display: none; } }
+
+/* Help, beside the paper. */
+#help-panel { position: fixed; top: 84px; right: 16px; bottom: 16px; z-index: 20; width: 400px; display: flex; flex-direction: column;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 24px #0002; font: 13px/1.45 system-ui, sans-serif; color: #1f2937; }
+#help-panel[hidden] { display: none; }
+#help-panel .head { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-weight: 600; }
+#help-panel .head span { flex: 1; }
+#help-panel .head button { font: inherit; font-weight: 400; background: none; border: 1px solid #d1d5db; border-radius: 4px; padding: 1px 8px; cursor: pointer; }
+#help-panel .head .close { border: none; font-size: 18px; line-height: 1; padding: 0 4px; }
+#help-panel input[type=search] { margin: 4px 10px 6px; padding: 4px 8px; font: inherit; border: 1px solid #d1d5db; border-radius: 4px; }
+#help-panel .body { overflow-y: auto; padding: 0 12px 12px; }
+#help-panel h2 { font-size: 15px; margin: 10px 0 4px; }
+#help-panel h3 { font-size: 13px; margin: 10px 0 2px; color: #374151; }
+#help-panel p { margin: 4px 0; }
+#help-panel ul { margin: 4px 0; padding-left: 18px; }
+#help-panel ul.results, #help-panel ul.topics { list-style: none; padding: 0; }
+#help-panel ul.results li, #help-panel ul.topics li { margin: 3px 0; }
+#help-panel .names a { margin-right: 6px; white-space: nowrap; }
+#help-panel a { color: #1d5fb4; text-decoration: none; }
+#help-panel a:hover { text-decoration: underline; }
+#help-panel code { font: 12px ui-monospace, monospace; background: #f3f4f6; border-radius: 3px; padding: 0 3px; }
+#help-panel h2 code { font-size: 13px; background: none; padding: 0; }
+#help-panel .muted { color: #6b7280; }
+#help-panel .badge { font-size: 11px; border: 1px solid #d1d5db; border-radius: 10px; padding: 0 6px; color: #374151; }
+#help-panel .example { border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 8px; margin: 4px 0 8px; background: #fafaf9; }
+#help-panel .example .line { font-size: 14px; margin: 4px 0; overflow-x: auto; }
+#help-panel .insert { font: inherit; margin-top: 4px; padding: 2px 10px; border: 1px solid #9ca3af; border-radius: 4px; background: #fff; cursor: pointer; }
+#help-panel table.keys { border-collapse: collapse; margin: 4px 0; }
+#help-panel table.keys td { padding: 2px 8px 2px 0; vertical-align: top; }
+#help-panel kbd { font: 11px ui-monospace, monospace; border: 1px solid #d1d5db; border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+@media print { #help-panel { display: none; } }
