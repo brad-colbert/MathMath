@@ -34,6 +34,8 @@ describe('printing and reading keep the tree', () => {
     ['integral', { k: 'bigop', op: 'integral', varName: 'x', body: op('pow', V('x'), R(2)), lo: R(0), hi: V('b') }],
     ['sum to a bound', { k: 'bigop', op: 'summation', varName: 'k', body: V('k'), lo: R(1), hi: V('n') }],
     ['derivative', { k: 'derivative', varName: 'x', body: op('mult', V('x'), V('y')) }],
+    ['nth derivative', { k: 'derivative', varName: 'x', body: op('pow', V('x'), R(5)), degree: R(3) }],
+    ['nth derivative of a named order', { k: 'derivative', varName: 't', body: { k: 'call', fn: V('y'), args: [V('t')] }, degree: V('n') }],
     ['fraction of names starting with d', op('div', V('dL'), V('Rad'))],
   ])('%s', (_, e) => both(e));
 
@@ -88,7 +90,13 @@ describe('typed forms', () => {
     ['\\prod_{k}k', { k: 'bigop', op: 'product', varName: 'k', body: V('k'), lo: null, hi: null }],
     ['\\sum_{n=1}^{3}n', { k: 'bigop', op: 'summation', varName: 'n', body: V('n'), lo: R(1), hi: R(3) }],
     ['\\frac{\\mathrm{d}}{\\mathrm{da}}a^3', { k: 'derivative', varName: 'a', body: op('pow', V('a'), R(3)) }],
+    // As the editor's blank leaves it: the order above only.
+    ['\\frac{\\mathrm{d}^2}{\\mathrm{d}x}x^3', { k: 'derivative', varName: 'x', body: op('pow', V('x'), R(3)), degree: R(2) }],
   ])('%s', (text, e) => expect(readTex(text)).toEqual(e));
+});
+
+test("an nth derivative's order must be the same above and below", () => {
+  expect(() => readTex('\\frac{\\mathrm{d}^{2}}{\\mathrm{d}x^{3}}x')).toThrow(/2 above and 3 below/);
 });
 
 describe('definition targets', () => {

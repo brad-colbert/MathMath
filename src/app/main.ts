@@ -250,6 +250,7 @@ button('return', 'Return', inEditor('\\mathbf{return}\\ '));
 separator();
 button('∫', 'Integral (&). Tab moves to the next blank', inEditor(TEMPLATES.integral));
 button('d/dx', 'Derivative (?). Tab moves to the next blank', inEditor(TEMPLATES.derivative));
+button('dⁿ/dxⁿ', 'Nth derivative, of order 0 to 5 (Ctrl+Shift+?). Tab moves to the next blank', inEditor(TEMPLATES.nthDerivative));
 button('Σ', 'Sum (Ctrl+Shift+4). Tab moves to the next blank. Type $ for a sum over a range variable', inEditor(TEMPLATES.sum));
 button('Π', 'Product (Ctrl+Shift+3). Tab moves to the next blank. Type # for a product over a range variable', inEditor(TEMPLATES.product));
 button('lim', 'Limit, which needs →. Tab moves to the next blank', inEditor(TEMPLATES.limit));

@@ -85,6 +85,16 @@ describe('Odesolve', () => {
     const g = last('\\mathrm{Given}', '\\frac{\\mathrm{d}}{\\mathrm{d}t}g\\left(t\\right)+g\\left(t\\right)=0', 'g\\left(0\\right)=1', 'g\\coloneq \\mathrm{Odesolve}\\left(t,2\\right)', 'g=');
     expect(call(g, 1)).toBeCloseTo(Math.exp(-1), 12);
   });
+  test('second and third orders with the nth derivative operator, as the probe', () => {
+    // Mathcad 14: y(1) = 0.84146784 (sin 1 to 3·10⁻⁶), u(1) = 0.36788112 (e⁻¹), v(0.5) = 0.47942544 (sin 0.5).
+    const D = (n: number, f: string) => `\\frac{\\mathrm{d}^{${n}}}{\\mathrm{d}t^{${n}}}${f}\\left(t\\right)`;
+    const y = last('\\mathrm{Given}', `${D(2, 'y')}+y\\left(t\\right)=0`, 'y\\left(0\\right)=0', "y'\\left(0\\right)=1", 'y\\coloneq \\mathrm{Odesolve}\\left(t,2\\right)', 'y=');
+    expect(call(y, 1)).toBeCloseTo(Math.sin(1), 12);
+    const u = last('\\mathrm{Given}', `${D(3, 'u')}=-u\\left(t\\right)`, 'u\\left(0\\right)=1', "u'\\left(0\\right)=-1", "u''\\left(0\\right)=1", 'u\\coloneq \\mathrm{Odesolve}\\left(t,1\\right)', 'u=');
+    expect(call(u, 1)).toBeCloseTo(Math.exp(-1), 12);
+    const v = last('\\mathrm{Given}', `${D(2, 'v')}=-v\\left(t\\right)`, 'v\\left(0\\right)=0', 'v\\left(\\frac{\\pi}{2}\\right)=1', 'v\\coloneq \\mathrm{Odesolve}\\left(t,\\frac{\\pi}{2}\\right)', 'v=');
+    expect(call(v, 0.5)).toBeCloseTo(Math.sin(0.5), 8);
+  });
   test("a second-order equation in primes: y'' + y = 0 is sin", () => {
     const y = last('\\mathrm{Given}', "y''\\left(t\\right)+y\\left(t\\right)=0", 'y\\left(0\\right)=0', "y'\\left(0\\right)=1", 'y\\coloneq \\mathrm{Odesolve}\\left(t,10\\right)', 'y=');
     for (const x of [0, 1.3, Math.PI / 2, 7.77, 10]) expect(call(y, x)).toBeCloseTo(Math.sin(x), 9);

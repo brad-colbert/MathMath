@@ -81,6 +81,8 @@ export const matrixTemplate = (rows: number, cols: number): string =>
 export const TEMPLATES = {
   integral: '\\int_{#?}^{#?}#?\\,\\mathrm{d}#?',
   derivative: '\\frac{\\mathrm{d}}{\\mathrm{d}#?}#?',
+  /** The order goes in above only; it's printed below too once the region is done. */
+  nthDerivative: '\\frac{\\mathrm{d}^{#?}}{\\mathrm{d}#?}#?',
   sum: '\\sum_{#?=#?}^{#?}#?',
   product: '\\prod_{#?=#?}^{#?}#?',
   /** Over every value of a range variable, with no limits written, as Mathcad's `$` and `#`. */
@@ -288,10 +290,11 @@ export class Editor {
       if (e.code === 'Digit6') return this.consume(e, () => this.matrixOp('column'));
       if (e.code === 'Minus') return this.consume(e, () => this.matrixOp('vectorize'));
     }
-    // Mathcad's keys for a sum or product with limits.
+    // Mathcad's keys for a sum or product with limits, and for the nth derivative.
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.code === 'Digit4' || e.code === 'Digit3')) {
       return this.consume(e, () => this.insert(e.code === 'Digit4' ? TEMPLATES.sum : TEMPLATES.product));
     }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'Slash') return this.consume(e, () => this.insert(TEMPLATES.nthDerivative));
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Inside a string every key is just text, except the quote that ends it.
     if (f.mode === 'text' && !this.inName && !['"', 'Escape', 'Enter', 'Tab'].includes(e.key)) return;
