@@ -65,6 +65,69 @@ describe('Find and Minerr', () => {
   });
 });
 
+describe('Find with arrays and complex numbers, and ERR', () => {
+  // Each as Mathcad 14 gave it.
+  const G = '\\mathrm{Given}';
+  const M = 'M\\coloneq \\begin{pmatrix}2&1\\\\1&3\\end{pmatrix}';
+  const B = 'b\\coloneq \\begin{pmatrix}3\\\\5\\end{pmatrix}';
+  const X = 'x\\coloneq \\begin{pmatrix}0\\\\0\\end{pmatrix}';
+  test('a vector unknown, its elements in the constraints', () => {
+    const v = last('v\\coloneq \\begin{pmatrix}1\\\\1\\end{pmatrix}', G, 'v_{0}+v_{1}=3', 'v_{0}-v_{1}=1', '\\mathrm{Find}\\left(v\\right)=');
+    vec(v).forEach((e, i) => expect(e).toBeCloseTo([2, 1][i]!, 12));
+  });
+  test('a vector equation, M·x = b, holds element by element', () => {
+    vec(last(M, B, X, G, 'M\\cdot x=b', '\\mathrm{Find}\\left(x\\right)=')).forEach((e, i) => expect(e).toBeCloseTo([0.8, 1.4][i]!, 12));
+  });
+  test('a vector and a number together come back nested', () => {
+    const out = last(X, 's\\coloneq 1', G, 'x_{0}+s=3', 'x_{1}-s=1', 's=2', '\\mathrm{Find}\\left(x,s\\right)=') as Mat;
+    expect(out.rows).toBe(2);
+    vec(out.cells![0]!).forEach((e, i) => expect(e).toBeCloseTo([1, 3][i]!, 12));
+    expect(re(out.cells![1]!)).toBeCloseTo(2, 12);
+  });
+  test('a matrix unknown: A·A = M gives its square root', () => {
+    const A = last(M, 'A\\coloneq \\begin{pmatrix}1&0\\\\0&1\\end{pmatrix}', G, 'A\\cdot A=M', '\\mathrm{Find}\\left(A\\right)=') as Mat;
+    expect([A.rows, A.cols]).toEqual([2, 2]);
+    vec(A).forEach((e, i) => expect(e).toBeCloseTo([1.3763819204711736, 0.32491969623290634, 0.32491969623290634, 1.7013016167040798][i]!, 8));
+  });
+  test('a vector in units', () => {
+    const p = last('p\\coloneq \\begin{pmatrix}1\\cdot \\mathrm{m}\\\\1\\cdot \\mathrm{m}\\end{pmatrix}', G, 'p_{0}+p_{1}=3\\cdot \\mathrm{m}', 'p_{0}-p_{1}=1\\cdot \\mathrm{m}', '\\mathrm{Find}\\left(p\\right)=') as Mat;
+    vec(p).forEach((e, i) => expect(e).toBeCloseTo([2, 1][i]!, 12));
+    expect(p.dim).toEqual([1, 0, 0, 0, 0, 0, 0]);
+  });
+  test('an inequality on a vector holds for each element', () => {
+    vec(last('y\\coloneq \\begin{pmatrix}-1\\\\-1\\end{pmatrix}', G, 'y>0', 'y\\cdot y=1', 'y_{0}=y_{1}', '\\mathrm{Find}\\left(y\\right)='))
+      .forEach((e) => expect(e).toBeCloseTo(Math.SQRT1_2, 9));
+  });
+  test('a complex guess finds a complex answer; a real one stays real', () => {
+    const z = last('z\\coloneq 1+1\\mathrm{i}', G, 'z^2=-4', '\\mathrm{Find}\\left(z\\right)=') as Num;
+    expect(z.re).toBeCloseTo(0, 12);
+    expect(z.im).toBeCloseTo(2, 12);
+    expect(() => last('w\\coloneq 1', G, 'w^2=-4', '\\mathrm{Find}\\left(w\\right)=')).toThrow(/No solution/);
+    const c = last('c\\coloneq \\begin{pmatrix}1+1\\mathrm{i}\\\\1\\end{pmatrix}', G, 'c_{0}+c_{1}=3+2\\mathrm{i}', 'c_{0}-c_{1}=1', '\\mathrm{Find}\\left(c\\right)=') as Mat;
+    expect(c.rows).toBe(2);
+    [...c.re].forEach((e, i) => expect(e).toBeCloseTo([2, 1][i]!, 12));
+    [...c.im!].forEach((e) => expect(e).toBeCloseTo(1, 12));
+  });
+  test('ERR: how far Minerr is from meeting the constraints, inequalities included', () => {
+    expect(re(last('q\\coloneq 1', G, 'q=1', 'q=2', '\\mathrm{Minerr}\\left(q\\right)=', 'ERR='))).toBeCloseTo(Math.SQRT1_2, 9);
+    // Mathcad 14: 2.6666666642, ERR 2.9439202888.
+    expect(re(last('q\\coloneq 1', G, 'q=1', 'q=2', 'q>5', '\\mathrm{Minerr}\\left(q\\right)='))).toBeCloseTo(8 / 3, 8);
+    expect(re(last('q\\coloneq 1', G, 'q=1', 'q=2', 'q>5', '\\mathrm{Minerr}\\left(q\\right)=', 'ERR='))).toBeCloseTo(2.9439202887759492, 8);
+    expect(re(last(M, B, X, G, 'M\\cdot x=b', 'x_{0}=1', '\\mathrm{Minerr}\\left(x\\right)=', 'ERR='))).toBeCloseTo(0.16903085094570336, 9);
+    const z = last('z\\coloneq 1+1\\mathrm{i}', G, 'z^2=-4', 'z=1', '\\mathrm{Minerr}\\left(z\\right)=') as Num;
+    expect([z.re, z.im].map((v) => +v.toFixed(7))).toEqual([0.0625, 1.8697844]);
+    expect(re(last('z\\coloneq 1+1\\mathrm{i}', G, 'z^2=-4', 'z=1', '\\mathrm{Minerr}\\left(z\\right)=', 'ERR='))).toBeCloseTo(2.1650635094610968, 8);
+  });
+  test('ERR is 0 after a Find that solves exactly, and undefined before any', () => {
+    expect(re(last(...CIRCLE, '\\mathrm{Find}\\left(x,y\\right)=', 'ERR='))).toBeCloseTo(0, 12);
+    expect(() => last('ERR=')).toThrow();
+  });
+  test('Maximize over a vector calls the function with it', () => {
+    vec(last('f\\left(v\\right)\\coloneq -\\left(v_{0}-1\\right)^2-\\left(v_{1}-2\\right)^2', 'v\\coloneq \\begin{pmatrix}0\\\\0\\end{pmatrix}', '\\mathrm{Maximize}\\left(f,v\\right)='))
+      .forEach((e, i) => expect(e).toBeCloseTo([1, 2][i]!, 6));
+  });
+});
+
 describe('root, Maximize and Minimize', () => {
   test('root from a guess, and between a and b', () => {
     expect(re(last('x\\coloneq 1', '\\mathrm{root}\\left(x^2-2,x\\right)='))).toBeCloseTo(Math.SQRT2, 14);
@@ -232,5 +295,13 @@ describe('recalculating', () => {
     noGiven.regions.splice(2, 1);
     const third = await runIncremental(noGiven, noAlgebra, next.snapshot);
     expect(third.outcomes.at(-1)!.error?.reason).toMatch(/Given above/);
+  });
+  test('ERR below Minerr changes when a constraint does', async () => {
+    const lines = (k: string) => sheet(['q\\coloneq 1', '\\mathrm{Given}', 'q=1', `q=${k}`, '\\mathrm{Minerr}\\left(q\\right)=', 'ERR=']);
+    const first = await runIncremental(lines('2'), noAlgebra, null);
+    expect(re(first.outcomes.at(-1)!.value!)).toBeCloseTo(Math.SQRT1_2, 9);
+    const next = await runIncremental(lines('3'), noAlgebra, first.snapshot);
+    expect(next.ran).toContain('r5');
+    expect(re(next.outcomes.at(-1)!.value!)).toBeCloseTo(Math.SQRT2, 9);
   });
 });
