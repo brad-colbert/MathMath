@@ -75,7 +75,10 @@ function inUnits(p: PlotData, c: Plot): PlotData {
     if (!out) done.set(a, (out = a.map((v) => (v - s.zero) / s.divide)));
     return out;
   };
-  const traces = p.traces.map((t) => ({ ...t, x: convert(t.x, ax), y: convert(t.y, ay) }));
+  // A Smith chart's x and y are Γ, which has no units; only the swept value shown on hover converts.
+  const traces = c.view === 'smith'
+    ? p.traces.map((t) => (t.param ? { ...t, param: convert(t.param, ax) } : t))
+    : p.traces.map((t) => ({ ...t, x: convert(t.x, ax), y: convert(t.y, ay) }));
   const limits: PlotData['limits'] = {};
   for (const [key, v] of Object.entries(p.limits) as [LimitKey, number][]) {
     const s = key[0] === 'x' ? ax : ay;
@@ -267,7 +270,7 @@ function shownValue(o: Outcome, format: NumberFormat): Shown {
   if (o.plot && o.region.content.k === 'plot') {
     const plot = inUnits(o.plot, o.region.content);
     const surface = plot.surface ? { ...plot.surface, x: plot.surface.x.slice(), y: plot.surface.y.slice(), z: plot.surface.z.slice() } : undefined;
-    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice() })), ...(surface ? { surface } : {}) } };
+    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice(), ...(t.param ? { param: t.param.slice() } : {}) })), ...(surface ? { surface } : {}) } };
   }
   if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
   if (o.unevaluated) return { id, unevaluated: true };

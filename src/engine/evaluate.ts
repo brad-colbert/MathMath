@@ -110,6 +110,8 @@ export type OrderKey = 'align' | 'top';
 export interface Trace {
   x: Float64Array;
   y: Float64Array;
+  /** On a Smith chart, where x and y are Γ's real and imaginary parts: the value each point was swept over. */
+  param?: Float64Array;
   error?: string;
 }
 
@@ -1721,8 +1723,43 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
   throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector');
 }
 
+/** A Smith chart's data: each trace's x and y are the real and imaginary parts of Γ, with no units. */
+function smithData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
+  const pv = c.x ? ev.evalRegionExpr(c.x, scope) : null;
+  const ps = pv ? numbers(pv, 'the swept value') : null;
+  const traces = c.ys.map((y): Trace => {
+    try {
+      const v = ev.evalRegionExpr(y, scope);
+      if (v.t !== 'num' && v.t !== 'mat') throw new EvalError('runtime', 'a reflection coefficient must be a number or a vector');
+      if (!isNoDim(v.dim)) throw new EvalError('runtime', 'A Smith chart plots reflection coefficients Γ, which have no units: zToGamma(Z, Z0) gives them from impedances');
+      if (v.t === 'mat' && (v.cells || (v.rows > 1 && v.cols > 1))) throw new EvalError('runtime', 'a reflection coefficient must be a number or a vector');
+      const re = v.t === 'num' ? Float64Array.of(v.re) : v.re.slice();
+      const im = v.t === 'num' ? Float64Array.of(v.im) : v.im ? v.im.slice() : new Float64Array(re.length);
+      // A single Γ is a point, as a load's, with nothing swept.
+      if (ps && ps.length !== re.length && ps.length !== 1 && re.length !== 1) throw new EvalError('runtime', `the swept value has ${ps.length} values and Γ has ${re.length}`);
+      const p = ps && ps.length === re.length ? ps : undefined;
+      if (re.length <= MAX_POINTS) return { x: re, y: im, ...(p ? { param: p } : {}) };
+      const [tx, ty] = thin(re, im);
+      return { x: tx, y: ty, ...(p ? { param: thin(re, p)[1] } : {}) };
+    } catch (err) {
+      return { x: new Float64Array(0), y: new Float64Array(0), error: toEvalError(err).reason };
+    }
+  });
+  const unit = (e: Expr | null | undefined): Value | undefined => {
+    if (!e) return undefined;
+    try {
+      return ev.eval(e, scope);
+    } catch {
+      return undefined;
+    }
+  };
+  // The x axis's dimension is the swept value's, so the worker shows it in its display unit.
+  return { traces, limits: {}, dims: { x: pv ? dimOf(pv) : NODIM, y: NODIM, limits: {} }, units: { x: unit(c.xAxis.unit), y: undefined } };
+}
+
 export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
   if (c.view === 'surface' || c.view === 'contour') return surfaceData(ev, c, scope);
+  if (c.view === 'smith') return smithData(ev, c, scope);
   const limits: PlotData['limits'] = {};
   const limitDims: Partial<Record<LimitKey, Dim>> = {};
   const set = (key: LimitKey, e: Expr | null): void => {

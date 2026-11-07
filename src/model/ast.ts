@@ -123,9 +123,10 @@ export type Content =
       /**
        * How the plot is drawn: X-Y when absent; polar takes x as the angle in radians and each y as a radius.
        * Surface and contour plot the first y expression: a matrix of heights, a function of two variables
-       * (sampled over the x and y limits, −5 to 5 by default), or three matrices X, Y and Z.
+       * (sampled over the x and y limits, −5 to 5 by default), or three matrices X, Y and Z. A Smith chart
+       * takes each y as complex reflection coefficients Γ; x, if given, is what they're swept over, shown on hover.
        */
-      view?: 'polar' | 'surface' | 'contour';
+      view?: 'polar' | 'surface' | 'contour' | 'smith';
       /** The angle a surface is seen from, in degrees: round the vertical, and above the horizontal. */
       view3d?: { azimuth: number; elevation: number } }
   /**

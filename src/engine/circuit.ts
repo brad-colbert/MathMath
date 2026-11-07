@@ -121,7 +121,7 @@ const isShort = (p: Part, f: number): boolean =>
   p.kind === 'V' || (p.kind === 'L' && (f === 0 || (p.value.re === 0 && p.value.im === 0))) || (p.kind === 'R' && p.value.re === 0 && p.value.im === 0);
 
 /** Solves the complex system A·x = b in place by Gaussian elimination with partial pivoting, or null if singular. */
-function solveComplex(Are: number[][], Aim: number[][], bre: number[], bim: number[]): { re: number[]; im: number[] } | null {
+export function solveComplex(Are: number[][], Aim: number[][], bre: number[], bim: number[]): { re: number[]; im: number[] } | null {
   const n = bre.length;
   const scale = Math.max(1e-300, ...Are.flatMap((r, i) => r.map((v, j) => Math.hypot(v, Aim[i]![j]!))));
   for (let c = 0; c < n; c++) {

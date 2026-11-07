@@ -149,6 +149,10 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     drawPolar(el, c, data, problem);
     return;
   }
+  if (c.view === 'smith') {
+    drawSmith(el, c, data, problem);
+    return;
+  }
   if (c.view === 'surface') {
     drawSurface(el, c, data, problem);
     return;
@@ -400,6 +404,139 @@ function polarHover(el: HTMLElement, traces: PlotData['traces'], g: { cx: number
     const b: { th: number; r: number; n: number } = best;
     readout.hidden = false;
     readout.textContent = `${traces.length > 1 ? `trace ${b.n + 1}: ` : ''}θ = ${Number(((b.th * 180) / Math.PI).toPrecision(5))}°, r = ${Number(b.r.toPrecision(6))}`;
+  });
+  svg.addEventListener('mouseleave', () => {
+    readout.hidden = true;
+  });
+}
+
+/** The resistances and reactances, normalized to Z0, that a Smith chart's grid marks. */
+const SMITH_GRID = [0.2, 0.5, 1, 2, 5];
+
+/** A number for a readout, to four figures. */
+const short = (v: number): string => String(Number(v.toPrecision(4)));
+
+/**
+ * A Smith chart: each y is complex reflection coefficients Γ, drawn in the unit circle. Circles of constant
+ * normalized resistance and arcs of constant reactance mark z = (1 + Γ)/(1 − Γ); the centre is a match.
+ */
+function drawSmith(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+  const [w, h] = [c.width, c.height];
+  const [hasTitle, hasX, hasY] = [c.title !== undefined, c.xAxis.title !== undefined, c.yAxis.title !== undefined];
+  const m = { left: M.left + (hasY ? TITLE.left : 0), right: M.right, top: M.top + (hasTitle ? TITLE.top : 0), bottom: M.bottom + (hasX ? TITLE.bottom : 0) };
+  const area = { x: m.left, y: m.top, w: Math.max(20, w - m.left - m.right), h: Math.max(20, h - m.top - m.bottom) };
+  const traces = data?.traces ?? [];
+  // Room round the rim for the reactance labels.
+  const R = Math.max(10, Math.min(area.w, area.h) / 2 - 14);
+  const [cx, cy] = [area.x + area.w / 2, area.y + area.h / 2];
+  const at = (re: number, im: number): [number, number] => [cx + re * R, cy - im * R];
+  const f = (v: number): string => v.toFixed(2);
+  const parts: string[] = [`<svg class="plot-svg" width="${w}pt" height="${h}pt" viewBox="0 0 ${w} ${h}" font-family="system-ui, sans-serif" font-size="7">`];
+  const clip = `smith-${el.dataset.id}`;
+  parts.push(`<clipPath id="${clip}"><circle cx="${cx}" cy="${cy}" r="${R}"/></clipPath>`, `<g clip-path="url(#${clip})">`);
+  for (const r of SMITH_GRID) {
+    // Constant resistance r: centre r/(1 + r), radius 1/(1 + r).
+    const [ox] = at(r / (1 + r), 0);
+    parts.push(`<circle cx="${f(ox)}" cy="${cy}" r="${f(R / (1 + r))}" fill="none" stroke="${GRID}" stroke-width="0.75"/>`);
+  }
+  for (const x of SMITH_GRID) {
+    // Constant reactance ±x: centre 1 ± j/x, radius 1/x, inside the rim only.
+    for (const sign of [1, -1]) {
+      const [ox, oy] = at(1, sign / x);
+      parts.push(`<circle cx="${f(ox)}" cy="${f(oy)}" r="${f(R / x)}" fill="none" stroke="${GRID}" stroke-width="0.75"/>`);
+    }
+  }
+  parts.push(`<line x1="${cx - R}" y1="${cy}" x2="${cx + R}" y2="${cy}" stroke="${GRID}" stroke-width="0.75"/>`, '</g>');
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${SECONDARY}" stroke-width="0.75"/>`);
+  // Resistances along the real axis, at Γ = (r − 1)/(r + 1); reactances round the rim, at z = ±jx.
+  for (const r of [0, ...SMITH_GRID]) {
+    const [lx] = at((r - 1) / (r + 1), 0);
+    parts.push(`<text x="${f(lx + 1.5)}" y="${cy - 2}" fill="${SECONDARY}">${short(r)}</text>`);
+  }
+  for (const x of SMITH_GRID) {
+    for (const sign of [1, -1]) {
+      const [gr, gi] = [(x * x - 1) / (x * x + 1), (sign * 2 * x) / (x * x + 1)];
+      const len = Math.hypot(gr, gi);
+      const [lx, ly] = [cx + (gr / len) * (R + 8), cy - (gi / len) * (R + 8) + 2.5];
+      parts.push(`<text x="${f(lx)}" y="${f(ly)}" text-anchor="middle" fill="${SECONDARY}">${sign > 0 ? '' : '−'}j${short(x)}</text>`);
+    }
+  }
+  parts.push(`<g clip-path="url(#${clip})">`);
+  traces.forEach((t, n) => {
+    const look = traceLook(c, n);
+    const usable = (i: number): boolean => Number.isFinite(t.x[i]!) && Number.isFinite(t.y[i]!);
+    let d = '';
+    let pen = false;
+    for (let i = 0; i < t.x.length; i++) {
+      if (!usable(i)) {
+        pen = false;
+        continue;
+      }
+      const [px, py] = at(t.x[i]!, t.y[i]!);
+      d += `${pen ? 'L' : 'M'}${f(px)} ${f(py)}`;
+      pen = true;
+    }
+    if (d && look.line) parts.push(`<path d="${d}" fill="none" stroke="${look.color}" stroke-width="${look.weight}" stroke-linejoin="round" stroke-linecap="round"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}/>`);
+    const points = look.points !== 'none' ? look.points : t.x.length === 1 || !look.line ? 'circle' : 'none';
+    if (points !== 'none') {
+      for (let i = 0; i < t.x.length; i++) {
+        if (!usable(i)) continue;
+        const [px, py] = at(t.x[i]!, t.y[i]!);
+        parts.push(symbol(points, px, py, look.color, look.weight));
+      }
+    }
+  });
+  parts.push('</g>');
+  const message = problem ?? traces.find((t) => t.error)?.error;
+  if (message) parts.push(`<text class="plot-problem" x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#c00" font-size="8">${esc(message)}</text>`);
+  parts.push('</svg>');
+  const swatch = (n: number): string => legendSwatch(c, n);
+  const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('');
+  el.innerHTML = [
+    parts.join(''),
+    slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'Reflection coefficients Γ. Separate several with commas'),
+    slot('x', c.x ? markup(tex(c.x)) : '', `left:${area.x}pt;width:${area.w}pt;top:${area.y + area.h + M.bottom - 16}pt`, 'What Γ is swept over, as a frequency, shown on hover. Optional'),
+    hasTitle ? slot('title', esc(c.title!), `left:${area.x}pt;width:${area.w}pt;top:0;height:${TITLE.top}pt`, 'Plot title. Click to type it; Format turns it off') : '',
+    hasX ? slot('titlex', esc(c.xAxis.title!), `left:${area.x}pt;width:${area.w}pt;top:${h - TITLE.bottom}pt;height:${TITLE.bottom}pt`, 'Swept value title. Click to type it; Format turns it off') : '',
+    hasY ? slot('titley', esc(c.yAxis.title!), `left:0;width:${TITLE.left}pt;top:${area.y}pt;height:${area.h}pt`, 'Γ title. Click to type it; Format turns it off') : '',
+    '<div class="readout" hidden></div>',
+  ].join('');
+  el.style.width = `${w}pt`;
+  el.style.height = `${h}pt`;
+  smithHover(el, traces, { cx, cy, R });
+}
+
+/** Shows the nearest point under the pointer: Γ as magnitude and angle, z normalized to Z0, and the swept value. */
+function smithHover(el: HTMLElement, traces: PlotData['traces'], g: { cx: number; cy: number; R: number }): void {
+  const svg = el.querySelector<SVGSVGElement>('.plot-svg')!;
+  const readout = el.querySelector<HTMLElement>('.readout')!;
+  svg.addEventListener('mousemove', (e) => {
+    const box = svg.getBoundingClientRect();
+    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    if (Math.hypot(px - g.cx, py - g.cy) > g.R) {
+      readout.hidden = true;
+      return;
+    }
+    let best: { d: number; i: number; n: number } | null = null;
+    traces.forEach((t, n) => {
+      for (let i = 0; i < t.x.length; i++) {
+        if (!Number.isFinite(t.x[i]!) || !Number.isFinite(t.y[i]!)) continue;
+        const d = (g.cx + t.x[i]! * g.R - px) ** 2 + (g.cy - t.y[i]! * g.R - py) ** 2;
+        if (!best || d < best.d) best = { d, i, n };
+      }
+    });
+    if (!best) return;
+    const b: { i: number; n: number } = best;
+    const t = traces[b.n]!;
+    const [gr, gi] = [t.x[b.i]!, t.y[b.i]!];
+    // z = (1 + Γ)/(1 − Γ)
+    const [nr, ni, dr, di] = [1 + gr, gi, 1 - gr, -gi];
+    const q = dr * dr + di * di;
+    const [zr, zi] = [(nr * dr + ni * di) / q, (ni * dr - nr * di) / q];
+    const z = q === 0 ? '∞' : `${short(zr)} ${zi < 0 ? '−' : '+'} ${short(Math.abs(zi))}j`;
+    const swept = t.param ? `x = ${short(t.param[b.i]!)}, ` : '';
+    readout.hidden = false;
+    readout.textContent = `${traces.length > 1 ? `trace ${b.n + 1}: ` : ''}${swept}Γ = ${short(Math.hypot(gr, gi))}∠${short((Math.atan2(gi, gr) * 180) / Math.PI)}°, z = ${z}`;
   });
   svg.addEventListener('mouseleave', () => {
     readout.hidden = true;

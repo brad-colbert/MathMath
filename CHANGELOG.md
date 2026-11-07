@@ -10,6 +10,39 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-07
+
+RF tools: reflection, transmission lines, network parameters and a Smith chart.
+
+### Added
+
+- RF tools: reflection, transmission lines and two-port network parameters.
+  - `zToGamma(Z, Z0)` and `gammaToZ(Γ, Z0)` convert between an impedance and its reflection coefficient Γ;
+    `vswr(Γ)`, `returnLoss(Γ)` and `mismatchLoss(Γ)` give the standing wave ratio and the losses in dB.
+    Z0 is 50 Ω when left out. They work element by element, so a sweep gives a vector.
+  - `lineInput(ZL, Z0, θ)` is the impedance looking into a line of impedance Z0 and electrical length
+    θ = β·ℓ (radians or degrees) ended in ZL. A lossy line's θ is complex, β·ℓ − j·α·ℓ, and an open end is
+    ZL = ∞·Ω.
+  - `sToZ`, `zToS`, `sToY`, `yToS`, `zToY` and `yToZ` convert S, Z and Y matrices of any number of ports;
+    those with S take Z0 as an optional second argument.
+  - `sToAbcd`, `abcdToS`, `zToAbcd`, `abcdToZ`, `yToAbcd` and `abcdToY` convert two-ports to and from ABCD
+    (chain) matrices, whose B is in ohms and C in siemens. `abcdSeries(Z)`, `abcdShunt(Z)` and
+    `abcdLine(Z0, θ)` give the ABCD matrices of a part in series, a part to ground and a line, so a network is
+    the product of its parts' matrices, in order.
+  - A network with no such matrix is reported, with the reason: a part in series alone has no Z matrix, and
+    a part to ground alone has no Y matrix.
+- A Smith chart, from Format → Smith chart on a plot. Each trace is a reflection coefficient Γ, or a vector
+  of them; the x slot, if filled, is what Γ is swept over, as a frequency. Hovering over a point shows Γ as
+  magnitude∠angle, the impedance it means normalized to Z0, and the swept value. Plotting an impedance gives
+  a message pointing to `zToGamma`. The choice is saved in the file; an older version of MathMath can't
+  draw a Smith chart.
+
+### Known limits
+
+- Network conversions take one real reference impedance, the same at every port. ABCD matrices are for
+  two-ports only. The Smith chart has no admittance grid. Line impedances come from you: there are no
+  formulas for coax or microstrip dimensions.
+
 ## [0.27.0] - 2026-11-07
 
 Circuit analysis from a netlist: node voltages and branch currents, at DC or at a frequency.
