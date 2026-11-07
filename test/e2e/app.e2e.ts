@@ -2054,6 +2054,48 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Help: the panel, its search, Insert, and F1 on the name being typed.
+{
+  const page = await fresh();
+  const panel = () => page.evaluate(() => {
+    const p = document.getElementById('help-panel')!;
+    return { open: !p.hidden, title: p.querySelector('h2')?.textContent ?? '', results: [...p.querySelectorAll('.results a')].map((a) => a.textContent) };
+  });
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Help')!.click());
+  await sleep(100);
+  let h = await panel();
+  check('Help on the toolbar opens the panel at its contents', h.open && h.title === 'Topics', h);
+  await page.type('#help-panel input', 'standing wave');
+  await sleep(100);
+  h = await panel();
+  check('search finds an entry by what it does', h.results[0] === 'vswr', h);
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Enter');
+  await sleep(100);
+  h = await panel();
+  check('Backspace in the search stays in the search, and Enter opens the first match', h.title === 'vswr(Γ)', h);
+  await page.click('#help-panel .insert');
+  await idle(page);
+  await sleep(200);
+  const inserted = await shown(page);
+  check('Insert puts the example on the sheet, calculated', inserted.length === 2 && /=3$/.test(inserted[0]!.replace(/\s/g, '')), inserted);
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  check('Esc closes it', !(await panel()).open);
+  await type(page, 72, 300, 'z:lineInput(100');
+  await clickAt(page, 72, 300);
+  await sleep(100);
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('F1');
+  await sleep(100);
+  h = await panel();
+  check('F1 while typing opens the entry of the function the caret is in', h.open && h.title === 'lineInput(ZL, Z0, θ)', h);
+  await page.emulateMediaType('print');
+  check('the panel doesn\'t print', await page.evaluate(() => getComputedStyle(document.getElementById('help-panel')!).display === 'none'));
+  await page.emulateMediaType();
+  await page.close();
+}
+
 // Printing: one PDF page per sheet page, sized from the worksheet.
 {
   const page = await fresh();

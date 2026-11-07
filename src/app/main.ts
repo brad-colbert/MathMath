@@ -4,6 +4,9 @@ import '../ui/app.css';
 import { forgetFile, openFile, readAny, saveFile } from '../ui/files.js';
 import { TEMPLATES, matrixTemplate } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
+import { KEYWORDS } from '../symbolic/keywords.js';
+import { HelpPanel, nameAt } from '../ui/help-panel.js';
+import { regionLatex } from '../latex/region.js';
 import { toggleTitles } from '../ui/slots.js';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
@@ -241,6 +244,7 @@ button('New', 'New worksheet', fresh);
 button('Open', 'Open a worksheet (Ctrl+O)', () => void open());
 button('Save', 'Save (Ctrl+S)', () => void save());
 button('Print', 'Print (Ctrl+P)', print);
+button('Help', 'Functions, keywords and topics (F1 on a name)', () => openHelp());
 separator();
 button('if', 'Condition on this line (})', inEditor('\\ \\mathbf{if}\\ '));
 button('otherwise', 'Otherwise', inEditor('\\ \\mathbf{otherwise}'));
@@ -326,16 +330,7 @@ summary.addEventListener('mousedown', (e) => e.preventDefault());
 const list = document.createElement('div');
 menu.append(summary, list);
 toolbar.appendChild(menu);
-for (const [name, takesArgument, help] of [
-  ['simplify', false, 'Simplify'], ['expand', false, 'Multiply out'], ['factor', false, 'Factor'], ['float', false, 'As a decimal, to 20 digits'],
-  ['solve', true, 'Solve for a variable'], ['collect', true, 'Collect powers of a variable'], ['coeffs', true, 'List coefficients of a variable'],
-  ['series', true, 'Series in a variable'], ['substitute', true, 'Substitute, as x=y+1'], ['parfrac', true, 'Partial fractions in a variable'],
-  ['assume', true, 'Assume something, as x>0'],
-  ['laplace', true, 'Laplace transform in a variable, as t; the result is in s'],
-  ['invlaplace', true, 'Inverse Laplace transform in a variable, as s; the result is in t'],
-  ['ztrans', true, 'z-transform in a variable, as n; the result is in z'],
-  ['invztrans', true, 'Inverse z-transform in a variable, as z; the result is in n'],
-] as const) {
+for (const [name, takesArgument, help] of KEYWORDS) {
   const b = document.createElement('button');
   b.textContent = name;
   b.title = help;
@@ -419,6 +414,41 @@ function withView(c: Extract<Content, { k: 'plot' }>, view: Extract<Content, { k
 
 // Each trace's color, line, weight and points, in a panel for the selected plot.
 const tracePanel = new TracePanel(doc);
+// Help beside the paper. It shares the right side with the trace panel, so only one is open at a time.
+const help = new HelpPanel((lines) => {
+  paper.insertExample(lines);
+});
+help.onOpen = () => tracePanel.close();
+/** Opens help at the name being typed, or in the selected region, or at the contents. */
+function openHelp(): void {
+  if (paper.mathEditor.isOpen) {
+    const { before, after } = paper.mathEditor.aroundCaret();
+    const found = nameAt(before, after);
+    help.open(found.name ?? (found.word || undefined));
+    return;
+  }
+  const item = [...paper.selection].map((id) => doc.find(id)).find((x) => x?.kind === 'math');
+  if (item?.kind === 'math') {
+    let latex = '';
+    try {
+      latex = regionLatex(item.region.content);
+    } catch {
+      latex = '';
+    }
+    const found = nameAt(latex, '');
+    if (found.name) {
+      help.open(found.name);
+      return;
+    }
+  }
+  help.open();
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'F1') return;
+  e.preventDefault();
+  e.stopPropagation();
+  openHelp();
+}, { capture: true });
 {
   const b = document.createElement('button');
   b.textContent = 'Trace styles…';
@@ -431,6 +461,7 @@ const tracePanel = new TracePanel(doc);
       doc.onProblem('Select a plot first');
       return;
     }
+    help.close();
     tracePanel.open(region);
   });
   plotList.appendChild(b);
@@ -503,6 +534,8 @@ toolbar.append(busy, title, version);
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;
   const key = e.key.toLowerCase();
+  // Typing in the help search keeps its own undo.
+  if ((key === 'z' || key === 'y') && (e.target as HTMLElement | null)?.closest?.('#help-panel')) return;
   // While math is being typed, undo belongs to the editor.
   if ((key === 'z' || key === 'y') && paper.canUndo()) {
     e.preventDefault();

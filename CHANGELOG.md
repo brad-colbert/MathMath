@@ -10,6 +10,29 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-07
+
+Help, in a panel beside the paper, with an entry for every function and keyword, and F1.
+
+### Added
+
+- Help, in a panel beside the paper: Help on the toolbar, or F1. It has an entry for every function and
+  symbolic keyword, 255 in all, each with how it's called, what it gives, how it treats units, what it
+  refuses, and a worked example with its answer, and whether Mathcad has it too. Topic pages cover typing
+  math and its keys, units, ranges and arrays, plots, solve blocks, programs, symbolic evaluation, and files.
+  - Search finds an entry by its name or by what it does, as "standing wave" for `vswr`.
+  - F1 while typing opens the entry for the function the caret is in. With a region selected, it opens the
+    first function in it; otherwise the contents.
+  - Insert puts an example on the sheet, where you last clicked or below everything, and it calculates
+    there. One undo takes it away.
+  - Every example is checked by the tests to calculate and to show the answer printed beside it, and every
+    function must have an entry, so the help can't fall behind the functions.
+
+### Known limits
+
+- F1 finds functions and keywords by name, not operators or units. The symbolic keywords' answers are
+  shown as written, not calculated in the panel.
+
 ## [0.28.0] - 2026-11-07
 
 RF tools: reflection, transmission lines, network parameters and a Smith chart.
