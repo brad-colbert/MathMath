@@ -12,7 +12,8 @@ export type Expr =
   | { k: 'call'; fn: Expr; args: Expr[] }
   /** With no bounds it's an indefinite integral, which only the symbolic engine can do. */
   | { k: 'bigop'; op: 'integral' | 'summation' | 'product'; varName: string; body: Expr; lo: Expr | null; hi: Expr | null }
-  | { k: 'derivative'; varName: string; body: Expr }
+  /** With a degree, the nth derivative (Mathcad's Ctrl+Shift+/); without one, the first. */
+  | { k: 'derivative'; varName: string; body: Expr; degree?: Expr }
   | { k: 'limit'; varName: string; body: Expr; to: Expr; side: 'left' | 'right' | null }
   | { k: 'program'; body: Stmt[] }
   | { k: 'placeholder' }

@@ -380,6 +380,47 @@ describe('Mathcad calling conventions', () => {
   });
 });
 
+describe('the nth derivative', () => {
+  // Mathcad 14's dⁿ/dxⁿ (Ctrl+Shift+/), saved as a derivative with a <degree>.
+  const nth = (v: string, body: string, n: string) =>
+    `<ml:apply><ml:derivative/><ml:lambda><ml:boundVars>${id(v)}</ml:boundVars>${body}</ml:lambda><ml:degree>${n}</ml:degree></ml:apply>`;
+  const at = (x: string, ...rest: string[]) => results(sheet([math(`<ml:define>${id('x')}${x}</ml:define>`), ...rest]));
+  const exp = `<ml:apply>${id('exp')}${id('x')}</ml:apply>`;
+  test('of eˣ at 1, orders 0 to 5, as close as Mathcad 14', () => {
+    // Mathcad 14 was off from e by 0, 1·10⁻¹⁴, 3·10⁻¹³, 3·10⁻¹¹, 3·10⁻⁹ and 9·10⁻⁸ relative.
+    const out = at(real(1), ...[0, 1, 2, 3, 4, 5].map((n) => evaluate(nth('x', exp, real(n)))));
+    const digits = [15, 12, 11, 9, 8, 6];
+    out.forEach((o, n) => expect((o.value as Num).re).toBeCloseTo(Math.E, digits[n]));
+  });
+  test('orders past 5, or not whole, are refused, as in Mathcad', () => {
+    const out = at(real(1), evaluate(nth('x', exp, real(6))), evaluate(nth('x', exp, real(2.5))));
+    expect(out[0]!.error?.reason).toMatch(/whole number from 0 to 5, not 6/);
+    expect(out[1]!.error?.reason).toMatch(/not 2\.5/);
+  });
+  test('an order from a variable, and a polynomial', () => {
+    const out = at(real(2), math(`<ml:define>${id('n')}${real(3)}</ml:define>`), evaluate(nth('x', exp, id('n'))),
+      evaluate(nth('x', `<ml:apply><ml:pow/>${id('x')}${real(5)}</ml:apply>`, real(5))));
+    expect((out[0]!.value as Num).re).toBeCloseTo(Math.exp(2), 9);
+    expect((out[1]!.value as Num).re).toBeCloseTo(120, 8);
+  });
+  test('far from 0, where the step must shrink well below the point', () => {
+    // d³/dz³ ln z at 1000 is 2·10⁻⁹ (Mathcad 14: 2.0000000002·10⁻⁹); d²/dx² sin x at 1000 is −sin 1000.
+    const out = at(real(1000), evaluate(nth('x', `<ml:apply>${id('ln')}${id('x')}</ml:apply>`, real(3))),
+      evaluate(nth('x', `<ml:apply>${id('sin')}${id('x')}</ml:apply>`, real(2))));
+    expect((out[0]!.value as Num).re / 2e-9).toBeCloseTo(1, 8);
+    expect((out[1]!.value as Num).re).toBeCloseTo(-Math.sin(1000), 9);
+  });
+  test('in units: d²/dw² w³ at 2 m is 12 m', () => {
+    const v = at(`<ml:apply><ml:mult/>${real(2)}${id('m')}</ml:apply>`, evaluate(nth('x', `<ml:apply><ml:pow/>${id('x')}${real(3)}</ml:apply>`, real(2))))[0]!.value as Num;
+    expect(v.re).toBeCloseTo(12, 10);
+    expect(v.dim).toEqual([1, 0, 0, 0, 0, 0, 0]);
+  });
+  test('at a range, at each value', () => {
+    const m = at(`<ml:range>${real(1)}${real(3)}</ml:range>`, evaluate(nth('x', `<ml:apply><ml:pow/>${id('x')}${real(3)}</ml:apply>`, real(2))))[0]!.value as Mat;
+    expect([...m.re].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([6, 12, 18]);
+  });
+});
+
 describe("Mathcad's zero-over-zero option", () => {
   const run = (on: boolean, a: string, b: string) => {
     const ws = sheet([evaluate(op('div', a, b))]);

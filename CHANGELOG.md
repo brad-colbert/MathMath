@@ -10,6 +10,24 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-06
+
+The nth derivative operator, dⁿ/dxⁿ.
+
+### Added
+
+- The nth derivative, dⁿ/dxⁿ, as Mathcad's (Ctrl+Shift+?, or the dⁿ/dxⁿ button): orders 0 to 5, the 0th being
+  the expression itself. Type the order above; it's shown below too. It works in units, at each value of a
+  range, from a variable order such as `n`, and under → through the algebra engine. In an Odesolve block,
+  d²/dt² y(t) is y''(t), so equations can be written either way. Mathcad sheets with it are read.
+  Higher derivatives are found by Ridders' extrapolation, at least as accurately as Mathcad 14: e.g. eˣ's fourth
+  derivative at 1 to 5·10⁻¹⁰ (Mathcad: 3·10⁻⁹), and d²/dx² sin x at x = 1000 to 10⁻¹³.
+
+### Known limits
+
+- Numerical derivatives of order 6 and above are refused, as in Mathcad: finite differences are mostly
+  rounding noise there. The algebra engine has no such limit.
+
 ## [0.24.0] - 2026-11-06
 
 Odesolve with conditions at two points (boundary value problems).

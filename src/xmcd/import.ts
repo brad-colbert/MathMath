@@ -116,7 +116,10 @@ function parseApply(e: XElement): Expr {
   if (tag === 'derivative') {
     const [vars, body] = rest[0] ? kids(rest[0]) : [];
     if (!vars || !body) return { k: 'unsupported', tag: 'derivative:shape' };
-    return { k: 'derivative', varName: boundOne(vars), body: parseExpr(body) };
+    // The nth derivative has its order in a <degree> beside the lambda.
+    const degree = rest[1]?.localName === 'degree' ? kids(rest[1])[0] : undefined;
+    if (rest[1] && !degree) return { k: 'unsupported', tag: 'derivative:shape' };
+    return { k: 'derivative', varName: boundOne(vars), body: parseExpr(body), ...(degree ? { degree: parseExpr(degree) } : {}) };
   }
   const args = argList(rest).map(parseExpr);
   // Mathcad saves a solve block's function as an element of its own, holding the solver's settings.

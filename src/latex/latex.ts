@@ -121,7 +121,11 @@ export function tex(e: Expr): string {
       const side = e.side === 'left' ? '^{-}' : e.side === 'right' ? '^{+}' : '';
       return `\\lim_{${name(e.varName)}\\to ${tex(e.to)}${side}}${at(e.body, 3)}`;
     }
-    case 'derivative': return `\\frac{\\mathrm{d}}{\\mathrm{d}${name(e.varName)}}${at(e.body, 3)}`;
+    case 'derivative': {
+      if (!e.degree) return `\\frac{\\mathrm{d}}{\\mathrm{d}${name(e.varName)}}${at(e.body, 3)}`;
+      const n = tex(e.degree);
+      return `\\frac{\\mathrm{d}^{${n}}}{\\mathrm{d}${name(e.varName)}^{${n}}}${at(e.body, 3)}`;
+    }
     case 'op': {
       const [a, b] = e.args;
       const p = PREC[e.op] ?? 9;
@@ -534,6 +538,24 @@ export function readTex(src: string): Expr {
           const varName = differential();
           eat('}');
           return { k: 'derivative', varName, body: product() };
+        }
+        // The nth derivative, `\\frac{\\mathrm{d}^{n}}{\\mathrm{d}x^{n}}`. Its order is read above; the one below,
+        // which the editor's blank leaves out, is optional and must match.
+        if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 4]?.v === '}' && toks[p + 5]?.v === '^') {
+          p += 6;
+          const degree = group();
+          eat('}');
+          eat('{');
+          const varName = differential();
+          if (is('^')) {
+            p++;
+            const below = group();
+            if (JSON.stringify(below) !== JSON.stringify(degree)) {
+              throw new Error(`the derivative's order is ${tex(degree)} above and ${tex(below)} below: make them the same`);
+            }
+          }
+          eat('}');
+          return { k: 'derivative', varName, body: product(), degree };
         }
         const a = group();
         return op('div', a, group());

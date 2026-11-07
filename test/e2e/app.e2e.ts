@@ -83,8 +83,17 @@ async function clickAt(page: Page, left: number, top: number): Promise<void> {
   await sleep(120);
 }
 
-async function type(page: Page, left: number, top: number, ...parts: (string | { press: string; ctrl?: boolean; shift?: boolean })[]): Promise<void> {
+type Part = string | { press: string; ctrl?: boolean; shift?: boolean };
+
+/** Clicks, types, and presses Esc to finish, which also stops a calculation still running. */
+async function type(page: Page, left: number, top: number, ...parts: Part[]): Promise<void> {
   await clickAt(page, left, top);
+  await send(page, parts);
+  await page.keyboard.press('Escape');
+  await sleep(50);
+}
+
+async function send(page: Page, parts: Part[]): Promise<void> {
   for (const p of parts) {
     if (typeof p === 'string') await keys(page, p);
     else {
@@ -95,8 +104,6 @@ async function type(page: Page, left: number, top: number, ...parts: (string | {
       if (p.ctrl) await page.keyboard.up('Control');
     }
   }
-  await page.keyboard.press('Escape');
-  await sleep(50);
 }
 
 const R = { press: 'ArrowRight' };
@@ -166,6 +173,26 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('$ and # make a sum and product over a range variable', kinds[1] === 'bigop' && ws.regions[1].content.expr.lo === null && kinds[3] === 'bigop', ws.regions.map((r: any) => r.content));
   check('and they add up its values', text.includes('=385') && text.includes('=3.992×10'), text);
   check('Ctrl+Shift+4 makes a sum with limits', ws.regions[2]?.content.expr?.lo?.v === 1 && text.includes('=10'), ws.regions[2]?.content);
+  await page.close();
+}
+
+// The nth derivative: Mathcad's Ctrl+Shift+/ (Ctrl+?), with the order typed above only, and under an arrow.
+{
+  const page = await fresh();
+  const T = { press: 'Tab' };
+  const nth = { press: 'Slash', ctrl: true, shift: true };
+  await type(page, 72, 72, 'x:1');
+  await type(page, 72, 120, nth, '2', T, 'x', T, 'x^3', R, '=');
+  // Ctrl+. ends this one: type's Esc would stop the algebra engine's calculation.
+  await clickAt(page, 72, 180);
+  await send(page, [nth, '2', T, 'u', T, 'u^5', R, { press: 'Period', ctrl: true }]);
+  await page.waitForFunction(() => /→\S/.test(document.querySelectorAll<HTMLElement>('.region')[2]?.innerText ?? ''), { timeout: 30000 }).catch(() => {});
+  const ws = await model(page);
+  const e = ws.regions[1]?.content.expr;
+  const text = (await shown(page)).map((t) => t.replace(/\s/g, ''));
+  check('Ctrl+? makes an nth derivative', e?.k === 'derivative' && e.degree?.v === 2 && e.varName === 'x', ws.regions[1]?.content);
+  check('it is calculated, and its order shows below too', text[1]?.endsWith('=6') === true && (text[1].match(/2/g) ?? []).length >= 2, text[1]);
+  check('and the algebra engine takes it too', /→20[·⋅]?u3$/.test(text[2] ?? ''), text[2]);
   await page.close();
 }
 

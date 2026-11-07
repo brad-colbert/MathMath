@@ -71,7 +71,7 @@ export function expand(e: Expr, defs: Defs, bound: Set<string>, depth = 0): Expr
       const inner = under(e.varName);
       return { ...e, body: expand(e.body, defs, inner, depth), lo: e.lo && go(e.lo), hi: e.hi && go(e.hi) };
     }
-    case 'derivative': return { ...e, body: expand(e.body, defs, under(e.varName), depth) };
+    case 'derivative': return { ...e, body: expand(e.body, defs, under(e.varName), depth), ...(e.degree ? { degree: go(e.degree) } : {}) };
     case 'limit': return { ...e, body: expand(e.body, defs, under(e.varName), depth), to: go(e.to) };
     case 'call': {
       const args = e.args.map(go);

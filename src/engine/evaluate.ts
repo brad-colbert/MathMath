@@ -4,6 +4,7 @@ import { type Files, NO_FILES, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
 import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
+import { nthDerivative } from './differentiate.js';
 import { odeGrid } from './ode.js';
 import { type Pixels, type Written, pixels } from './image.js';
 import {
@@ -631,12 +632,15 @@ export class Evaluator implements Host {
     if (!Number.isInteger(steps) || steps < 1) throw new EvalError('runtime', "Odesolve's number of steps must be a positive whole number");
     const primes = (n: string): number => /'*$/.exec(n)![0].length;
     const base = (n: string): string => n.slice(0, n.length - primes(n));
-    // A derivative d/dt of an unknown is the same as a prime: d/dt y(t) is y'(t).
+    // A derivative d/dt of an unknown is the same as a prime: d/dt y(t) is y'(t), and d²/dt² y(t) is y''(t).
     const rewrite = (e: Expr): Expr => {
       switch (e.k) {
         case 'derivative': {
           const body = rewrite(e.body);
-          if (e.varName === t && body.k === 'call' && body.fn.k === 'id') return { ...body, fn: { k: 'id', name: `${body.fn.name}'` } };
+          if (e.varName === t && body.k === 'call' && body.fn.k === 'id') {
+            const n = e.degree ? this.derivativeOrder(e.degree, s) : 1;
+            return { ...body, fn: { k: 'id', name: `${body.fn.name}${"'".repeat(n)}` } };
+          }
           return { ...e, body };
         }
         case 'op': return { ...e, args: e.args.map(rewrite) };
@@ -1112,15 +1116,37 @@ export class Evaluator implements Host {
     return !total ? y : e.op === 'summation' ? addV(total, y) : mulE(total, y);
   }
 
-  /** Five-point central difference at the variable's current value. */
+  /**
+   * The derivative at the variable's current value: the first by a five-point central difference, higher
+   * ones by Ridders' extrapolation (differentiate.ts), and the 0th is the expression itself.
+   */
   private evalDerivative(e: Extract<Expr, { k: 'derivative' }>, s: Scope): Value {
+    const n = e.degree ? this.derivativeOrder(e.degree, s) : 1;
+    const at = (p: Num): Value =>
+      n === 1 ? this.derivativeAt(e, p, s) : n === 0 ? this.eval(e.body, this.bindAt(e.varName, p, s)) : this.nthDerivativeAt(e, n, p, s);
     // At a range or vector of points, the derivative at each one, as a vector.
     const point = this.eval({ k: 'id', name: e.varName }, s);
     if (point.t === 'range' || (point.t === 'mat' && point.rows * point.cols > 1)) {
-      const values = [...this.iterate(point)].map((v) => this.derivativeAt(e, requireNum(v, 'derivative point'), s));
+      const values = [...this.iterate(point)].map((v) => at(requireNum(v, 'derivative point')));
       return fromValues(values.length, 1, values);
     }
-    return this.derivativeAt(e, requireNum(point, 'derivative point'), s);
+    return at(requireNum(point, 'derivative point'));
+  }
+
+  /** An nth derivative's order: a whole number from 0 to 5, as Mathcad allows, past which differences are noise. */
+  private derivativeOrder(degree: Expr, s: Scope): number {
+    const v = requireNum(this.eval(degree, s), "a derivative's order");
+    const plain = v.im === 0 && v.dim.every((d) => d === 0);
+    if (!plain || !Number.isInteger(v.re) || v.re < 0 || v.re > 5) {
+      throw new EvalError('runtime', `A derivative's order must be a whole number from 0 to 5${plain ? `, not ${v.re}` : ''}`);
+    }
+    return v.re;
+  }
+
+  private nthDerivativeAt(e: Extract<Expr, { k: 'derivative' }>, n: number, at: Num, s: Scope): Value {
+    const f = (x: number): Num => requireNum(this.eval(e.body, this.bindAt(e.varName, num(x, at.dim), s)));
+    const dim = f(at.re).dim;
+    return num(nthDerivative((x) => f(x).re, at.re, n), dim.map((d, i) => d - n * at.dim[i]!));
   }
 
   private derivativeAt(e: Extract<Expr, { k: 'derivative' }>, at: Num, s: Scope): Value {

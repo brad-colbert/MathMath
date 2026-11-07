@@ -84,7 +84,7 @@ export class Printer {
         return `[${rows.join(',')}]`;
       }
       case 'call': return `${this.fn((e.fn as { name: string }).name)}(${e.args.map(p).join(',')})`;
-      case 'derivative': return `diff(${p(e.body)},${this.name(e.varName)})`;
+      case 'derivative': return `diff(${p(e.body)},${this.name(e.varName)}${e.degree ? `,${p(e.degree)}` : ''})`;
       case 'limit': {
         const side = e.side === 'left' ? ',-1' : e.side === 'right' ? ',1' : '';
         return `limit(${p(e.body)},${this.name(e.varName)},${p(e.to)}${side})`;
