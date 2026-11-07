@@ -42,17 +42,33 @@ const INFIX: Record<string, string> = {
   lessOrEqual: '\\le ', greaterOrEqual: '\\ge ', and: '\\land ', or: '\\lor ', xor: '\\oplus ',
 };
 
+/**
+ * A derivative, a limit, and a sum or product with its index written are open on the right: their body reads
+ * on through any product after it (see product() below), so d/dx f·k is d/dx (f·k).
+ */
+const openRight = (e: Expr): boolean => e.k === 'derivative' || e.k === 'limit' || (e.k === 'bigop' && e.op !== 'integral');
+
 function prec(e: Expr): number {
   if (e.k === 'real') return e.v < 0 ? 3 : 9;
   if (e.k === 'op') return PREC[e.op] ?? 9;
-  if (e.k === 'bigop' || e.k === 'derivative') return 2.5;
+  if (openRight(e)) return 2.5;
+  // An integral ends at its dx, so it's a factor like any other, though a power of it is bracketed.
+  if (e.k === 'bigop') return 4.5;
   return 9;
 }
+
+/** Operators that a body open on the right reads on through. */
+const ABSORBED = new Set(['mult', 'crossProduct']);
 
 const paren = (t: string): string => `\\left(${t}\\right)`;
 const grouped = (e: Expr): string =>
   (e.k === 'id' && e.name.includes('.')) || (e.k === 'op' && e.op === 'indexer') ? `{${tex(e)}}` : at(e, 5);
-const at = (e: Expr, min: number): string => (prec(e) < min ? paren(tex(e)) : tex(e));
+/**
+ * e where it needs to bind at least as tightly as min. `tail` says nothing a product reads on through follows
+ * it, so an open construct there needs no brackets: E·I·d²/dx² w(x), as Mathcad shows it.
+ */
+const at = (e: Expr, min: number, tail = true): string =>
+  prec(e) >= min || (tail && openRight(e) && min <= 3.5) ? print(e, tail) : paren(tex(e));
 
 function stmt(s: Stmt): string[] {
   switch (s.k) {
@@ -93,6 +109,10 @@ export function target(t: Target): string {
 }
 
 export function tex(e: Expr): string {
+  return print(e, true);
+}
+
+function print(e: Expr, tail: boolean): string {
   switch (e.k) {
     case 'real': return numberText(e.v);
     case 'imag': return `${numberText(e.v)}\\mathrm{i}`;
@@ -129,11 +149,11 @@ export function tex(e: Expr): string {
     case 'op': {
       const [a, b] = e.args;
       const p = PREC[e.op] ?? 9;
-      if (INFIX[e.op]) return `${at(a!, p)}${INFIX[e.op]}${at(b!, p + 0.5)}`;
+      if (INFIX[e.op]) return `${at(a!, p, !ABSORBED.has(e.op))}${INFIX[e.op]}${at(b!, p + 0.5, tail)}`;
       switch (e.op) {
         case 'div': return `\\frac{${tex(a!)}}{${tex(b!)}}`;
         case 'pow': return `{${at(a!, 5)}}^{${tex(b!)}}`;
-        case 'neg': return `-${at(a!, 3.5)}`;
+        case 'neg': return `-${at(a!, 3.5, tail)}`;
         case 'sqrt': return `\\sqrt{${tex(a!)}}`;
         case 'nthRoot': return `\\sqrt[${tex(a!)}]{${tex(b!)}}`;
         case 'absval': return `\\left|${tex(a!)}\\right|`;

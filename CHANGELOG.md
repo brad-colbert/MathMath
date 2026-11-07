@@ -10,6 +10,22 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-07
+
+No brackets around a derivative, limit or sum that ends a product, as in Mathcad.
+
+### Changed
+
+- A derivative, a limit, or a sum or product with limits that ends a product is shown without brackets, as
+  in Mathcad: `E·I·d⁴/dx⁴ w(x)` rather than `E·I·(d⁴/dx⁴ w(x))`. They keep their brackets when something
+  follows them in the product, since their body reads on to the right. An integral, which ends at its dx,
+  needs none in a product.
+
+### Fixed
+
+- A limit followed by a factor, as `(lim f)·3`, was shown without brackets, which reads as the limit of
+  `f·3`; it's bracketed now.
+
 ## [0.26.0] - 2026-11-06
 
 Find and Minerr with vector, matrix and complex unknowns, and ERR.
