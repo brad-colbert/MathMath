@@ -99,6 +99,32 @@ test("an nth derivative's order must be the same above and below", () => {
   expect(() => readTex('\\frac{\\mathrm{d}^{2}}{\\mathrm{d}x^{3}}x')).toThrow(/2 above and 3 below/);
 });
 
+describe('brackets around derivatives, limits, sums and integrals in products', () => {
+  // These read on to the right through a product, so they're bracketed only when something follows them.
+  const w: Expr = { k: 'call', fn: V('w'), args: [V('x')] };
+  const d: Expr = { k: 'derivative', varName: 'x', body: w };
+  const d4: Expr = { k: 'derivative', varName: 'x', body: w, degree: R(4) };
+  const lim: Expr = { k: 'limit', varName: 'x', body: V('f'), to: R(0), side: null };
+  const sum: Expr = { k: 'bigop', op: 'summation', varName: 'i', body: V('i'), lo: R(1), hi: R(3) };
+  const int: Expr = { k: 'bigop', op: 'integral', varName: 'x', body: V('x'), lo: R(0), hi: R(1) };
+  const D = '\\frac{\\mathrm{d}}{\\mathrm{d}x}w\\left(x\\right)';
+  test.each<[string, Expr, string]>([
+    ['last in a product, bare', op('mult', op('mult', V('E'), V('I')), d4), 'E\\cdot I\\cdot \\frac{\\mathrm{d}^{4}}{\\mathrm{d}x^{4}}w\\left(x\\right)'],
+    ['before a sum, bare', op('plus', op('mult', V('E'), d), R(1)), `E\\cdot ${D}+1`],
+    ['before an =, bare', op('equal', op('mult', V('E'), d), V('q')), `E\\cdot ${D}=q`],
+    ['negated, bare', op('neg', d), `-${D}`],
+    ['followed by a factor, bracketed', op('mult', d, V('k')), `\\left(${D}\\right)\\cdot k`],
+    ['inside a product that a factor follows, bracketed', op('mult', op('mult', V('E'), d), V('k')), `E\\cdot \\left(${D}\\right)\\cdot k`],
+    ['raised to a power, bracketed', op('pow', d, R(2)), `{\\left(${D}\\right)}^{2}`],
+    ['a limit followed by a factor, bracketed', op('mult', lim, R(3)), '\\left(\\lim_{x\\to 0}f\\right)\\cdot 3'],
+    ['a sum last in a product, bare', op('mult', R(2), sum), '2\\cdot \\sum_{i=1}^{3}i'],
+    ['an integral ends at its dx, so it needs none', op('mult', op('mult', R(2), int), R(3)), '2\\cdot \\int_{0}^{1}x\\,\\mathrm{d}x\\cdot 3'],
+  ])('%s', (_, e, text) => {
+    expect(tex(e)).toBe(text);
+    expect(readTex(text)).toEqual(e);
+  });
+});
+
 describe('definition targets', () => {
   test.each<[string, Target]>([
     ['variable', { k: 'var', name: 'x' }],
