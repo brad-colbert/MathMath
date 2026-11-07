@@ -10,6 +10,32 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-07
+
+Circuit analysis from a netlist: node voltages and branch currents, at DC or at a frequency.
+
+### Added
+
+- Circuit analysis from a netlist: `nodeVoltages(N)` and `branchCurrents(N)` at DC, or `nodeVoltages(N, f)` and
+  `branchCurrents(N, f)` at a frequency f. A netlist is a matrix with a row for each part: its name in quotes,
+  whose first letter says what it is (R resistor, C capacitor, L inductor, V voltage source, I current source,
+  O ideal op-amp), its two nodes and its value, as `("R1", 1, 2, 10·kΩ)`. Node 0 is ground, and the others
+  are numbered 1, 2, … with none missing. An op-amp's row holds its + input, − input and output nodes.
+  Values can be sheet variables, carry units or be plain numbers in ohms, farads, henries, volts and amperes,
+  and a source's value can be a phasor. At DC capacitors are open and inductors are shorts; at f, sources are
+  phasors at f.
+  - `nodeVoltages` lists the voltages from node 0, so element k is node k's voltage with either ORIGIN.
+  - `branchCurrents` lists the current through each part in the netlist's order, flowing from its first node
+    to its second, so a source supplying power shows a negative current. An op-amp's is the current it
+    drives out of its output.
+  - A node with no path to ground, a loop of voltage sources (inductors count, at DC) and an op-amp without
+    feedback are reported by name rather than giving meaningless numbers.
+
+### Known limits
+
+- Netlists take resistors, capacitors, inductors, independent sources and ideal op-amps: not dependent
+  (controlled) sources, transistors or diodes, and no transient analysis. Node numbers, not names.
+
 ## [0.26.1] - 2026-11-07
 
 No brackets around a derivative, limit or sum that ends a product, as in Mathcad.
