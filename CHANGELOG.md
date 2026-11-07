@@ -10,6 +10,28 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-06
+
+Find and Minerr with vector, matrix and complex unknowns, and ERR.
+
+### Added
+
+- Find and Minerr solve for vectors and matrices as well as numbers, as Mathcad's: from a guess `v := (1; 1)`,
+  `v₀ + v₁ = 3` and `v₀ − v₁ = 1` give v = (2; 1), and a matrix equation such as `M·x = b` holds element by
+  element. Even `A·A = M`, with A a matrix, finds a square root of M. Several unknowns of different shapes,
+  as `Find(x, s)`, come back nested. An inequality between a vector and a number holds for each element.
+  Maximize and Minimize take vectors too, calling the function with the whole vector.
+- Complex unknowns: a complex guess lets Find look for a complex answer, so `z := 1 + i` with `z² = −4` finds
+  2i. A real guess still looks for a real answer only, as in Mathcad.
+- ERR, as in Mathcad: after Find or Minerr, how far the constraints are from holding, the square root of the
+  sum of each one's error squared. It's 0 when Find solves exactly, and inequalities count how far they're
+  broken.
+
+### Fixed
+
+- Minerr, when its constraints can't all hold and one is an inequality, stopped short of the closest answer:
+  `q = 1`, `q = 2` and `q > 5` gave 2.17 instead of 8/3, which Mathcad 14 gives.
+
 ## [0.25.0] - 2026-11-06
 
 The nth derivative operator, dⁿ/dxⁿ.

@@ -300,10 +300,16 @@ function hermite(xs: number[], ys: number[], ds: number[], at: number): number {
 /** What a solver sees while its region is worked out: its block's constraints, or null outside a block. */
 export interface SolveContext { constraints: Expr[] | null; target: Target | null }
 
+/** A solver's variable: a number (shape null) or an array, with its guess's elements and their units. */
+interface Unknown { name: string; shape: [number, number] | null; dims: Dim[]; complex: boolean; guess: Num[] }
+interface Unknowns { list: Unknown[]; x0: Float64Array; complex: boolean }
+
 export class Evaluator implements Host {
   private builtins: Map<string, Fn>;
   /** Set by Run while a region that calls a solver is worked out. */
   solveContext: SolveContext | null = null;
+  /** ERR: how far from holding the last Find or Minerr left its constraints, for the region that called it to set. */
+  solveError: number | null = null;
   /** Expressions and programs as closures, built once per tree node. */
   private compiler = new Compiler(this);
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
@@ -838,52 +844,99 @@ export class Evaluator implements Host {
     return { t: 'mat', rows: solved.length, cols: 1, re: new Float64Array(solved.length), im: null, dim: NODIM, cells: solved };
   }
 
-  /** The variables a solver is given, by name, and their values above, the guesses. */
-  private guesses(fn: string, args: Expr[], s: Scope): { names: string[]; x0: Float64Array; dims: Dim[] } {
+  /**
+   * The variables a solver is given, by name, and their values above, the guesses. Each may be a number, a
+   * vector or a matrix, and is complex if its guess is: the solver then varies each element's real and
+   * imaginary parts. The parameters are every element in turn, column by column, its imaginary part after it.
+   */
+  private guesses(fn: string, args: Expr[], s: Scope, complexAllowed = true): Unknowns {
     if (args.length === 0) throw new EvalError('runtime', `${fn} needs the variables to solve for, as ${fn}(x, y)`);
-    const names = args.map((a) => {
+    const list = args.map((a): Unknown => {
       if (a.k !== 'id') throw new EvalError('runtime', `${fn}'s variables must be names, as ${fn}(x, y)`);
-      return a.name;
-    });
-    const values = names.map((n) => {
+      const n = a.name;
       const v = s.lookup(n);
       if (!v) throw new EvalError('runtime', `${fn} needs a guess for ${n}: define ${n} above, before Given`);
-      if (v.t !== 'num') throw new EvalError('unsupported', `${fn} solves for numbers: ${n} must be a number, not ${v.t === 'mat' ? 'an array' : 'that'}`);
-      if (v.im !== 0) throw new EvalError('unsupported', `${fn} solves for real numbers: ${n}'s guess is complex`);
-      return v;
+      if (v.t !== 'num' && v.t !== 'mat') throw new EvalError('unsupported', `${fn} solves for numbers and arrays of them: ${n}'s guess isn't one`);
+      const items = v.t === 'num' ? [v] : Array.from({ length: v.rows * v.cols }, (_, k) => getEl(v, k % v.rows, Math.floor(k / v.rows)));
+      const nums = items.map((e) => {
+        if (e.t !== 'num') throw new EvalError('unsupported', `${fn} solves for arrays of numbers: ${n} holds an array or a function`);
+        return e;
+      });
+      const complex = nums.some((e) => e.im !== 0);
+      if (complex && !complexAllowed) throw new EvalError('unsupported', `${fn} solves for real numbers: ${n}'s guess is complex`);
+      return { name: n, shape: v.t === 'num' ? null : [v.rows, v.cols], dims: nums.map((e) => e.dim), complex, guess: nums };
     });
-    return { names, x0: Float64Array.from(values, (v) => v.re), dims: values.map((v) => v.dim) };
+    const x0 = list.flatMap((u) => u.guess.flatMap((e) => (u.complex ? [e.re, e.im] : [e.re])));
+    return { list, x0: Float64Array.from(x0), complex: list.some((u) => u.complex) };
+  }
+
+  /** Each variable's value for the parameters x. */
+  private unknownValues(u: Unknowns, x: ArrayLike<number>): Value[] {
+    let k = 0;
+    return u.list.map((v) => {
+      const items = v.dims.map((d) => (v.complex ? num(x[k++]!, d, x[k++]!) : num(x[k++]!, d)));
+      return v.shape ? fromValues(v.shape[0], v.shape[1], items) : items[0]!;
+    });
   }
 
   /** A scope where the variables have trial values. */
-  private trial(names: string[], dims: Dim[], x: ArrayLike<number>, s: Scope): Scope {
+  private trial(u: Unknowns, x: ArrayLike<number>, s: Scope): Scope {
     const frame = new Scope(s);
-    names.forEach((n, j) => frame.set(n, num(x[j]!, dims[j]!)));
+    this.unknownValues(u, x).forEach((v, j) => frame.set(u.list[j]!.name, v));
     return frame;
   }
 
-  /** Each constraint as residuals that vanish when it holds: a − b for =, and how far off for <, >, ≤, ≥. */
-  private residuals(constraints: Expr[], scope: Scope): number[] {
+  /**
+   * a − b for each element of a constraint's sides, which may be arrays of one size, or an array and a number,
+   * which is compared with each element.
+   */
+  private differences(c: Expr, scope: Scope): { re: number; im: number; complex: boolean }[] {
+    if (c.k !== 'op') return [];
+    const a = this.eval(c.args[0]!, scope);
+    const b = this.eval(c.args[1]!, scope);
+    const items = (v: Value): Value[] => (v.t === 'mat' ? Array.from({ length: v.rows * v.cols }, (_, k) => getEl(v, k % v.rows, Math.floor(k / v.rows))) : [v]);
+    const as = items(a);
+    const bs = items(b);
+    if (as.length !== bs.length && as.length !== 1 && bs.length !== 1) {
+      throw new EvalError('runtime', 'the two sides of a constraint must be arrays of the same size, or one of them a number');
+    }
+    return Array.from({ length: Math.max(as.length, bs.length) }, (_, k) => {
+      const p = requireNum(as.length === 1 ? as[0]! : as[k]!, 'a side of a constraint');
+      const q = requireNum(bs.length === 1 ? bs[0]! : bs[k]!, 'a side of a constraint');
+      if (!dimEq(p.dim, q.dim) && !(p.re === 0 && p.im === 0) && !(q.re === 0 && q.im === 0)) {
+        throw new EvalError('runtime', 'units do not match: the two sides of a constraint need the same units');
+      }
+      return { re: p.re - q.re, im: p.im - q.im, complex: p.im !== 0 || q.im !== 0 };
+    });
+  }
+
+  /**
+   * Each constraint as residuals that vanish when it holds: a − b for =, and how far off for <, >, ≤, ≥. An
+   * equation's imaginary part is a residual of its own when the variables are complex, or either side is.
+   */
+  private residuals(constraints: Expr[], scope: Scope, complex = false): number[] {
     const out: number[] = [];
     for (const c of constraints) {
       if (c.k !== 'op') continue;
-      const a = requireNum(this.eval(c.args[0]!, scope), 'a side of a constraint');
-      const b = requireNum(this.eval(c.args[1]!, scope), 'a side of a constraint');
-      if (!dimEq(a.dim, b.dim) && !(a.re === 0 && a.im === 0) && !(b.re === 0 && b.im === 0)) {
-        throw new EvalError('runtime', 'units do not match: the two sides of a constraint need the same units');
+      for (const d of this.differences(c, scope)) {
+        if (c.op === 'equal') {
+          out.push(d.re);
+          if (complex || d.complex) out.push(d.im);
+        } else if (c.op === 'lessThan' || c.op === 'lessOrEqual') out.push(Math.max(0, d.re));
+        else out.push(Math.max(0, -d.re));
       }
-      const d = a.re - b.re;
-      if (c.op === 'equal') {
-        out.push(d);
-        if (a.im !== 0 || b.im !== 0) out.push(a.im - b.im);
-      } else if (c.op === 'lessThan' || c.op === 'lessOrEqual') out.push(Math.max(0, d));
-      else out.push(Math.max(0, -d));
     }
     return out;
   }
 
-  /** The answer: one variable alone, several as a vector, each in its own units. */
-  private answer(x: ArrayLike<number>, dims: Dim[]): Value {
+  /** The answer: one variable alone, several as a vector, each in its own units (a vector or matrix nested). */
+  private answer(u: Unknowns, x: ArrayLike<number>): Value {
+    const plain = u.list.every((v) => !v.shape && !v.complex);
+    if (!plain) {
+      const values = this.unknownValues(u, x);
+      return values.length === 1 ? values[0]! : fromValues(values.length, 1, values);
+    }
+    const dims = u.list.map((v) => v.dims[0]!);
     if (x.length === 1) return num(x[0]!, dims[0]!);
     if (dims.every((d) => dimEq(d, dims[0]!))) {
       const m = newMat(x.length, 1, dims[0]!);
@@ -896,77 +949,82 @@ export class Evaluator implements Host {
 
   private find(fn: string, args: Expr[], constraints: Expr[], s: Scope): Value {
     if (constraints.length === 0) throw new EvalError('runtime', `${fn}'s solve block has no constraints: put equations, such as x + y = 3, between Given and ${fn}`);
-    const { names, x0, dims } = this.guesses(fn, args, s);
-    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints, this.trial(names, dims, x, s)));
+    const u = this.guesses(fn, args, s);
+    const { x0, complex } = u;
+    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints, this.trial(u, x, s), complex));
     const ctol = this.ws.ctol ?? 0.001;
     const holds = (r: Float64Array): boolean => r.every((v) => Math.abs(v) <= ctol);
     // Each inequality becomes an equation with a slack variable: a < b is a − b + z² = 0. A one-sided penalty
     // would stall where an equation's residual is flat (from u = −1, u > 0 and u² = 4 stop at u = 0).
     const sides = constraints.map((c) => (c.k !== 'op' || c.op === 'equal' ? 0 : c.op === 'lessThan' || c.op === 'lessOrEqual' ? 1 : -1));
     const n = x0.length;
-    const gap = (c: Expr, scope: Scope): number => {
-      if (c.k !== 'op') return 0;
-      const a = requireNum(this.eval(c.args[0]!, scope), 'a side of a constraint');
-      const b = requireNum(this.eval(c.args[1]!, scope), 'a side of a constraint');
-      return a.re - b.re;
-    };
+    // How far each element of an inequality is from equality, a − b.
+    const gaps = (c: Expr, scope: Scope): number[] => this.differences(c, scope).map((d) => d.re);
     // A guess on the wrong side of an inequality is first moved just inside all of them: from there the slack
     // form can reach a solution on the right side, rather than one beyond the wrong side's equations.
     let x1 = x0;
     const unmet = (p: Float64Array): Float64Array => {
-      const scope = this.trial(names, dims, p, s);
+      const scope = this.trial(u, p, s);
       return Float64Array.from(constraints.flatMap((c, i) => {
         if (!sides[i]) return [];
-        const d = gap(c, scope);
-        const margin = 1e-3 * Math.max(1, Math.abs(d));
-        return [Math.max(0, sides[i] === 1 ? d + margin : -d + margin)];
+        return gaps(c, scope).map((d) => {
+          const margin = 1e-3 * Math.max(1, Math.abs(d));
+          return Math.max(0, sides[i] === 1 ? d + margin : -d + margin);
+        });
       }));
     };
     if (unmet(x0).some((v) => v > 0)) x1 = leastSquares(unmet, x0).x;
-    const start = this.trial(names, dims, x1, s);
-    // A slack starts where it makes a met inequality hold exactly.
-    const z0 = constraints.flatMap((c, i) => (sides[i] ? [Math.sqrt(Math.max(Math.abs(gap(c, start)), 1e-12))] : []));
+    const start = this.trial(u, x1, s);
+    // A slack starts where it makes a met inequality hold exactly, one for each element.
+    const z0 = constraints.flatMap((c, i) => (sides[i] ? gaps(c, start).map((d) => Math.sqrt(Math.max(Math.abs(d), 1e-12))) : []));
     const augmented = (p: Float64Array): Float64Array => {
-      const scope = this.trial(names, dims, p, s);
+      const scope = this.trial(u, p, s);
       const out: number[] = [];
       let k = n;
       constraints.forEach((c, i) => {
-        if (!sides[i]) out.push(...this.residuals([c], scope));
-        else {
-          out.push(gap(c, scope) + sides[i]! * p[k]! ** 2);
-          k++;
-        }
+        if (!sides[i]) out.push(...this.residuals([c], scope, complex));
+        else for (const d of gaps(c, scope)) out.push(d + sides[i]! * p[k++]! ** 2);
       });
+      if (k !== p.length) throw new EvalError('runtime', `${fn}'s inequalities changed size while it solved`);
       return Float64Array.from(out);
     };
     const fit = leastSquares(augmented, Float64Array.from([...x1, ...z0]));
-    const x = fit.x.slice(0, n);
-    const r = res(x);
+    let x = fit.x.slice(0, n);
+    let r = res(x);
+    // When the constraints can't all hold, Minerr's answer is the least squares of how far off each one is, as
+    // Mathcad's: a slack stalls short of it, near 0, where its square has no slope.
+    if (fn === 'Minerr' && !holds(r)) {
+      const polished = leastSquares(res, x);
+      const cost = (v: ArrayLike<number>): number => Array.from(v).reduce((t, e) => t + e * e, 0);
+      if (cost(polished.r) < cost(r)) [x, r] = [Float64Array.from(polished.x), Float64Array.from(polished.r)];
+    }
     if (fn === 'Find' && !holds(r)) {
       throw new EvalError('runtime', 'No solution was found. Try other guess values, or check that the constraints can all hold (CTOL sets how nearly they must)');
     }
-    return this.answer(x, dims);
+    // As in Mathcad, ERR is how far from holding the constraints are: the length of the residuals.
+    this.solveError = Math.hypot(...r);
+    return this.answer(u, x);
   }
 
   private optimum(fn: string, args: Expr[], constraints: Expr[] | null, s: Scope): Value {
     const [first, ...vars] = args;
     const f = first ? this.eval(first, s) : undefined;
     if (f?.t !== 'fn') throw new EvalError('runtime', `${fn}'s first argument is the function, as ${fn}(f, x)`);
-    const { names, x0, dims } = this.guesses(fn, vars, s);
+    const u = this.guesses(fn, vars, s, false);
     const sign = fn === 'Maximize' ? -1 : 1;
     const value = (x: Float64Array): number => {
-      const v = requireNum(f.call(Array.from(x, (xi, j) => num(xi, dims[j]!))), `${fn}'s function value`);
+      const v = requireNum(f.call(this.unknownValues(u, x)), `${fn}'s function value`);
       if (v.im !== 0) throw new EvalError('runtime', `${fn}'s function must give a real number`);
       return sign * v.re;
     };
-    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints ?? [], this.trial(names, dims, x, s)));
+    const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints ?? [], this.trial(u, x, s)));
     const ctol = this.ws.ctol ?? 0.001;
-    const x = constraints && constraints.length > 0 ? minimizeWithin(value, res, x0, ctol) : minimize(value, x0);
+    const x = constraints && constraints.length > 0 ? minimizeWithin(value, res, u.x0, ctol) : minimize(value, u.x0);
     if (!x) throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found: the function keeps ${fn === 'Maximize' ? 'rising' : 'falling'} without bound`);
     if (constraints && constraints.length > 0 && !res(x).every((v) => Math.abs(v) <= ctol)) {
       throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found that meets the constraints. Try other guess values`);
     }
-    return this.answer(x, dims);
+    return this.answer(u, x);
   }
 
   /** root(f(x), x) from x's value as a guess, or root(f(x), x, a, b) between a and b, where f changes sign. */
@@ -1522,10 +1580,17 @@ export class Run {
     if (c.k === 'sym') throw new Error('symbolic regions go through symbolic()');
     // A region that calls a solver sees its block's constraints while it's worked out.
     if (closesBlock(c)) this.ev.solveContext = { constraints: this.blockFor(region), target: c.k === 'define' ? c.target : null };
+    this.ev.solveError = null;
     try {
       this.plainMath(region, c);
     } finally {
       this.ev.solveContext = null;
+    }
+    // Find and Minerr set ERR, as in Mathcad, for the regions below.
+    if (this.ev.solveError !== null) {
+      this.scope = Scope.after(this.scope);
+      this.scope.set('ERR', num(this.ev.solveError));
+      this.ev.solveError = null;
     }
   }
 
