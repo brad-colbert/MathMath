@@ -938,6 +938,21 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await sleep(80);
   let vi = await viewInfo();
   check('Format → Polar plot draws the trace around a center, calculating nothing', vi.view === 'polar' && vi.paths >= 1 && !vi.problem && JSON.stringify(vi.ran) === '[]', vi);
+  // A Smith chart reads its traces as reflection coefficients, so choosing it calculates.
+  await selectPlot();
+  await pick('Smith chart');
+  await idleP(pv);
+  await sleep(80);
+  vi = await viewInfo();
+  check('Format → Smith chart draws Γ on its grid, calculating the plot', vi.view === 'smith' && vi.paths >= 1 && !vi.problem && vi.ran.length === 1, vi);
+  const centre = await pv.evaluate(() => {
+    const c = [...document.querySelectorAll<SVGCircleElement>('.region.plot .plot-svg > circle')].at(-1)!.getBoundingClientRect();
+    return { x: c.left + c.width / 2, y: c.top + c.height / 2 };
+  });
+  await pv.mouse.move(centre.x, centre.y);
+  await sleep(60);
+  const readout = await pv.evaluate(() => document.querySelector<HTMLElement>('.region.plot .readout')!.textContent ?? '');
+  check('hovering at the centre of a Smith chart reads the swept value and the match there', /^x = 3\.1, Γ = 0\.00\d*∠[-\d.e]+°, z = 1(\.00\d*)? [+−] 0/.test(readout), readout);
   // The same plot, now of f, as a surface.
   await pv.evaluate(() => {
     const d = (window as any).mathmath.doc;

@@ -392,6 +392,7 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   // What kind of plot: how it's drawn, not what's calculated, so switching never recalculates.
   ['X-Y plot', 'plot', (c) => (c.k === 'plot' ? withView(c, undefined) : c)],
   ['Polar plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'polar') : c)],
+  ['Smith chart', 'plot', (c) => (c.k === 'plot' ? withView(c, 'smith') : c)],
   ['Surface plot (3-D)', 'plot', (c) => (c.k === 'plot' ? withView(c, 'surface') : c)],
   ['Contour plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'contour') : c)],
   ['Reset the 3-D view', 'plot', (c) => {
