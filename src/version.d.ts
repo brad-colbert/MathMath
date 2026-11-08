@@ -15,3 +15,5 @@
 
 /** The app's version from package.json, put in by Vite at build time. */
 declare const __APP_VERSION__: string;
+/** Where a hosted copy's source code is, from its site.json; empty otherwise. */
+declare const __SOURCE_URL__: string;

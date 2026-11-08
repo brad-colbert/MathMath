@@ -15,6 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+import { SITE_SCRIPT_TAG, mergeCsp, readSite, writeSiteFiles } from './src/build/site.js';
 
 /** Shown in the app, so a deployed build says which version it is. */
 const VERSION = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version;
@@ -38,15 +39,29 @@ const CSP = [
 
 export { CSP };
 
+/** A hosted copy's own additions, when MATHMATH_SITE names its folder (see src/build/site.ts). */
+const site = readSite(process.env.MATHMATH_SITE);
+const PAGE_CSP = mergeCsp(CSP, site?.config.csp);
+
 export default defineConfig({
-  define: { __APP_VERSION__: JSON.stringify(VERSION) },
+  define: { __APP_VERSION__: JSON.stringify(VERSION), __SOURCE_URL__: JSON.stringify(site?.config.source ?? '') },
   // Nothing inlined: the policy above refuses data: fonts.
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', chunkSizeWarningLimit: 1200, assetsInlineLimit: 0 },
   // The built app is served with the policy as a header, as a deployment would, so workers get it too.
-  preview: { headers: { 'Content-Security-Policy': CSP } },
+  preview: { headers: { 'Content-Security-Policy': PAGE_CSP } },
   plugins: [{
     name: 'content-security-policy',
     apply: 'build',
-    transformIndexHtml: (html) => html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP}">`),
+    transformIndexHtml: (html) => html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${PAGE_CSP}">`),
+  }, {
+    name: 'site-extras',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler: (html) => (site?.config.script ? html.replace('</body>', `  ${SITE_SCRIPT_TAG}\n  </body>`) : html),
+    },
+    writeBundle: (options) => {
+      if (site) writeSiteFiles(site, options.dir ?? 'dist', PAGE_CSP);
+    },
   }],
 });

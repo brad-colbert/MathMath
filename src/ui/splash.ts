@@ -46,7 +46,7 @@ export class Splash {
   private atStart: HTMLInputElement;
   private before: Element | null = null;
 
-  constructor(version: string) {
+  constructor(version: string, source = '') {
     this.el.id = 'splash';
     this.el.hidden = true;
     this.el.setAttribute('role', 'dialog');
@@ -70,7 +70,7 @@ export class Splash {
         </div>
         <p class="hint">Click on the paper and type. F1 opens help any time.</p>
         <p class="legal">© 2026 Pelican Labs, LLC. MathMath ${version} is free software under the GNU Affero General
-          Public License, version 3 or later, with no warranty. Mathcad is a trademark of PTC Inc. MathMath is not
+          Public License, version 3 or later, with no warranty.${source ? ` <a href="${source}" target="_blank" rel="noopener">Source code</a>.` : ''} Mathcad is a trademark of PTC Inc. MathMath is not
           affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;
