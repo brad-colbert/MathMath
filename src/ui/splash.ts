@@ -54,7 +54,7 @@ export class Splash {
     this.el.setAttribute('aria-labelledby', 'splash-title');
     this.el.innerHTML = `
       <div class="card">
-        <h1 id="splash-title">MathMath</h1>
+        <h1 id="splash-title"><img src="/favicon.svg" alt="" width="40" height="40"> MathMath</h1>
         <p class="name-math">${math('\\mathrm{MathMath}=\\mathrm{Math}^{2}')}</p>
         <p class="tagline">So good we named it twice.</p>
         <p>Write math the way you would on paper. MathMath works it out as you type, keeps your units honest,

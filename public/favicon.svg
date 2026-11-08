@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- MathMath. Copyright (C) 2026 Pelican Labs, LLC. SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <rect width="64" height="64" rx="14" fill="#2563eb"/>
+  <path d="M8 16H56M8 24H56M8 32H56M8 40H56M8 48H56M16 8V56M24 8V56M32 8V56M40 8V56M48 8V56" stroke="#fff" stroke-opacity=".14" stroke-width="1"/>
+  <path d="M11 50V17L25.5 37L40 17V50" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 15.5C46.5 11.5 54 11 54 16C54 19 50 21.5 45.5 26.5H55" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

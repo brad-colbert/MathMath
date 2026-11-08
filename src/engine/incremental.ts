@@ -138,7 +138,7 @@ function setsBetween(before: Scope, after: Scope): [string, Value][] {
 }
 
 function basisOf(ws: Worksheet, filesKey: string): string {
-  return json({ origin: ws.origin, tol: ws.tol, ctol: ws.ctol ?? 0.001, exactCompare: ws.exactCompare ?? true, zeroOverZero: ws.zeroOverZero ?? false, files: filesKey });
+  return json({ origin: ws.origin, tol: ws.tol, ctol: ws.ctol ?? 0.001, seed: ws.seed ?? 1, exactCompare: ws.exactCompare ?? true, zeroOverZero: ws.zeroOverZero ?? false, files: filesKey });
 }
 
 export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snapshot | null, opts: IncrementalOptions = {}): Promise<IncrementalResult> {

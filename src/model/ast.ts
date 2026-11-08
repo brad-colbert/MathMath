@@ -232,6 +232,8 @@ export interface Worksheet {
   tol: number;
   /** Mathcad's CTOL: how near a solve block's constraints must come to holding. 0.001 when left out. */
   ctol?: number;
+  /** The seed random numbers are drawn from, Mathcad's random-seed. 1 when left out. */
+  seed?: number;
   /**
    * Whether comparisons are exact. When not, as Mathcad's "exact equality" option off, numbers within a
    * relative 10⁻¹² of each other are equal, so `<` and `>` are false between them.

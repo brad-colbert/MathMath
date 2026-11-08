@@ -111,6 +111,9 @@ try {
   check('it runs in a secure context', env.secure && env.uuid, env);
   check(`it says it is version ${version}`, env.version === `MathMath ${version}`, env.version);
   check('the splash shows, with the copyright', env.splash);
+  const icons = await page.evaluate(async () => Promise.all(['/favicon.svg', '/favicon.ico', '/apple-touch-icon.png', '/manifest.webmanifest', '/icon-512.png']
+    .map(async (u) => { const r = await fetch(u); return `${u} ${r.status} ${r.headers.get('content-type')}`; })));
+  check('the icons and app manifest are served, the SVG as an image', icons.every((l) => / 200 /.test(l)) && /svg\+xml/.test(icons[0]!), icons);
 
   await page.evaluate((t) => (window as unknown as { mathmath: { load(n: string, t: string): void } }).mathmath.load('smoke.mathmath', t), saveWorksheet(ws));
   await page.waitForFunction('!window.mathmath.doc.computing', { timeout: 120000 });

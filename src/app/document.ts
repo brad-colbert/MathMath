@@ -33,13 +33,14 @@ export type Item =
 export const GRID = 6;
 
 /** Everything undo restores. Picture data is shared, since nothing ever changes it. */
-type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page'>;
+type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page' | 'seed'>;
 
 const snapshot = (ws: Worksheet): Snapshot => ({
   regions: structuredClone(ws.regions),
   texts: structuredClone(ws.texts),
   opaque: ws.opaque.map((o) => ({ ...o })),
   page: structuredClone(ws.page),
+  ...(ws.seed === undefined ? {} : { seed: ws.seed }),
 });
 
 const HISTORY = 100;
@@ -68,6 +69,14 @@ export class Doc {
    * Turns the page portrait or landscape: its width and height swap, and the margins stay. Nothing on the
    * sheet moves or recalculates; page breaks and printing follow the new size. One undo puts it back.
    */
+  /** Draws new random numbers: a new seed, so every random function gives fresh values. One step to undo. */
+  newRandomNumbers(): void {
+    let seed = this.ws.seed ?? 1;
+    while (seed === (this.ws.seed ?? 1)) seed = 1 + Math.floor(Math.random() * 2147483646);
+    this.ws.seed = seed;
+    this.touched();
+  }
+
   setOrientation(landscape: boolean): void {
     const page = this.ws.page;
     if (page.landscape === landscape) return;
@@ -159,8 +168,11 @@ export class Doc {
     this.computing = true;
     this.mayChange = null;
     this.onBusy(true);
-    const { regions, origin, tol, exactCompare, zeroOverZero, format, assets } = this.ws;
-    const request: ComputeRequest = { seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets } };
+    const { regions, origin, tol, ctol, seed, exactCompare, zeroOverZero, format, assets } = this.ws;
+    // The settings calculation reads: CTOL for solve blocks and the seed for random numbers go too.
+    const request: ComputeRequest = {
+      seq, sheet: { regions, origin, tol, exactCompare, zeroOverZero, format, assets, ...(ctol === undefined ? {} : { ctol }), ...(seed === undefined ? {} : { seed }) },
+    };
     worker.postMessage(request);
   }
 
@@ -282,6 +294,8 @@ export class Doc {
     if (!state) return;
     to.push(this.saved);
     this.saved = state;
+    // A seed that wasn't set then isn't set now: undoing New random numbers goes back to the default draws.
+    if (state.seed === undefined) delete this.ws.seed;
     Object.assign(this.ws, snapshot({ ...this.ws, ...state }));
     this.dirty = true;
     this.recompute();

@@ -20,6 +20,8 @@ import type { Content, Worksheet } from '../model/ast.js';
 import { chooseUnits } from '../engine/display-units.js';
 import { shortUnit } from '../engine/units.js';
 import { compareResult } from './compare.js';
+import { RANDOM_FUNCTIONS } from '../engine/distributions.js';
+
 
 /** `needs`: a missing file or a Mathcad feature to replace stands in the way, so the engine isn't at fault. */
 export type Bucket = 'match' | 'mismatch' | 'error' | 'excluded' | 'needs';
@@ -46,7 +48,7 @@ export const selfContained = (ws: Worksheet, xml: string): boolean =>
 const storedOf = (c: Content) => (c.k === 'define' || c.k === 'eval' ? c.stored : null);
 const APPROXIMATE = /"(bigop|derivative)"/;
 /** A call of a random-number function. The answers Mathcad saved came from its own draws, so can't match. */
-const RANDOM = /"k":"id","name":"(rnd|runif|rnorm)"/;
+const RANDOM = new RegExp(`"k":"id","name":"(${RANDOM_FUNCTIONS.join('|')})"`);
 const namesIn = (json: string): string[] => [...json.matchAll(/"k":"id","name":"([^"]+)"/g)].map((m) => m[1]!);
 
 /**

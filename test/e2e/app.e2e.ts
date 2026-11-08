@@ -2107,9 +2107,42 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.evaluate(() => (document.querySelector('#help-panel [data-about]') as HTMLElement).click());
   await sleep(60);
   check('About MathMath in Help opens it', (await splash()).open);
+  const icons = await page.evaluate(async () => {
+    const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]')].map((l) => l.href);
+    const manifest = await (await fetch('/manifest.webmanifest')).json() as { name: string; icons: { src: string }[] };
+    const all = [...links, ...manifest.icons.map((i) => new URL(i.src, location.href).href)];
+    const status = await Promise.all(all.map(async (u) => (await fetch(u)).status));
+    return { links: links.length, name: manifest.name, icons: manifest.icons.length, ok: status.every((s) => s === 200) };
+  });
+  check('the favicon, touch icon and app manifest are there, with every icon they name', icons.links === 4 && icons.name === 'MathMath' && icons.icons === 4 && icons.ok, icons);
   await page.emulateMediaType('print');
   check('it doesn\'t print', await page.evaluate(() => getComputedStyle(document.getElementById('splash')!).display === 'none'));
   await page.emulateMediaType();
+  await page.close();
+}
+
+// Random numbers: steady while editing, new ones with Reroll, and undo takes them back.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'x:rnorm(3,0,1');
+  await type(page, 72, 120, 'x=');
+  await idle(page);
+  const value = async () => (await shown(page))[1] ?? '';
+  const first = await value();
+  await type(page, 300, 72, 'y:1');
+  await idle(page);
+  check('random numbers stay the same as the sheet recalculates', (await value()) === first && /\d/.test(first), first);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Reroll')!.click());
+  await idle(page);
+  const second = await value();
+  check('Reroll draws new ones', second !== first && /\d/.test(second), [first, second]);
+  const saved = await page.evaluate(() => (window as any).mathmath.save() as string);
+  check('the new seed is saved with the sheet', /"seed": ?\d+/.test(saved));
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await idle(page);
+  check('undo brings the old numbers back', (await value()) === first, [first, await value()]);
   await page.close();
 }
 

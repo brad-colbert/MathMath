@@ -186,7 +186,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #splash[hidden] { display: none; }
 #splash .card { max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; padding: 28px 32px 20px;
   background: #fff; color: #1f2937; border-radius: 6px; box-shadow: 0 18px 50px #0006; font: 14px/1.5 system-ui, sans-serif; }
-#splash h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; color: #111; }
+#splash h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; color: #111; display: flex; align-items: center; gap: 12px; }
 #splash .name-math { margin: 2px 0 0; font-size: 18px; color: #374151; }
 #splash .tagline { margin: 2px 0 14px; font-style: italic; color: #1d5fb4; font-size: 16px; }
 #splash .paper { margin: 14px 0; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 16px;

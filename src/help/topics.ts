@@ -76,6 +76,15 @@ export const TOPICS: Topic[] = [
     ],
   },
   {
+    id: 'random', title: 'Random numbers', summary: 'Random draws that stay put, and New random numbers to draw again.',
+    body: [
+      { p: '[[rnd]], [[runif]], [[rnorm]] and the other r functions draw random numbers: [[rbinom]], [[rpois]], [[rexp]], [[rgamma]] and one for each distribution. Each function gives its own vector of draws.' },
+      { p: 'A worksheet\'s draws stay the same each time it calculates, so results don\'t jump about while you edit, and a saved sheet opens with the numbers it had. They come from the worksheet\'s seed. **Reroll** on the toolbar picks a new seed and draws everything again; undo goes back to the old numbers. A Mathcad worksheet brings its own seed with it.' },
+      { id: 'random-1', example: ['\\mathrm{dbinom}\\left(3,10,0.3\\right)=', '\\mathrm{pnorm}\\left(1.96,0,1\\right)=', '\\mathrm{qnorm}\\left(0.975,0,1\\right)='] },
+      { p: 'Each distribution has four functions: d for the density or probability, p for the cumulative probability, q for its inverse and r for random numbers, as dnorm, pnorm, qnorm and rnorm. The Probability distributions group in the contents lists them all.' },
+    ],
+  },
+  {
     id: 'solve-blocks', title: 'Solve blocks', summary: 'Given, then constraints, then Find, Minerr, Maximize, Minimize or Odesolve.',
     body: [
       { p: 'Define a guess for each unknown, then a region `Given`. Below it, type the constraints: equations with =, and inequalities. End with [[Find]], [[Minerr]], [[Maximize]], [[Minimize]] or [[Odesolve]], which solves them.' },

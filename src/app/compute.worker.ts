@@ -28,7 +28,7 @@ import { axisScale, displayUnit, formatValue, unitLatexOf } from '../ui/format.j
 
 export interface ComputeRequest {
   seq: number;
-  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'exactCompare' | 'zeroOverZero' | 'format' | 'assets'>;
+  sheet: Pick<Worksheet, 'regions' | 'origin' | 'tol' | 'ctol' | 'seed' | 'exactCompare' | 'zeroOverZero' | 'format' | 'assets'>;
 }
 
 /** What the page needs for one region. Values can't cross to the page, so they travel as LaTeX. */
