@@ -10,6 +10,26 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-08
+
+length, last, collect, float, complex results and Mathcad's file functions behave as in Mathcad.
+
+### Fixed
+
+- `length` and `last` refuse a matrix or a row vector, as Mathcad does, rather than counting its rows.
+- `collect` gives a polynomial in its variable, highest power first, as Mathcad does: (x + a)·(x + b)
+  collects to x² + (a + b)·x + a·b, where it came back partly factored.
+- `float` shows all 20 digits, or as many as asked for with `float, n`, rather than 16. They're kept when the
+  worksheet is saved, and when a Mathcad worksheet with such answers is opened.
+- A complex result whose real or imaginary part is under 10⁻¹⁰ of the other shows that part as 0, as
+  Mathcad's complex threshold does, so rounding noise such as 25 − 2.3·10⁻¹⁵i shows as 25. A Mathcad
+  worksheet's own threshold is kept.
+- Mathcad's file functions, refused here, each say what to use instead: `readTable` for data files,
+  `readImage` for pictures, `writeImage` to save one. Before, every one suggested `readImage`.
+- Help text no longer shows raw LaTeX in a few entries.
+- Typing a definition of a function call with a value inside the brackets, as Mathcad's
+  `WRITEPRN("out.prn") := M`, kept it as typed math to fix rather than stopping the worksheet from opening.
+
 ## [0.29.0] - 2026-11-07
 
 Help, in a panel beside the paper, with an entry for every function and keyword, and F1.

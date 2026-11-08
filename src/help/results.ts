@@ -179,7 +179,7 @@ export const RESULTS: Record<string, string[]> = {
   "sinh": ["0","1.175"],
   "sobelEdges": ["","\\begin{pmatrix}0&800&800&0\\\\0&800&800&0\\\\0&800&800&0\\end{pmatrix}"],
   "sort": ["\\begin{pmatrix}1\\\\2\\\\3\\end{pmatrix}","\\begin{pmatrix}3\\\\2\\\\1\\end{pmatrix}"],
-  "sqrt": ["4","0+2\\mathrm{i}"],
+  "sqrt": ["4","2\\mathrm{i}"],
   "stack": ["","","\\begin{pmatrix}1&2\\\\3&4\\\\5&6\\end{pmatrix}"],
   "standardValue": ["4.7\\times10^{-6}\\ \\mathrm{F}","5.11\\times10^{3}\\ \\Omega"],
   "stdev": ["2"],

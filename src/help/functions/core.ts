@@ -134,7 +134,7 @@ export const CORE: Entry[] = [
   {
     name: 'sqrt', group: A, usage: 'sqrt(x)', mathcad: true,
     summary: 'The square root of x.',
-    details: ['Type it with the square-root sign, `\\sqrt{x}`, or by name. A negative x gives an imaginary answer. Element by element for a vector or matrix.'],
+    details: ['Type it by name, as `sqrt(x)`. A negative x gives an imaginary answer. Element by element for a vector or matrix.'],
     units: 'Units are kept, with half the power: the square root of 9 m² is 3 m, and of 4 m is 2 m^0.5.',
     example: ['\\mathrm{sqrt}\\left(16\\right)=', '\\mathrm{sqrt}\\left(-4\\right)='],
   },

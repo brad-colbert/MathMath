@@ -166,6 +166,8 @@ describe('whole regions', () => {
 
   test('unreadable math throws, so the caller can keep it as a draft', () => {
     expect(() => readRegion('1+')).toThrow();
+    // A file write as Mathcad types it: its "parameter" is a string, so it isn't a definition here.
+    expect(() => readRegion('\\mathrm{WRITEPRN}\\left(\\text{"out.prn"}\\right)\\coloneq M')).toThrow(/parameters must be names/);
   });
 
   test('a region with unknown constructs is locked', () => {

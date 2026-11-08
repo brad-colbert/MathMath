@@ -1,6 +1,6 @@
 // Prints the worksheet tree as LaTeX and reads it back. An editor built on LaTeX needs both, so its
 // size and its failures are part of what this spike measures.
-import type { Expr, Stmt, Target } from '../model/ast.js';
+import { type Expr, type Stmt, type Target, realFrom } from '../model/ast.js';
 
 const GREEK: Record<string, string> = {
   'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ε': '\\varepsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
@@ -27,8 +27,8 @@ function name(whole: string): string {
 /** Inside text, a backslash is written as a command: `\\\\` there would be a line break. */
 const escapeText = (t: string): string => t.replace(/[\\{}_%&#$^~]/g, (c) => (c === '\\' ? '\\textbackslash ' : `\\${c}`));
 
-function numberText(v: number): string {
-  const s = String(v);
+function numberText(v: number, digits?: string): string {
+  const s = digits ?? String(v);
   const m = /^(-?[\d.]+)e([+-]?\d+)$/.exec(s);
   return m ? `${m[1]}\\times10^{${Number(m[2])}}` : s;
 }
@@ -114,7 +114,7 @@ export function tex(e: Expr): string {
 
 function print(e: Expr, tail: boolean): string {
   switch (e.k) {
-    case 'real': return numberText(e.v);
+    case 'real': return numberText(e.v, e.digits);
     case 'imag': return `${numberText(e.v)}\\mathrm{i}`;
     case 'str': return `\\text{"${escapeText(e.v)}"}`;
     case 'id': return name(e.name);
@@ -244,7 +244,11 @@ const REL: Record<string, string> = {
 
 export function exprToTarget(e: Expr): Target {
   if (e.k === 'id') return { k: 'var', name: e.name };
-  if (e.k === 'call' && e.fn.k === 'id') return { k: 'fn', name: e.fn.name, params: e.args.map((a) => (a as { name: string }).name) };
+  if (e.k === 'call' && e.fn.k === 'id') {
+    // A parameter is a name: WRITEPRN("out.prn") := M, Mathcad's way of writing a file, isn't a definition here.
+    if (e.args.some((a) => a.k !== 'id')) throw new Error("a function's parameters must be names");
+    return { k: 'fn', name: e.fn.name, params: e.args.map((a) => (a as { name: string }).name) };
+  }
   if (e.k === 'op' && e.op === 'indexer' && e.args[0]?.k === 'id') return { k: 'index', name: e.args[0].name, index: e.args.slice(1) };
   if (e.k === 'op' && e.op === 'matcol' && e.args[0]?.k === 'id') return { k: 'col', name: e.args[0].name, index: e.args[1]! };
   if (e.k === 'matrix') return { k: 'multi', targets: e.items.map(exprToTarget) };
@@ -509,8 +513,8 @@ export function readTex(src: string): Expr {
     return word === 'd' ? (atom() as { name: string }).name : word.slice(1);
   }
   /** A number followed by an upright i is an imaginary number. */
-  function imaginary(v: number): Expr {
-    if (!(is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}')) return { k: 'real', v };
+  function imaginary(v: number, text?: string): Expr {
+    if (!(is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}')) return text === undefined ? { k: 'real', v } : realFrom(text);
     p += 4;
     return { k: 'imag', v };
   }
@@ -523,9 +527,9 @@ export function readTex(src: string): Expr {
         p += 3;
         const power = group();
         const n = power.k === 'real' ? power.v : power.k === 'op' && power.op === 'neg' ? -(power.args[0] as { v: number }).v : NaN;
-        return imaginary(Number(`${t.v}e${n}`));
+        return imaginary(Number(`${t.v}e${n}`), `${t.v}e${n}`);
       }
-      return imaginary(Number(t.v));
+      return imaginary(Number(t.v), t.v);
     }
     if (t.t === 'ch') {
       if (/[A-Za-z]/.test(t.v)) return callOrId(word(t.v));
@@ -727,7 +731,7 @@ export function readTex(src: string): Expr {
     if (is('-')) {
       p++;
       const e = unary();
-      return e.k === 'real' ? { k: 'real', v: -e.v } : op('neg', e);
+      return e.k === 'real' ? { k: 'real', v: -e.v, ...(e.digits ? { digits: `-${e.digits}` } : {}) } : op('neg', e);
     }
     return scripts();
   }

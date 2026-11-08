@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { type Outcome, runWorksheet } from '../src/engine/evaluate.js';
-import { type Mat, type Num, type Value, getEl } from '../src/engine/values.js';
+import { makeBuiltins } from '../src/engine/builtins.js';
+import { type Mat, type Num, type Value, fromValues, getEl, num, str } from '../src/engine/values.js';
 
 const getElNum = (m: Mat, i: number, j: number): number => (getEl(m, i, j) as Num).re;
 import type { Worksheet } from '../src/model/ast.js';
@@ -697,5 +698,35 @@ describe('random numbers', () => {
     const s = scoreSheet(ws);
     // The draw misses Mathcad's, so it's left out; an answer that doesn't hang on the draw still counts.
     expect([s.excluded, s.match]).toEqual([1, 2]);
+  });
+});
+
+describe('length, last and the file functions, as Mathcad 14 has them', () => {
+  const B = makeBuiltins(0);
+  const call1 = (fn: string, v: Value): Value => B.get(fn)!.call([v]);
+  const column = fromValues(3, 1, [num(1), num(2), num(3)]);
+  test('length and last take a column vector', () => {
+    expect((call1('length', column) as Num).re).toBe(3);
+    expect((call1('last', column) as Num).re).toBe(2);
+  });
+  test('a matrix or a row is refused, as Mathcad refuses it', () => {
+    expect(() => call1('length', fromValues(2, 3, [1, 2, 3, 4, 5, 6].map((v) => num(v))))).toThrow(/one column: this has 3 columns/);
+    expect(() => call1('last', fromValues(1, 3, [num(1), num(2), num(3)]))).toThrow(/one column/);
+  });
+  test("each of Mathcad's file functions names what to use instead", () => {
+    const why = (fn: string): string => {
+      try {
+        B.get(fn)!.call([str('a.prn')]);
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return '';
+    };
+    expect(why('READPRN')).toMatch(/adds readTable/);
+    expect(why('READRGB')).toMatch(/adds readImage/);
+    expect(why('READ_RED')).toMatch(/adds readImage/);
+    expect(why('READBIN')).toMatch(/can't read binary/);
+    expect(why('WRITEBMP')).toMatch(/writeImage/);
+    expect(why('WRITEPRN')).toMatch(/doesn't write data files/);
   });
 });

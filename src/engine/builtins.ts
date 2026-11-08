@@ -182,6 +182,23 @@ export interface Hooks {
   wrote?(name: string, image: Pixels): void;
 }
 
+/** Why a Mathcad file function is refused, and what to use instead: readImage, readTable, writeImage or nothing. */
+function mathcadFileHint(name: string): string {
+  const load = (fn: string): string => `${name} is Mathcad's, and reads a file on Mathcad's computer. Use Files on the toolbar to load the file instead: it adds ${fn}, assigned to a variable you name, to use here in its place.`;
+  if (/^READ(RGB|BMP|_)/.test(name)) return load('readImage');
+  if (name === 'READPRN' || name === 'READFILE' || name === 'READ') return load('readTable');
+  if (name === 'READBIN') return `${name} is Mathcad's, and reads a binary file on Mathcad's computer. MathMath can't read binary data files: save the data as text (CSV) and load it with Files on the toolbar, which adds readTable.`;
+  if (name === 'WRITEBMP' || name === 'WRITERGB') return `${name} is Mathcad's, and writes a file on Mathcad's computer. Use writeImage instead, which offers the picture to save.`;
+  return `${name} is Mathcad's, and writes a file on Mathcad's computer. MathMath doesn't write data files: copy the results from the sheet instead.`;
+}
+
+/** A vector for length and last: a column, as Mathcad requires. */
+function columnOf(v: Value, fn: string): Mat {
+  const m = requireMat(v, `${fn}'s argument`);
+  if (m.cols !== 1) throw new EvalError('runtime', `${fn} takes a vector, one column: this has ${m.cols} columns`);
+  return m;
+}
+
 export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
   const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - origin;
   const next = (): number => (hooks.random ?? Math.random)();
@@ -249,8 +266,9 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     Re: scalar((x) => num(x.re, x.dim)), Im: scalar((x) => num(x.im, x.dim)), arg: scalar((x) => num(Math.atan2(x.im, x.re))),
     max: (...a) => extreme(a, 1), min: (...a) => extreme(a, -1),
     rows: (m) => num(requireMat(m).rows), cols: (m) => num(requireMat(m).cols),
-    length: (m) => num(requireMat(m).rows),
-    last: (m) => num(requireMat(m).rows - 1 + origin),
+    // A column vector only, as in Mathcad 14, which refuses a matrix or a row.
+    length: (m) => num(columnOf(m, 'length').rows),
+    last: (m) => num(columnOf(m, 'last').rows - 1 + origin),
     identity: (n) => identity(requireReal(n), NODIM),
     tr: (m) => {
       const a = requireMat(m);
@@ -541,7 +559,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       t: 'fn',
       name,
       call: () => {
-        throw new EvalError('mathcad', `${name} is Mathcad's, and reads a file on Mathcad's computer. Use Files on the toolbar to load the file instead: it adds readImage, assigned to a variable you name, to use here in its place.`);
+        throw new EvalError('mathcad', mathcadFileHint(name));
       },
     });
   }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { NumberFormat } from '../src/model/ast.js';
-import { formatNumber } from '../src/ui/format.js';
+import { NODIM, newMat, num } from '../src/engine/values.js';
+import { formatNumber, formatValue } from '../src/ui/format.js';
 
 const f = (precision: number, exponent: number, trailingZeros = false): NumberFormat => ({ precision, exponent, trailingZeros });
 
@@ -45,4 +46,28 @@ describe('number display', () => {
     [99999, 5, '99999'],
     [100000, 5, '1\\times10^{5}'],
   ])('the exponent threshold: %s at %s', (x, t, want) => expect(formatNumber(x, f(7, t))).toBe(want));
+});
+
+describe("Mathcad's complex threshold, probed in Mathcad 14 at its default of 10", () => {
+  const c = (re: number, im: number, threshold?: number): string =>
+    formatValue(num(re, NODIM, im), { ...f(3, 3), ...(threshold === undefined ? {} : { complexThreshold: threshold }) });
+  test('a part under 10⁻¹⁰ of the other shows as 0', () => {
+    expect(c(25, -2.296e-15)).toBe('25');
+    expect(c(1, 1e-11)).toBe('1');
+    expect(c(1000, 1e-8)).toBe('1\\times10^{3}');
+    expect(c(1e-11, 1)).toBe('1\\mathrm{i}');
+    expect(c(1e-3, 1e-14)).toBe('1\\times10^{-3}');
+  });
+  test('one above it still shows', () => {
+    expect(c(1, 1e-9)).toBe('1+1\\times10^{-9}\\mathrm{i}');
+    expect(c(1, 2e-10)).toBe('1+2\\times10^{-10}\\mathrm{i}');
+    expect(c(1000, 1e-6)).toBe('1\\times10^{3}+1\\times10^{-6}\\mathrm{i}');
+  });
+  test("a sheet's own threshold applies", () => expect(c(1, 1e-11, 20)).toBe('1+1\\times10^{-11}\\mathrm{i}'));
+  test('elements of a matrix each follow it', () => {
+    const m = newMat(2, 1);
+    m.re.set([25, 3]);
+    m.im = Float64Array.of(1e-14, 4);
+    expect(formatValue(m, f(3, 3))).toBe('\\begin{pmatrix}25\\\\3+4\\mathrm{i}\\end{pmatrix}');
+  });
 });

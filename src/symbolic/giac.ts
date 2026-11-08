@@ -10,6 +10,8 @@ export interface GiacRequest {
   setup: string[];
   command: string;
   cleanup: string[];
+  /** For a final collect: the variable, whose coefficients come back as a list to build the polynomial from. */
+  collectIn?: Expr;
 }
 
 /** Mathcad's name, then Giac's. Note that Giac's `log` is natural. */
@@ -128,7 +130,7 @@ type Sym = Extract<Content, { k: 'sym' }>;
 
 const hasLimitProcess = (c: Sym): boolean => /"k":"(bigop|limit)"/.test(JSON.stringify(c.expr));
 
-function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest): string {
+function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest, last: boolean): string {
   const arg = (i: number): string => {
     const x = c.args[i];
     if (!x) throw new Error(`${c.name} needs an argument`);
@@ -148,7 +150,12 @@ function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest):
     case 'simplify': return `simplify(${cmd})`;
     case 'expand': return /\b(sin|cos|tan)\(/.test(cmd) ? `texpand(${cmd})` : `expand(${cmd})`;
     case 'factor': return `factor(${cmd})`;
-    case 'collect': return `collect(${cmd})`;
+    // As Mathcad: a polynomial in the variable, highest power first, each power's coefficient gathered.
+    // Giac would multiply the coefficients out again, so it gives them as a list and the answer is built here.
+    case 'collect':
+      if (!last || c.args[0]?.k !== 'id') return `collect(${cmd})`;
+      req.collectIn = c.args[0];
+      return `symb2poly(expand(${cmd}),${arg(0)})`;
     // Mathcad lists coefficients from the constant term up.
     case 'coeffs': return `revlist(coeffs(${cmd},${arg(0)}))`;
     case 'parfrac': return `partfrac(${cmd},${arg(0)})`;
@@ -174,7 +181,9 @@ export function buildRequest(expanded: Expr, commands: SymCommand[], p: Printer)
   p.exactNumbers = commands.some((c) => TRANSFORMS.includes(c.name));
   let cmd = p.print(expanded);
   if (commands.length === 0) cmd = `regroup(${cmd})`;
-  for (const command of commands) cmd = applyKeyword(cmd, command, p, req);
+  commands.forEach((command, i) => {
+    cmd = applyKeyword(cmd, command, p, req, i === commands.length - 1);
+  });
   req.command = cmd;
   // Assumptions stay in Giac until purged, and would leak into the next region.
   if (req.setup.length > 0) req.cleanup = p.variables.map((v) => `purge(${v})`);
@@ -205,6 +214,25 @@ function backToSheet(e: Expr, p: Printer): Expr {
   }
 }
 
+/** A polynomial from its coefficients, highest power first, as Mathcad's collect writes it: x² + (a + b)·x + a·b. */
+function polynomial(coefficients: Expr, x: Expr): Expr {
+  if (coefficients.k !== 'matrix') return coefficients;
+  const n = coefficients.items.length;
+  const isReal = (e: Expr, v?: number): boolean => e.k === 'real' && (v === undefined || e.v === v);
+  let out: Expr | null = null;
+  coefficients.items.forEach((coef, i) => {
+    const power = n - 1 - i;
+    if (isReal(coef, 0)) return;
+    const negative = (coef.k === 'real' && coef.v < 0) || (coef.k === 'op' && coef.op === 'neg');
+    const size: Expr = !negative ? coef : coef.k === 'real' ? { k: 'real', v: -coef.v } : (coef as { args: Expr[] }).args[0]!;
+    const xp: Expr | null = power === 0 ? null : power === 1 ? x : { k: 'op', op: 'pow', args: [x, { k: 'real', v: power }] };
+    const term: Expr = !xp ? size : isReal(size, 1) ? xp : { k: 'op', op: 'mult', args: [size, xp] };
+    if (!out) out = negative ? { k: 'op', op: 'neg', args: [term] } : term;
+    else out = { k: 'op', op: negative ? 'minus' : 'plus', args: [out, term] };
+  });
+  return out ?? { k: 'real', v: 0 };
+}
+
 export type GiacAnswer =
   | { result: Expr }
   | { error: string }
@@ -226,6 +254,7 @@ export function readAnswer(out: string, c: Sym, req: GiacRequest, p: Printer): G
   if (text.includes('rootof')) return { retry: `evalf(${req.command})` };
   if (UNEVALUATED.test(text)) return { unevaluated: true };
   let e = backToSheet(parse(text), p);
+  if (req.collectIn) e = polynomial(e, req.collectIn);
   // One solution shows on its own, and none is an error.
   if (e.k === 'matrix' && e.cols === 1 && c.commands.some((k) => k.name === 'solve')) {
     if (e.rows === 0) return { error: 'No solution was found' };

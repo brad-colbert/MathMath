@@ -22,8 +22,8 @@ export const SYMBOLIC: Entry[] = [
     example: ['x^2-5\\cdot x+6\\ \\mathbf{factor}\\to '], answer: '\\left(x-3\\right)\\cdot \\left(x-2\\right)',
   }),
   kw({
-    name: 'float', usage: 'expr float →', summary: 'The expression as a decimal number.',
-    example: ['\\pi \\ \\mathbf{float}\\to '], answer: '3.141592653589793',
+    name: 'float', usage: 'expr float, [n] →', summary: 'The expression as a decimal number, to 20 significant digits, or to n with `float, n`.',
+    example: ['\\pi \\ \\mathbf{float}\\to '], answer: '3.1415926535897932385',
   }),
   kw({
     name: 'solve', usage: 'expr solve, x →', summary: 'The values of x that make an equation true, or an expression zero.',
@@ -32,8 +32,8 @@ export const SYMBOLIC: Entry[] = [
   }),
   kw({
     name: 'collect', usage: 'expr collect, x →', summary: 'The expression with the terms in x gathered together.',
-    details: ['The grouping can differ from Mathcad\'s: an expression may come back partly factored.'],
-    example: ['x\\cdot \\left(x+1\\right)+2\\cdot x\\ \\mathbf{collect},x\\to '], answer: 'x\\cdot \\left(x+3\\right)',
+    details: ['The answer is a polynomial in x, highest power first, as in Mathcad. Terms in anything else, as sin(x), are left as they are.'],
+    example: ['\\left(x+a\\right)\\cdot \\left(x+b\\right)\\ \\mathbf{collect},x\\to '], answer: 'x^{2}+\\left(a+b\\right)\\cdot x+a\\cdot b',
   }),
   kw({
     name: 'coeffs', usage: 'expr coeffs, x →', summary: 'The coefficients of a polynomial in x, as a vector from the constant term up.',

@@ -2,7 +2,7 @@ import type {
   Content, Expr, NumberFormat, OpaqueRegion, PageModel, Region, Stmt, StoredResult, StoredUnit, StoredValue, Target, TextRegion,
   Worksheet,
 } from '../model/ast.js';
-import { DEFAULT_FORMAT, DEFAULT_PAGE } from '../model/ast.js';
+import { DEFAULT_FORMAT, DEFAULT_PAGE, realFrom } from '../model/ast.js';
 import { translateFunction } from './names.js';
 import { gunzip } from './inflate.js';
 import { baseName } from '../engine/files.js';
@@ -133,7 +133,10 @@ function parseApply(e: XElement): Expr {
 export function parseExpr(e: XElement): Expr {
   const tag = e.localName ?? '';
   switch (tag) {
-    case 'real': return { k: 'real', v: parseNumber(e.textContent) };
+    case 'real': {
+      const r = realFrom(e.textContent ?? '');
+      return r.digits ? r : { k: 'real', v: parseNumber(e.textContent) };
+    }
     case 'imag': return { k: 'imag', v: parseNumber(e.textContent) };
     case 'str': return { k: 'str', v: e.textContent ?? '' };
     case 'id': return { k: 'id', name: idName(e) };
@@ -282,6 +285,8 @@ function readFormat(general: XElement | undefined): NumberFormat | undefined {
     precision: Number(general.getAttribute('precision') ?? DEFAULT_FORMAT.precision),
     exponent: Number(general.getAttribute('exponential-threshold') ?? DEFAULT_FORMAT.exponent),
     trailingZeros: general.getAttribute('show-trailing-zeros') === 'true',
+    ...(general.getAttribute('complex-threshold') && Number(general.getAttribute('complex-threshold')) !== 10
+      ? { complexThreshold: Number(general.getAttribute('complex-threshold')) } : {}),
   };
 }
 
