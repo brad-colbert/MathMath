@@ -36,6 +36,9 @@ describe('help', () => {
     for (const e of ENTRIES) for (const n of [e.name, ...(e.also ?? [])]) seen.set(n, (seen.get(n) ?? 0) + 1);
     expect([...seen].filter(([, k]) => k > 1)).toEqual([]);
   });
+  test('prose is plain text, with no LaTeX in it', () => {
+    expect(texts().filter(([, t]) => /\\[a-zA-Z]|_\{|\^\{/.test(t))).toEqual([]);
+  });
   test('every link goes somewhere', () => {
     const broken: string[] = [];
     for (const [where, t] of texts()) {

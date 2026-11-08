@@ -1,7 +1,11 @@
 /** Worksheet model. Node names follow the worksheet schema so that its rules stay in one place. */
 
 export type Expr =
-  | { k: 'real'; v: number }
+  /**
+   * A real number. `digits` keeps it as written when it has more significant digits than a double holds,
+   * as float's 20-digit answers do, so they show in full.
+   */
+  | { k: 'real'; v: number; digits?: string }
   | { k: 'imag'; v: number }
   | { k: 'str'; v: string }
   | { k: 'id'; name: string }
@@ -98,6 +102,11 @@ export interface NumberFormat {
   trailingZeros: boolean;
   /** Complex results as magnitude∠angle in degrees, MathMath's own option. Left out when off. */
   polar?: boolean;
+  /**
+   * Mathcad's complex threshold: a real or imaginary part under 10^−n times the other is shown as 0. 10
+   * when left out, Mathcad's default.
+   */
+  complexThreshold?: number;
 }
 
 export type Content =
@@ -219,4 +228,11 @@ export interface Worksheet {
   otherRegions: Record<string, number>;
   /** Variables produced by embedded components. */
   componentOutputs: string[];
+}
+
+/** A real number read from text, keeping its digits when a double can't hold them all. */
+export function realFrom(text: string): Extract<Expr, { k: 'real' }> {
+  const v = Number(text);
+  const significant = text.replace(/[eE].*$/, '').replace(/[^0-9]/g, '').replace(/^0+/, '').length;
+  return significant > 17 ? { k: 'real', v, digits: text.trim() } : { k: 'real', v };
 }

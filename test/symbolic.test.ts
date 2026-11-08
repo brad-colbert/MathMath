@@ -6,6 +6,7 @@ import { Defs } from '../src/symbolic/defs.js';
 import { NotSymbolic, expand } from '../src/symbolic/expand.js';
 import { Printer, buildRequest, readAnswer } from '../src/symbolic/giac.js';
 import { parse } from '../src/symbolic/text.js';
+import { readTex, tex } from '../src/latex/latex.js';
 import { id, math, real, sheet, stat } from './helpers.js';
 
 const R = (v: number): Expr => ({ k: 'real', v });
@@ -229,5 +230,37 @@ describe('Laplace and z-transforms, as Mathcad keywords', () => {
     // A vector of times with units, as a sheet's t_j := j·ms, is no plain name either.
     const times = { k: 'matrix', rows: 1, cols: 1, items: [op('mult', R(0.001), V('s'))] } as Expr;
     expect(() => buildRequest(t, [{ name: 'laplace', args: [times] }], new Printer())).toThrow('no value on the sheet');
+  });
+});
+
+describe('collect and float, as Mathcad 14 gives them', () => {
+  /** Giac's names for the sheet's, so an answer can be written as Giac would send it. */
+  const giacName = (p: Printer, sheet: string): string => [...p.back].find(([, s]) => s === sheet)?.[0] ?? sheet;
+  test('collect asks for the coefficients, and builds the polynomial in x, highest power first', () => {
+    const p = new Printer();
+    const c = sym(op('mult', op('plus', V('x'), V('a')), op('plus', V('x'), V('b'))), { name: 'collect', args: [V('x')] });
+    const req = buildRequest(c.expr, c.commands, p);
+    expect(req.command).toMatch(/^symb2poly\(expand\(/);
+    const [a, b] = [giacName(p, 'a'), giacName(p, 'b')];
+    const got = readAnswer(`poly1[1,${a}+${b},${a}*${b}]`, c, req, p) as { result: Expr };
+    // Mathcad 14: x² + (a + b)·x + a·b.
+    expect(tex(got.result)).toBe('{x}^{2}+\\left(a+b\\right)\\cdot x+a\\cdot b');
+    // Negative coefficients subtract, and zeros drop out: x³ − 2·x + 1.
+    expect(tex((readAnswer('poly1[1,0,-2,1]', c, req, p) as { result: Expr }).result)).toBe('{x}^{3}-2\\cdot x+1');
+  });
+  test('collect chained before another keyword keeps the old form', () => {
+    const p = new Printer();
+    const req = buildRequest(V('x'), [{ name: 'collect', args: [V('x')] }, { name: 'simplify', args: [] }], p);
+    expect(req.command).toMatch(/^simplify\(collect\(/);
+    expect(req.collectIn).toBeUndefined();
+  });
+  test('float keeps all 20 digits, as Mathcad shows 3.1415926535897932385', () => {
+    const p = new Printer();
+    const c = sym(V('π'), { name: 'float', args: [] });
+    const got = readAnswer('3.1415926535897932385', c, buildRequest(c.expr, c.commands, p), p) as { result: Expr };
+    expect(tex(got.result)).toBe('3.1415926535897932385');
+    // And they survive the text form: reading the LaTeX back keeps them.
+    expect(tex(readTex(tex(got.result)))).toBe('3.1415926535897932385');
+    expect(tex(readTex('-0.33333333333333333333'))).toBe('-0.33333333333333333333');
   });
 });

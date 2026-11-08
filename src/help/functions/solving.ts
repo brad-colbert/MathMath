@@ -80,7 +80,7 @@ export const SOLVING: Entry[] = [
     name: 'Find', group: 'Solving', usage: 'Find(x, y, …)', mathcad: true,
     summary: 'The values of the unknowns that satisfy the constraints in the solve block above it.',
     details: [
-      'Give each unknown a guess value first. Then write `Given`, the constraints, and `Find` below them. Constraints use `=` (typed as a single equals sign), `<`, `>`, `≤`, `≥`. One unknown gives a number; several give a vector, which you can take apart: `{p, q} := Find(x, y)` is written with a matrix of names on the left.',
+      'Give each unknown a guess value first. Then write `Given`, the constraints, and `Find` below them. Constraints use `=` (typed as a single equals sign), `<`, `>`, `≤`, `≥`. One unknown gives a number; several give a vector, which you can take apart: a vector of names (p; q) := Find(x, y) is written with a matrix of names on the left.',
       'An unknown can be a number, a complex number, a vector or a matrix, and have units. The constraints use the same units.',
       'To use a solve block as a function of a parameter, define `f(a) := Find(x)` with the constraints written in terms of `a`. After a `Find` that solves exactly, `ERR` is 0.',
     ],
@@ -156,7 +156,7 @@ export const SOLVING: Entry[] = [
     name: 'rkfixed', group: 'Differential equations', usage: 'rkfixed(y, x1, x2, npoints, D)', mathcad: true,
     summary: 'The solution of a system of differential equations by fourth-order Runge–Kutta, in equal steps from x1 to x2.',
     details: [
-      'y is the vector of starting values at x1 (a one-element vector for a single equation). D(x, y) is a function you define that gives the vector of derivatives, one for each starting value. The y it receives is always a vector, so write `y_{0}` for the first value. npoints is the number of steps, a positive whole number.',
+      'y is the vector of starting values at x1 (a one-element vector for a single equation). D(x, y) is a function you define that gives the vector of derivatives, one for each starting value. The y it receives is always a vector, so write `y[0`, shown y₀, for the first value. npoints is the number of steps, a positive whole number.',
       'The answer is a matrix with npoints+1 rows: the x values in the first column, then one column for each of the y values. x2 can be below x1 to solve backwards. The step is fixed, so a larger npoints is more accurate. For steps chosen to meet an accuracy, see [[Rkadapt]].',
     ],
     units: 'MathMath accepts units here: x with one unit and each y with its own, and D must then give each value in y\'s units per x\'s.',
@@ -178,7 +178,7 @@ export const SOLVING: Entry[] = [
     name: 'rkadapt', group: 'Differential equations', usage: 'rkadapt(y, x1, x2, acc, D, kmax, save)', mathcad: true,
     summary: 'The solution of a system of differential equations by an adaptive Runge–Kutta method, at the points the solver chose.',
     details: [
-      'It differs from [[Rkadapt]] in its output and arguments. Instead of equal steps, the answer has the start, then a row whenever x has moved by more than save since the last row kept, up to kmax rows, and always the end x2. A save of 0 keeps every step. acc is the accuracy wanted, a number above 0 such as `10^{-6}`.',
+      'It differs from [[Rkadapt]] in its output and arguments. Instead of equal steps, the answer has the start, then a row whenever x has moved by more than save since the last row kept, up to kmax rows, and always the end x2. A save of 0 keeps every step. acc is the accuracy wanted, a number above 0 such as 10⁻⁶.',
       'The method is the same as [[Rkadapt]]\'s; only the points reported differ. The answer is a matrix with x in the first column, then one for each y.',
     ],
     units: 'As for [[rkfixed]].',
@@ -211,7 +211,7 @@ export const SOLVING: Entry[] = [
     name: 'Adams', group: 'Differential equations', usage: 'Adams(y, x1, x2, npoints, D, [tol])', mathcad: true,
     summary: 'The solution of a system of differential equations, given at equal steps from x1 to x2, for smooth equations, to an optional tolerance.',
     details: [
-      'Arguments and answer are as for [[Rkadapt]], with an optional last argument: the tolerance, a number above 0 (`10^{-9}` if omitted). In MathMath it shares the adaptive Runge–Kutta solver of [[Rkadapt]].',
+      'Arguments and answer are as for [[Rkadapt]], with an optional last argument: the tolerance, a number above 0 (10⁻⁹ if omitted). In MathMath it shares the adaptive Runge–Kutta solver of [[Rkadapt]].',
       'For stiff equations see [[AdamsBDF]] and [[Radau]].',
     ],
     units: 'As for [[rkfixed]].',
@@ -264,7 +264,7 @@ export const SOLVING: Entry[] = [
     name: 'AdamsBDF', group: 'Differential equations', usage: 'AdamsBDF(y, x1, x2, npoints, D, [J], [tol])', mathcad: true,
     summary: 'The solution of a system of differential equations, given at equal steps from x1 to x2, switching between methods to suit stiff or smooth stretches.',
     details: [
-      'Arguments and answer are as for [[rkfixed]]. After D come two optional arguments, in this order: a Jacobian J(x, y), an n×n matrix of ∂Dᵢ/∂yⱼ (without the ∂D/∂x column [[Stiffb]] takes), and a tolerance. Without J it is found numerically. The default tolerance is `10^{-9}`.',
+      'Arguments and answer are as for [[rkfixed]]. After D come two optional arguments, in this order: a Jacobian J(x, y), an n×n matrix of ∂Dᵢ/∂yⱼ (without the ∂D/∂x column [[Stiffb]] takes), and a tolerance. Without J it is found numerically. The default tolerance is 10⁻⁹.',
       'In MathMath it uses the same stiff solver as [[BDF]] and [[Radau]].',
     ],
     units: 'As for [[rkfixed]].',

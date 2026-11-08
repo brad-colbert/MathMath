@@ -16,7 +16,7 @@ export const IMAGES: Entry[] = [
     summary: 'Splits a color image, with its red, green and blue blocks side by side, into a vector of three matrices (R; G; B).',
     details: [
       'Mathcad\'s file readers and [[readImage]] give color as one matrix three times as wide as the picture: the red block, then the green, then the blue. A matrix like that looks the same as a wide gray image, so only [[imageChannels]], [[toGray]] and [[rgbToHsv]] read it that way. Split it first with this function before blurring or sharpening, or the filter runs across the seams between the blocks.',
-      'Pick a channel out with an index: `C_{0}` is red. [[joinChannels]] does the opposite.',
+      'Pick a channel out with an index: C₀, typed `C[0`, is red. [[joinChannels]] does the opposite.',
     ],
     errors: ['A matrix whose number of columns isn\'t a multiple of 3.', 'Anything but a matrix of real numbers without units.'],
     example: [`M\\coloneq ${COLOR}`, 'C\\coloneq \\mathrm{imageChannels}\\left(M\\right)', 'C_{0}='],

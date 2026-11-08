@@ -1,5 +1,5 @@
 /** Reads math as the algebra engine prints it, into the worksheet tree. */
-import type { Expr } from '../model/ast.js';
+import { type Expr, realFrom } from '../model/ast.js';
 
 type Tok = { t: 'num' | 'id' | 'op'; v: string };
 
@@ -61,7 +61,7 @@ export function parse(src: string): Expr {
     const t = toks[p];
     if (!t) throw new Error('unexpected end');
     p++;
-    if (t.t === 'num') return { k: 'real', v: Number(t.v) };
+    if (t.t === 'num') return realFrom(t.v);
     if (t.t === 'id') {
       if (isOp('(')) {
         p++;

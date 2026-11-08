@@ -29,6 +29,17 @@ export function formatNumber(x: number, f: NumberFormat): string {
   return fixed(x, f);
 }
 
+/**
+ * A part far smaller than the other is shown as 0, by Mathcad's complex threshold: 1 + 10⁻¹¹i shows as 1,
+ * and rounding noise such as 25 − 2·10⁻¹⁵i as 25. Probed in Mathcad 14 at its default of 10.
+ */
+function belowThreshold(n: { re: number; im: number }, f: NumberFormat): { re: number; im: number } {
+  const t = 10 ** -(f.complexThreshold ?? 10);
+  if (n.im !== 0 && Math.abs(n.im) < t * Math.abs(n.re)) return { re: n.re, im: 0 };
+  if (n.re !== 0 && Math.abs(n.re) < t * Math.abs(n.im)) return { re: 0, im: n.im };
+  return n;
+}
+
 /** Magnitude∠angle, the angle in degrees, as phasors are written. */
 function polarForm(n: { re: number; im: number }, f: NumberFormat): string {
   const r = Math.hypot(n.re, n.im);
@@ -40,8 +51,9 @@ function polarForm(n: { re: number; im: number }, f: NumberFormat): string {
  * A complex number as re+im·i, or as magnitude∠angle when the format asks for polar. `polar` is set for every
  * element of a matrix that holds a complex number, so a column of phasors reads alike even where one is real.
  */
-function complex(n: { re: number; im: number }, f: NumberFormat, polar = f.polar === true && n.im !== 0): string {
-  if (polar) return polarForm(n, f);
+function complex(given: { re: number; im: number }, f: NumberFormat, polar?: boolean): string {
+  const n = belowThreshold(given, f);
+  if (polar ?? (f.polar === true && n.im !== 0)) return polarForm(n, f);
   if (n.im === 0) return formatNumber(n.re, f);
   const im = formatNumber(Math.abs(n.im), f);
   if (n.re === 0) return `${n.im < 0 ? '-' : ''}${im}\\mathrm{i}`;

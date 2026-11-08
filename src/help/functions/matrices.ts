@@ -32,13 +32,15 @@ export const MATRICES: Entry[] = [
   {
     name: 'length', group: 'Vectors and matrices', usage: 'length(v)', mathcad: true,
     summary: 'The number of elements in a vector, which is its number of rows.',
-    details: ['For a matrix it gives the number of rows, the same as [[rows]].'],
+    details: ['For the size of a matrix use [[rows]] and [[cols]].'],
+    errors: ['A matrix or a row vector: v must be a single column, as in Mathcad.'],
     example: ['v\\coloneq \\begin{pmatrix}7\\\\8\\\\9\\\\10\\end{pmatrix}', '\\mathrm{length}\\left(v\\right)='],
   },
   {
     name: 'last', group: 'Vectors and matrices', usage: 'last(v)', mathcad: true,
     summary: 'The index of the last element of a vector.',
-    details: ['It counts from ORIGIN, so it is the length minus 1 when ORIGIN is 0. It is handy as the top of a range: `i\\coloneq 0..\\mathrm{last}(v)`.'],
+    errors: ['A matrix or a row vector: v must be a single column, as in Mathcad.'],
+    details: ['It counts from ORIGIN, so it is the length minus 1 when ORIGIN is 0. It is handy as the top of a range: i := 0..last(v).'],
     example: ['v\\coloneq \\begin{pmatrix}7\\\\8\\\\9\\\\10\\end{pmatrix}', '\\mathrm{last}\\left(v\\right)=', 'v_{\\mathrm{last}\\left(v\\right)}='],
   },
   {
