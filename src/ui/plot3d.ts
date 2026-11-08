@@ -24,6 +24,7 @@ import type { PlotData, SurfaceData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content } from '../model/ast.js';
 import { label, ticks } from './plot.js';
+import { pointsPerPixel } from './zoom.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -308,7 +309,7 @@ function hoverNearest(el: HTMLElement, find: (px: number, py: number) => string 
   const readout = el.querySelector<HTMLElement>('.readout')!;
   svg.addEventListener('mousemove', (e) => {
     const box = svg.getBoundingClientRect();
-    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    const [px, py] = [(e.clientX - box.left) * pointsPerPixel(), (e.clientY - box.top) * pointsPerPixel()];
     const text = px >= area.x && px <= area.x + area.w && py >= area.y && py <= area.y + area.h ? find(px, py) : null;
     readout.hidden = !text;
     if (text) readout.textContent = text;

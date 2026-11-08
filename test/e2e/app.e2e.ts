@@ -20,7 +20,7 @@ import { createReadStream, existsSync, mkdtempSync, readdirSync, statSync, write
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
-import puppeteer, { type Page } from 'puppeteer-core';
+import puppeteer, { KnownDevices, type Page } from 'puppeteer-core';
 import { CSP } from '../../vite.config.js';
 import { emptyWorksheet, saveWorksheet } from '../../src/format/native.js';
 import { readTex } from '../../src/latex/latex.js';
@@ -2143,6 +2143,79 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.keyboard.up('Control');
   await idle(page);
   check('undo brings the old numbers back', (await value()) === first, [first, await value()]);
+  await page.close();
+}
+
+// A phone: the page fits the screen, one row of tools, and the keypad for math.
+{
+  const page = await fresh();
+  await page.emulate(KnownDevices['iPhone 13']);
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath');
+  await sleep(300);
+  const layout = () => page.evaluate(() => ({
+    toolbar: document.getElementById('toolbar')!.getBoundingClientRect().height,
+    sheet: document.getElementById('sheet')!.getBoundingClientRect().width,
+    width: innerWidth,
+    keypad: (window as any).mathVirtualKeyboard?.visible === true,
+    bar: !document.getElementById('keypad-bar')?.hidden,
+  }));
+  let l = await layout();
+  check('on a phone the page fits the screen\'s width, and the tools are one row', l.sheet <= l.width && l.sheet > l.width * 0.8 && l.toolbar < 50, l);
+  const box = await page.evaluate(() => document.getElementById('sheet')!.getBoundingClientRect().toJSON());
+  await page.touchscreen.tap(box.left + 60, box.top + 60);
+  await sleep(1500);
+  l = await layout();
+  check('tapping the paper opens math there, with the keypad and its bar', l.keypad && l.bar && (await page.evaluate(() => (window as any).mathmath.paper.mathEditor.isOpen)), l);
+  const caps = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.MLK__keycap')].map((k) => {
+    const r = k.getBoundingClientRect();
+    return { t: k.innerText.trim(), x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width };
+  }).filter((k) => k.w > 0));
+  const key = async (t: string) => {
+    const c = caps.find((k) => k.t === t);
+    if (c) await page.touchscreen.tap(c.x, c.y);
+    await sleep(150);
+  };
+  const action = (t: string) => page.evaluate((label) => [...document.querySelectorAll<HTMLButtonElement>('#keypad-bar button')].find((b) => b.textContent === label)!.click(), t);
+  for (const t of ['x', ':=', '7', '×', '6']) await key(t);
+  await action('⏎');
+  await sleep(300);
+  for (const t of ['x', '=']) await key(t);
+  await action('Done');
+  await idle(page);
+  await sleep(300);
+  const regions = await shown(page);
+  check('keys and the bar type and finish math: x := 7·6, then x = 42', regions.join('|').replace(/\s/g, '').includes('x=42'), regions);
+  l = await layout();
+  check('Done puts the keypad away', !l.keypad && !l.bar, l);
+  // A long press selects a region; then a finger drags it.
+  const first = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: (document.querySelector('.region') as HTMLElement).dataset.id };
+  });
+  const was = (await model(page)).regions.find((r: { id: string }) => r.id === first.id);
+  await page.touchscreen.touchStart(first.x, first.y);
+  await sleep(700);
+  await page.touchscreen.touchEnd();
+  await sleep(100);
+  check('a long press selects a region without opening it', await page.evaluate((id) => document.querySelector(`.region[data-id="${id}"]`)!.classList.contains('selected'), first.id)
+    && !(await page.evaluate(() => (window as any).mathmath.paper.mathEditor.isOpen)));
+  await page.touchscreen.touchStart(first.x, first.y);
+  for (let n = 1; n <= 5; n++) await page.touchscreen.touchMove(first.x + n * 10, first.y + n * 6);
+  await page.touchscreen.touchEnd();
+  await sleep(200);
+  const moved = (await model(page)).regions.find((r: { id: string }) => r.id === first.id);
+  check('a finger drags the selected region', moved.left > was.left + 50 && moved.top > was.top + 30, [was.left, was.top, moved.left, moved.top]);
+  const before = l.sheet;
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === '+')!.click());
+  await sleep(150);
+  check('+ zooms the page in', (await layout()).sheet > before * 1.2);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Fit')!.click());
+  await sleep(150);
+  check('Fit fits it again', Math.abs((await layout()).sheet - before) < 2);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === '☰')!.click());
+  await sleep(150);
+  check('☰ shows every tool', (await layout()).toolbar > 100);
   await page.close();
 }
 

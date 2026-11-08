@@ -10,6 +10,27 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-08
+
+Phones and tablets: the page fits the screen, a one-row toolbar, and a keypad for math.
+
+### Added
+
+- Phones and tablets.
+  - The page fits the screen's width. Pinch, or + and − on the toolbar, zooms it; Fit fits it again.
+  - The toolbar is one row there: Open, Save, undo and redo, zoom and LIVE, with ☰ for every other tool.
+  - Tapping the paper starts math with a keypad: numbers and operators, functions, templates and units,
+    letters and Greek. A bar above it finishes the math (Done, or ⏎ for new math below), moves to the next
+    blank, or evaluates symbolically. Text regions use the phone's own keyboard.
+  - A finger scrolls the page; touching and holding a region selects it, and a finger then drags it.
+  - Help and the trace styles panel fit the screen, and a hosted copy's bar goes below the paper.
+- Help: how to use MathMath on a phone or tablet, under Typing math.
+
+### Known limits
+
+- With a finger, there's no drawing a box to select several regions, and no reading values by hovering over a
+  plot.
+
 ## [0.32.0] - 2026-11-08
 
 Probability distributions and statistics as in Mathcad, Reroll for new random numbers, and an icon.

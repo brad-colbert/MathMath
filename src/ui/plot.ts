@@ -22,6 +22,7 @@ import type { PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
 import { drawContour, drawSurface } from './plot3d.js';
+import { pointsPerPixel } from './zoom.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -277,7 +278,7 @@ function hover(el: HTMLElement, traces: PlotData['traces'], sx: Scale, sy: Scale
   const unmap = (s: Scale, t: number): number => (s.log ? 10 ** (Math.log10(s.lo) + t * (Math.log10(s.hi) - Math.log10(s.lo))) : s.lo + t * (s.hi - s.lo));
   svg.addEventListener('mousemove', (e) => {
     const box = svg.getBoundingClientRect();
-    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    const [px, py] = [(e.clientX - box.left) * pointsPerPixel(), (e.clientY - box.top) * pointsPerPixel()];
     if (px < area.x || px > area.x + area.w || py < area.y || py > area.y + area.h) {
       readout.hidden = true;
       return;
@@ -399,7 +400,7 @@ function polarHover(el: HTMLElement, traces: PlotData['traces'], g: { cx: number
   const readout = el.querySelector<HTMLElement>('.readout')!;
   svg.addEventListener('mousemove', (e) => {
     const box = svg.getBoundingClientRect();
-    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    const [px, py] = [(e.clientX - box.left) * pointsPerPixel(), (e.clientY - box.top) * pointsPerPixel()];
     if (Math.hypot(px - g.cx, py - g.cy) > g.R) {
       readout.hidden = true;
       return;
@@ -527,7 +528,7 @@ function smithHover(el: HTMLElement, traces: PlotData['traces'], g: { cx: number
   const readout = el.querySelector<HTMLElement>('.readout')!;
   svg.addEventListener('mousemove', (e) => {
     const box = svg.getBoundingClientRect();
-    const [px, py] = [(e.clientX - box.left) / PT, (e.clientY - box.top) / PT];
+    const [px, py] = [(e.clientX - box.left) * pointsPerPixel(), (e.clientY - box.top) * pointsPerPixel()];
     if (Math.hypot(px - g.cx, py - g.cy) > g.R) {
       readout.hidden = true;
       return;
