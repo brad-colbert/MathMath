@@ -1,3 +1,18 @@
+// MathMath: math on paper, in the browser.
+// Copyright (C) 2026 Pelican Labs, LLC
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+// License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along with this program. If not,
+// see <https://www.gnu.org/licenses/>.
+
 /**
  * Reads WAV files: PCM at 8, 16, 24 or 32 bits, and 32- or 64-bit floating point, including the extensible
  * header that multichannel and 24-bit files use. Samples come out between −1 and 1, a channel at a time.

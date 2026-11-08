@@ -1,3 +1,18 @@
+// MathMath: math on paper, in the browser.
+// Copyright (C) 2026 Pelican Labs, LLC
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+// License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along with this program. If not,
+// see <https://www.gnu.org/licenses/>.
+
 /**
  * The Help panel: an entry for each function and keyword, and pages on topics, beside the paper. Search finds
  * entries by name or by what they do; each example can be put on the sheet with Insert. F1 opens the entry
@@ -83,6 +98,8 @@ export class HelpPanel {
   private page: Page = { kind: 'home' };
   /** Called when the panel opens, so another panel on the same side can close. */
   onOpen: () => void = () => {};
+  /** Called for About MathMath on the contents page. */
+  onAbout: () => void = () => {};
 
   constructor(private insert: (lines: string[]) => void) {
     this.el.id = 'help-panel';
@@ -133,6 +150,10 @@ export class HelpPanel {
       if (link) {
         e.preventDefault();
         this.go(link.dataset.go!);
+      }
+      if ((e.target as HTMLElement).closest('[data-about]')) {
+        e.preventDefault();
+        this.onAbout();
       }
       const ins = (e.target as HTMLElement).closest<HTMLElement>('[data-insert]');
       if (ins) this.insert(JSON.parse(ins.dataset.insert!) as string[]);
@@ -204,7 +225,7 @@ function home(): string {
     const names = ENTRIES.filter((e) => e.group === g).map((e) => `<a href="#" data-go="${esc(e.name)}" title="${esc(e.summary)}">${esc(e.name)}</a>`);
     return names.length ? `<h3>${esc(g)}</h3><p class="names">${names.join(' ')}</p>` : '';
   }).join('');
-  return `<p class="muted">Press F1 while typing a function's name to open its entry here.</p>${topics ? `<h2>Topics</h2><ul class="topics">${topics}</ul>` : ''}<h2>Functions and keywords</h2>${groups}`;
+  return `<p class="muted">Press F1 while typing a function's name to open its entry here. <a href="#" data-about>About MathMath</a></p>${topics ? `<h2>Topics</h2><ul class="topics">${topics}</ul>` : ''}<h2>Functions and keywords</h2>${groups}`;
 }
 
 function results(query: string): string {

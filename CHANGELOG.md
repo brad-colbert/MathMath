@@ -10,6 +10,22 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-08
+
+A splash screen saying what MathMath is, and the AGPL notice, copyright Pelican Labs, LLC, in every source file.
+
+### Added
+
+- A splash screen when MathMath opens: what it is, in a few lines and a worked example, and the copyright.
+  Start calculating, Esc or a click outside closes it. A tick box turns it off for next time, and the
+  version on the toolbar, or About MathMath in Help, shows it again. It says that Mathcad is PTC's trademark
+  and that MathMath isn't affiliated with or endorsed by PTC; the README says so too.
+
+### Changed
+
+- MathMath is copyright Pelican Labs, LLC, under the GNU Affero General Public License v3.0 or later. Every
+  source file now carries the license notice, and a test checks that new files do too.
+
 ## [0.29.1] - 2026-11-08
 
 length, last, collect, float, complex results and Mathcad's file functions behave as in Mathcad.

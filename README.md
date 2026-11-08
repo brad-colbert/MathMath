@@ -70,4 +70,8 @@ WebAssembly build, and the app runs it unchanged in a Web Worker.
 
 ## License
 
-GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE).
+Copyright (C) 2026 Pelican Labs, LLC.
+
+Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.
+
+GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE). Every source file carries the notice.
