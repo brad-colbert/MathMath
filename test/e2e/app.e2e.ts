@@ -1,3 +1,18 @@
+// MathMath: math on paper, in the browser.
+// Copyright (C) 2026 Pelican Labs, LLC
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+// License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along with this program. If not,
+// see <https://www.gnu.org/licenses/>.
+
 // Drives the production build in headless Chromium with real input events. Everything here is
 // invented: corpus checks live in src/cli. Pass a folder to keep screenshots outside the repository.
 import { execSync } from 'node:child_process';
@@ -42,7 +57,7 @@ const PLAIN: Record<string, string> = {
   '/': 'Slash', '=': 'Equal', '-': 'Minus', '.': 'Period', ';': 'Semicolon', '[': 'BracketLeft', ']': 'BracketRight', ',': 'Comma', ' ': 'Space',
 };
 
-async function fresh(): Promise<Page> {
+async function fresh(withSplash = false): Promise<Page> {
   const page = await browser.newPage();
   page.on('pageerror', (e) => problems.push(`page error: ${String((e as Error).stack ?? e).slice(0, 300)}`));
   page.on('console', (m) => {
@@ -50,6 +65,8 @@ async function fresh(): Promise<Page> {
   });
   page.on('dialog', (d) => void d.accept());
   await page.evaluateOnNewDocument('globalThis.__name = (f) => f;');
+  // The splash would cover the paper: tests of it open their own page.
+  if (!withSplash) await page.evaluateOnNewDocument("try { localStorage.setItem('mathmath.splash', 'off') } catch {}");
   await page.goto(url);
   await page.waitForFunction('!!window.mathmath');
   await page.bringToFront();
@@ -2051,6 +2068,44 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('an equation typed between is a constraint', solveModel.regions[2]?.content.expr?.op === 'equal', solveModel.regions[2]?.content);
   check('Find solves the block', /=4$/.test((shownSolve[3] ?? '').replace(/\s/g, '')), shownSolve);
   check("primes typed after a name are part of it, y''", JSON.stringify(solveModel.regions[4]?.content ?? {}).includes(`"name":"y''"`), solveModel.regions[4]?.content);
+  await page.close();
+}
+
+// The splash: what MathMath is, and the copyright, when it opens.
+{
+  const page = await fresh(true);
+  // Other pages in this browser turned it off; start as a first visit does.
+  await page.evaluate(() => localStorage.removeItem('mathmath.splash'));
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath');
+  await sleep(100);
+  const splash = () => page.evaluate(() => {
+    const s = document.getElementById('splash')!;
+    return { open: !s.hidden, text: s.innerText, focus: document.activeElement?.textContent ?? '' };
+  });
+  let s = await splash();
+  check('the splash shows when the app opens, with the copyright', s.open && s.text.includes('© 2026 Pelican Labs, LLC') && s.text.includes('GNU Affero') && s.text.includes('not affiliated with or endorsed by PTC'), s.text.slice(0, 120));
+  check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  check('Esc closes it', !(await splash()).open);
+  await page.evaluate(() => (document.querySelector('#toolbar .version') as HTMLElement).click());
+  await sleep(60);
+  check('the version on the toolbar opens it again', (await splash()).open);
+  await page.click('#splash .at-start');
+  await page.click('#splash .start');
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath');
+  await sleep(100);
+  check('turned off, it stays closed when the app opens again', !(await splash()).open);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Help')!.click());
+  await sleep(60);
+  await page.evaluate(() => (document.querySelector('#help-panel [data-about]') as HTMLElement).click());
+  await sleep(60);
+  check('About MathMath in Help opens it', (await splash()).open);
+  await page.emulateMediaType('print');
+  check('it doesn\'t print', await page.evaluate(() => getComputedStyle(document.getElementById('splash')!).display === 'none'));
+  await page.emulateMediaType();
   await page.close();
 }
 

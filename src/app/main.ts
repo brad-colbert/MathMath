@@ -1,3 +1,18 @@
+// MathMath: math on paper, in the browser.
+// Copyright (C) 2026 Pelican Labs, LLC
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+// License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along with this program. If not,
+// see <https://www.gnu.org/licenses/>.
+
 import 'mathlive/fonts.css';
 import 'mathlive/static.css';
 import '../ui/app.css';
@@ -6,6 +21,7 @@ import { TEMPLATES, matrixTemplate } from '../ui/editor.js';
 import { Paper } from '../ui/paper.js';
 import { KEYWORDS } from '../symbolic/keywords.js';
 import { HelpPanel, nameAt } from '../ui/help-panel.js';
+import { Splash } from '../ui/splash.js';
 import { regionLatex } from '../latex/region.js';
 import { toggleTitles } from '../ui/slots.js';
 import { TracePanel } from '../ui/trace-panel.js';
@@ -419,8 +435,10 @@ const help = new HelpPanel((lines) => {
   paper.insertExample(lines);
 });
 help.onOpen = () => tracePanel.close();
+help.onAbout = () => splash.open();
 /** Opens help at the name being typed, or in the selected region, or at the contents. */
 function openHelp(): void {
+  if (splash.isOpen) splash.close();
   if (paper.mathEditor.isOpen) {
     const { before, after } = paper.mathEditor.aroundCaret();
     const found = nameAt(before, after);
@@ -529,6 +547,8 @@ toolbar.appendChild(mode);
 const version = document.createElement('span');
 version.className = 'version';
 version.textContent = `MathMath ${__APP_VERSION__}`;
+version.title = 'About MathMath';
+version.addEventListener('click', () => splash.open());
 toolbar.append(busy, title, version);
 
 document.addEventListener('keydown', (e) => {
@@ -564,3 +584,7 @@ showTitle();
 // Test hook. It exposes nothing a user couldn't reach through the page.
 declare global { interface Window { mathmath: unknown } }
 window.mathmath = { doc, paper, load: (name: string, text: string) => doc.replace(readAny(name, text), name), save: () => saveWorksheet(doc.ws) };
+
+// What MathMath is, when it opens, unless the viewer has turned that off.
+const splash = new Splash(__APP_VERSION__);
+splash.atLaunch();

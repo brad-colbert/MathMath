@@ -1,3 +1,18 @@
+// MathMath: math on paper, in the browser.
+// Copyright (C) 2026 Pelican Labs, LLC
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+// License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License along with this program. If not,
+// see <https://www.gnu.org/licenses/>.
+
 // Smoke test of a deployed copy, in a real browser: a numeric answer, symbolic answers from the algebra
 // engine, a plot, saving, and no console errors or policy violations. Also checks the security policy
 // arrives as a header on the page and on the calculation worker's script, which takes its policy from there.
@@ -91,9 +106,11 @@ try {
     secure: window.isSecureContext,
     uuid: typeof crypto.randomUUID === 'function',
     version: document.querySelector('#toolbar .version')?.textContent ?? '',
+    splash: document.getElementById('splash')?.hidden === false && (document.getElementById('splash')?.innerText ?? '').includes('Pelican Labs, LLC'),
   }));
   check('it runs in a secure context', env.secure && env.uuid, env);
   check(`it says it is version ${version}`, env.version === `MathMath ${version}`, env.version);
+  check('the splash shows, with the copyright', env.splash);
 
   await page.evaluate((t) => (window as unknown as { mathmath: { load(n: string, t: string): void } }).mathmath.load('smoke.mathmath', t), saveWorksheet(ws));
   await page.waitForFunction('!window.mathmath.doc.computing', { timeout: 120000 });
