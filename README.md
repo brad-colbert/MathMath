@@ -68,6 +68,25 @@ Symbolic evaluation uses [Giac](https://www-fourier.univ-grenoble-alpes.fr/~pari
 algebra system by Bernard Parisse and others, licensed under the GPL. `scripts/setup.sh` downloads its
 WebAssembly build, and the app runs it unchanged in a Web Worker.
 
+## Hosting a copy
+
+A build with `MATHMATH_SITE` set to a folder holding `site.json` adds a host's own parts without changing the
+app: extra Content Security Policy sources, a script loaded after the app, and a link to the source code in
+About. The script can fill `#site-slot`, a bar at the left of the desk, clear of the paper and of Help on the right,
+that otherwise stays hidden and never prints. A tall ad, such as 160 × 600, suits it.
+
+```json
+{
+  "csp": { "script-src": ["https://ads.example.com"], "frame-src": ["https://ads.example.com"] },
+  "script": "extras.js",
+  "source": "https://github.com/example/MathMath"
+}
+```
+
+The build writes `dist/site/extras.js` and `dist/site/csp.txt`, the full policy for the host to send as a
+`Content-Security-Policy` header. The page carries the same policy in a `<meta>` tag, and both apply. Without
+`MATHMATH_SITE`, a build is exactly as before.
+
 ## License
 
 Copyright (C) 2026 Pelican Labs, LLC.

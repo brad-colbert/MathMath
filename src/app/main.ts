@@ -586,5 +586,5 @@ declare global { interface Window { mathmath: unknown } }
 window.mathmath = { doc, paper, load: (name: string, text: string) => doc.replace(readAny(name, text), name), save: () => saveWorksheet(doc.ws) };
 
 // What MathMath is, when it opens, unless the viewer has turned that off.
-const splash = new Splash(__APP_VERSION__);
+const splash = new Splash(__APP_VERSION__, __SOURCE_URL__);
 splash.atLaunch();

@@ -2089,6 +2089,10 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.keyboard.press('Escape');
   await sleep(60);
   check('Esc closes it', !(await splash()).open);
+  check('a plain build has no site script, and its site bar stays hidden and empty', await page.evaluate(() => {
+    const slot = document.getElementById('site-slot')!;
+    return slot.hidden && slot.childElementCount === 0 && !document.querySelector('script[src="/site/extras.js"]') && !document.querySelector('#splash .legal a');
+  }));
   await page.evaluate(() => (document.querySelector('#toolbar .version') as HTMLElement).click());
   await sleep(60);
   check('the version on the toolbar opens it again', (await splash()).open);

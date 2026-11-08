@@ -10,6 +10,17 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-08
+
+A hook for hosting a copy of MathMath with its own additions, such as ads, without changing the app.
+
+### Added
+
+- A way to host a copy of MathMath with its own additions, such as ads, without changing the app. A build with
+  `MATHMATH_SITE` set to a folder holding `site.json` adds that site's extra security-policy sources, loads
+  its script, and links About to the source code. The script can fill a bar at the left of the desk, clear of the
+  paper and of Help, that otherwise stays hidden and never prints. Builds without it are unchanged. The README describes `site.json`.
+
 ## [0.30.0] - 2026-11-08
 
 A splash screen saying what MathMath is, and the AGPL notice, copyright Pelican Labs, LLC, in every source file.
