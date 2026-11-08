@@ -30,6 +30,7 @@ import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
 import { CIRCUIT_ARITY, circuitFns } from './circuit.js';
 import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { RF_ARITY, rfFns } from './rf.js';
+import { DISTRIBUTION_ARITY, distributionFns } from './distributions.js';
 import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
@@ -49,7 +50,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -480,6 +481,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(circuitFns(origin)),
     // RF: reflection, lines and network parameters (see rf.ts).
     ...withArity(rfFns),
+    // Probability distributions and the statistics beside mean and stdev (see distributions.ts).
+    ...withArity(distributionFns(next)),
     readWav: (source) => {
       const audio = wavFile(source, 'readWav');
       const frames = audio.channels[0]?.length ?? 0;

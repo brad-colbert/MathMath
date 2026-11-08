@@ -331,7 +331,7 @@ export class Evaluator implements Host {
   private compiler = new Compiler(this);
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
   private corners: { at: number; tables: Set<Float64Array> } | null = null;
-  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { ctol?: number; exactCompare?: boolean; zeroOverZero?: boolean }, files?: Files) {
+  constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { ctol?: number; exactCompare?: boolean; zeroOverZero?: boolean; seed?: number }, files?: Files) {
     this.builtins = makeBuiltins(ws.origin, files, {
       interpolated: (xs, at) => {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
@@ -357,7 +357,7 @@ export class Evaluator implements Host {
 
   /** Starts the random stream for a region, so its numbers are the same every time it calculates. */
   randomFor(key: string): void {
-    this.random = stream(key);
+    this.random = stream(key, this.ws.seed ?? 1);
   }
 
   get origin(): number {

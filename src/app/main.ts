@@ -261,6 +261,7 @@ button('Open', 'Open a worksheet (Ctrl+O)', () => void open());
 button('Save', 'Save (Ctrl+S)', () => void save());
 button('Print', 'Print (Ctrl+P)', print);
 button('Help', 'Functions, keywords and topics (F1 on a name)', () => openHelp());
+button('Reroll', 'New random numbers: draw rnd, runif, rnorm and the other random functions again, from a new seed for this worksheet. Undo goes back', () => doc.newRandomNumbers());
 separator();
 button('if', 'Condition on this line (})', inEditor('\\ \\mathbf{if}\\ '));
 button('otherwise', 'Otherwise', inEditor('\\ \\mathbf{otherwise}'));

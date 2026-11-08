@@ -255,7 +255,7 @@ function entryPage(e: Entry): string {
   let note: string | undefined;
   if (e.results === 'symbolic') answers = e.example.map((_, i) => (i === e.example.length - 1 ? e.answer! : ''));
   if (e.results === 'files') note = 'Reads or writes a file, so its answer depends on the file. Attach the file first (Files menu).';
-  if (e.results === 'varies') note = 'Random: the answer differs each time.';
+  if (e.results === 'varies') note = 'Random: the answer depends on the worksheet\'s seed, so it differs from sheet to sheet. New random numbers on the toolbar draws again.';
   return [
     `<h2><code>${esc(e.usage)}</code></h2>`,
     `<p>${origin} <span class="muted">${esc(e.group)}</span></p>`,

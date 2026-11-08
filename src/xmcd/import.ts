@@ -480,6 +480,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
     origin: vars ? num(vars, 'array-origin') : 0,
     tol: vars ? Number(vars.getAttribute('convergence-tolerance') ?? 0.001) : 0.001,
     ctol: vars ? Number(vars.getAttribute('constraint-tolerance') ?? 0.001) : 0.001,
+    ...(vars && Number(vars.getAttribute('random-seed') ?? 1) !== 1 ? { seed: Number(vars.getAttribute('random-seed')) } : {}),
     exactCompare: descendants(root, 'calculationBehavior')[0]?.getAttribute('exact-boolean') !== 'false',
     zeroOverZero: descendants(root, 'calculationBehavior')[0]?.getAttribute('zero-over-zero') === '0',
   };

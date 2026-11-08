@@ -24,7 +24,7 @@
 /** The groups the home page lists entries under, in order. */
 export const GROUPS = [
   'Arithmetic and functions', 'Complex numbers', 'Vectors and matrices', 'Linear algebra', 'Statistics',
-  'Random numbers', 'Interpolation and fitting', 'Strings', 'Solving', 'Differential equations',
+  'Probability distributions', 'Random numbers', 'Interpolation and fitting', 'Strings', 'Solving', 'Differential equations',
   'Fourier transforms', 'Signal processing', 'Filters and systems', 'Images', 'Files',
   'Electrical engineering', 'Circuits', 'RF and microwave', 'Symbolic keywords',
 ] as const;

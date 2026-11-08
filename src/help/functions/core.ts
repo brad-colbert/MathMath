@@ -290,7 +290,7 @@ export const CORE: Entry[] = [
   {
     name: 'mean', group: 'Statistics', usage: 'mean(A, …)', mathcad: true,
     summary: 'The average of all the elements.',
-    details: ['Takes numbers, vectors and matrices, any mix, and averages every element. See also [[stdev]].'],
+    details: ['Takes numbers, vectors and matrices, any mix, and averages every element. See also [[stdev]], [[var]] and [[median]].'],
     units: 'The answer is in the units of the first element.',
     errors: ['Elements that aren\'t numbers.'],
     example: ['\\mathrm{mean}\\left(\\begin{pmatrix}1\\\\2\\\\6\\end{pmatrix}\\right)=', '\\mathrm{mean}\\left(2,4,9\\right)='],
@@ -344,7 +344,7 @@ export const CORE: Entry[] = [
   {
     name: 'rnd', group: 'Random numbers', usage: 'rnd(x)', mathcad: true,
     summary: 'A random number from 0 up to, but not including, x.',
-    details: ['Every value in the range is equally likely. For a vector, gives one new number for each element. For many numbers at once, see [[runif]]; for a bell curve, [[rnorm]]. The numbers change each time the worksheet calculates.'],
+    details: ['Every value in the range is equally likely. For a vector, gives one new number for each element. For many numbers at once, see [[runif]]; for a bell curve, [[rnorm]]. The numbers stay the same each time the worksheet calculates; [[random]] says how to draw new ones.'],
     units: 'The answer is in the units of x.',
     errors: ['A complex x.'],
     results: 'varies',
@@ -353,7 +353,7 @@ export const CORE: Entry[] = [
   {
     name: 'runif', group: 'Random numbers', usage: 'runif(m, a, b)', mathcad: true,
     summary: 'A vector of m random numbers, evenly spread from a up to, but not including, b.',
-    details: ['m is a whole number, 1 or more. For a single number scaled to a range, see [[rnd]]. The numbers change each time the worksheet calculates.'],
+    details: ['m is a whole number, 1 or more. For a single number scaled to a range, see [[rnd]]. The numbers stay the same each time the worksheet calculates; [[random]] says how to draw new ones.'],
     units: 'a and b must be in compatible units; the numbers take a\'s units.',
     errors: ['An m that isn\'t a whole number of 1 or more.', 'Complex a or b, or a and b in different units.'],
     results: 'varies',
@@ -362,7 +362,7 @@ export const CORE: Entry[] = [
   {
     name: 'rnorm', group: 'Random numbers', usage: 'rnorm(m, μ, σ)', mathcad: true,
     summary: 'A vector of m random numbers from a normal distribution with mean μ and standard deviation σ.',
-    details: ['m is a whole number, 1 or more. About two thirds of the numbers fall within σ of μ. The numbers change each time the worksheet calculates. For an even spread, see [[runif]].'],
+    details: ['m is a whole number, 1 or more. About two thirds of the numbers fall within σ of μ. The numbers stay the same each time the worksheet calculates; [[random]] says how to draw new ones. For an even spread, see [[runif]].'],
     units: 'μ and σ must be in compatible units; the numbers take μ\'s units.',
     errors: ['A negative σ.', 'An m that isn\'t a whole number of 1 or more.', 'Complex μ or σ, or μ and σ in different units.'],
     results: 'varies',

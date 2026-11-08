@@ -10,6 +10,32 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-08
+
+Probability distributions and statistics as in Mathcad, Reroll for new random numbers, and an icon.
+
+### Added
+
+- Probability distributions, as Mathcad has them: for each of beta, binomial, Cauchy, chi-squared, exponential,
+  F, gamma, geometric, hypergeometric, lognormal, logistic, negative binomial, normal, Poisson, Student's t,
+  uniform and Weibull, a density or probability (`dnorm`), a cumulative probability (`pnorm`), its inverse
+  (`qnorm`) and random numbers (`rnorm`). Checked against Mathcad 14 to 11 or more digits. Also `erf`,
+  `erfc` and `cnorm`.
+- The statistics Mathcad has beside `mean` and `stdev`: `var` and `Var`, `median`, `mode`, `gmean`, `hmean`,
+  `skew`, `kurt`, `cvar` and `corr`.
+- Reroll on the toolbar draws new random numbers, from a new seed for the worksheet. Random numbers otherwise
+  stay the same as the sheet calculates, and undo brings the old ones back. The seed is saved with the
+  worksheet (a new, optional field in the file), and a Mathcad worksheet's own seed is kept when it's opened.
+- Help: an entry for each new function, and a page on random numbers.
+- An icon: a white M² on blue grid paper, for browser tabs and bookmarks, phone home screens, and the splash.
+  An app manifest lets the browser install MathMath as an app, with its own window.
+
+### Fixed
+
+- A Mathcad worksheet's CTOL, how nearly a solve block's constraints must hold, now applies in the app. It
+  was read from the file but not used when calculating there.
+- Help no longer says random numbers change each time a worksheet calculates; they stay until Reroll.
+
 ## [0.31.0] - 2026-11-08
 
 A hook for hosting a copy of MathMath with its own additions, such as ads, without changing the app.
