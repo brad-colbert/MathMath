@@ -22,6 +22,9 @@ import { Paper } from '../ui/paper.js';
 import { KEYWORDS } from '../symbolic/keywords.js';
 import { HelpPanel, nameAt } from '../ui/help-panel.js';
 import { Splash } from '../ui/splash.js';
+import { fitWidth, getZoom, setZoom, startZoom } from '../ui/zoom.js';
+import { startKeypad } from '../ui/keypad.js';
+import { touchScreen } from '../ui/editor.js';
 import { regionLatex } from '../latex/region.js';
 import { toggleTitles } from '../ui/slots.js';
 import { TracePanel } from '../ui/trace-panel.js';
@@ -136,6 +139,10 @@ async function insertPicture(): Promise<void> {
 const doc = new Doc();
 const toolbar = document.getElementById('toolbar')!;
 const paper = new Paper(document.getElementById('sheet')!, doc);
+// The paper's size on screen: true size, or fitted to a phone's width.
+startZoom(document.getElementById('sheet')!, document.getElementById('sizer')!);
+// On a touch screen, MathMath's keypad while math is edited.
+startKeypad(paper.mathEditor, touchScreen());
 const title = document.createElement('span');
 title.className = 'name';
 
@@ -236,7 +243,7 @@ const print = (): void => {
   window.print();
 };
 
-function button(label: string, title_: string, run: () => void): void {
+function button(label: string, title_: string, run: () => void): HTMLButtonElement {
   const b = document.createElement('button');
   b.textContent = label;
   b.title = title_;
@@ -244,6 +251,7 @@ function button(label: string, title_: string, run: () => void): void {
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', run);
   toolbar.appendChild(b);
+  return b;
 }
 
 const separator = (): void => {
@@ -261,6 +269,22 @@ button('Open', 'Open a worksheet (Ctrl+O)', () => void open());
 button('Save', 'Save (Ctrl+S)', () => void save());
 button('Print', 'Print (Ctrl+P)', print);
 button('Help', 'Functions, keywords and topics (F1 on a name)', () => openHelp());
+// On a phone the toolbar is one row: these, the most used, and ☰ for everything else (see app.css).
+for (const b of [
+  button('↶', 'Undo (Ctrl+Z)', () => {
+    paper.commitAll();
+    doc.undo();
+  }),
+  button('↷', 'Redo (Ctrl+Y)', () => {
+    paper.commitAll();
+    doc.redo();
+  }),
+  button('−', 'Zoom out', () => setZoom(getZoom() / 1.25)),
+  button('+', 'Zoom in', () => setZoom(getZoom() * 1.25)),
+  button('Fit', 'Fit the page to the screen\'s width', () => fitWidth()),
+]) b.classList.add('phone-only', 'essential');
+const more = button('☰', 'More: every tool', () => toolbar.classList.toggle('expanded'));
+more.classList.add('phone-only', 'essential', 'more');
 button('Reroll', 'New random numbers: draw rnd, runif, rnorm and the other random functions again, from a new seed for this worksheet. Undo goes back', () => doc.newRandomNumbers());
 separator();
 button('if', 'Condition on this line (})', inEditor('\\ \\mathbf{if}\\ '));
@@ -551,6 +575,11 @@ version.textContent = `MathMath ${__APP_VERSION__}`;
 version.title = 'About MathMath';
 version.addEventListener('click', () => splash.open());
 toolbar.append(busy, title, version);
+// The tools a phone shows without ☰: open and save, help, and LIVE, beside the phone-only ones.
+for (const b of toolbar.querySelectorAll<HTMLButtonElement>(':scope > button')) {
+  if (['Open', 'Save'].includes(b.textContent ?? '') || b.classList.contains('mode')) b.classList.add('essential');
+}
+busy.classList.add('essential');
 
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;

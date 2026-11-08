@@ -52,6 +52,9 @@ const TO_GREEK: Record<string, string> = {
 };
 const FROM_GREEK = Object.fromEntries(Object.entries(TO_GREEK).map(([k, v]) => [v, k]));
 
+/** A phone or tablet: a touch screen with no fine pointer. */
+export const touchScreen = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
 const PROGRAM_OPEN = '\\begin{array}{|l}';
 const PROGRAM_CLOSE = '\\end{array}';
 
@@ -130,7 +133,8 @@ export class Editor {
     const field = new MathfieldElement();
     field.id = 'editor';
     parent.appendChild(field);
-    field.mathVirtualKeyboardPolicy = 'manual';
+    // On a touch screen MathMath's keypad (keypad.ts) shows while math is edited; with a keyboard, never.
+    field.mathVirtualKeyboardPolicy = touchScreen() ? 'auto' : 'manual';
     field.menuItems = [];
     // Off, because a smart ( wraps everything to its right, such as the dx of an integral.
     field.smartFence = false;
@@ -162,6 +166,7 @@ export class Editor {
     this.baseline = f.getValue('latex-unstyled');
     this.inName = false;
     this.open = true;
+    if (touchScreen()) f.mathVirtualKeyboardPolicy = 'auto';
     f.focus();
     f.position = f.lastOffset;
   }
@@ -192,9 +197,28 @@ export class Editor {
    * `reopening` keeps the focus, for when the editor opens again at once, on the next slot or a new region
    * below. Blurring there lost the focus a moment later, so the next keys typed went nowhere.
    */
+  /** Finishes the math, as Esc ('stay') or Enter ('below') do: for the keypad's buttons. */
+  finish(next: 'stay' | 'below'): void {
+    if (this.open) this.events.commit(this.slotMode ? 'stay' : next);
+  }
+
+  /** Moves to the next blank ■, as Tab does. */
+  nextBlank(): void {
+    this.field.executeCommand('moveToNextPlaceholder');
+  }
+
+  /** Called when the editor closes for good, not to reopen at once: the keypad goes away then. */
+  onClose: () => void = () => {};
+
   close(reopening = false): void {
     this.open = false;
-    if (!reopening) this.field.blur();
+    if (!reopening) {
+      // MathLive keeps its keypad, and the focus, while its policy is 'auto': switched off first, both go.
+      if (touchScreen()) this.field.mathVirtualKeyboardPolicy = 'manual';
+      this.onClose();
+      this.field.blur();
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
     this.hide();
     this.events.closed?.();
   }

@@ -27,6 +27,7 @@ import { formatStored } from './format.js';
 import { drawPlot } from './plot.js';
 import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
+import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
@@ -109,8 +110,67 @@ export class Paper {
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
     window.addEventListener('mousemove', (e) => this.onMove(e));
     window.addEventListener('mouseup', (e) => this.onUp(e));
+    this.touch(sheet);
     document.addEventListener('keydown', (e) => this.onKey(e));
     this.draw(null);
+  }
+
+  /**
+   * A finger: a tap does what a click does, but only once the finger lifts without moving, since a finger
+   * that moves is scrolling the desk, which the browser takes over (and cancels the press). A selected region,
+   * a plot's resize handle or a surface's turning area takes the press at once, so it can be dragged.
+   */
+  private touch(sheet: HTMLElement): void {
+    let tap: PointerEvent | null = null;
+    // A long press on a region selects it without opening it, so a second touch can drag it.
+    let hold: ReturnType<typeof setTimeout> | undefined;
+    sheet.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      // In the math or text being edited, the finger places the caret there, as the editor handles it.
+      const inside = e.target as Node;
+      if (this.editor.field.contains(inside) || this.textEdit?.el.contains(inside)) return;
+      // No mouse events follow a touch handled here, so a tap isn't handled twice.
+      e.preventDefault();
+      if (!e.isPrimary) {
+        tap = null;
+        return;
+      }
+      const target = e.target as HTMLElement;
+      if (target.closest('.region.selected, .handle, .rotate-area')) {
+        this.onDown(e);
+        return;
+      }
+      tap = e;
+      const view = target.closest<HTMLElement>('.region');
+      clearTimeout(hold);
+      if (view) {
+        hold = setTimeout(() => {
+          if (tap !== e) return;
+          tap = null;
+          this.commitAll();
+          this.select([view.dataset.id!]);
+        }, 500);
+      }
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' || !e.isPrimary) return;
+      if (tap && Math.hypot(e.clientX - tap.clientX, e.clientY - tap.clientY) >= 12) clearTimeout(hold);
+      if (this.press) this.onMove(e);
+    });
+    window.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'mouse' || !e.isPrimary) return;
+      clearTimeout(hold);
+      if (tap && Math.hypot(e.clientX - tap.clientX, e.clientY - tap.clientY) < 12) this.onDown(tap);
+      tap = null;
+      this.onUp(e);
+    });
+    window.addEventListener('pointercancel', (e) => {
+      if (e.pointerType === 'mouse') return;
+      tap = null;
+      clearTimeout(hold);
+      if (this.press?.kind === 'region') for (const id of this.selected) this.views.get(id)?.style.removeProperty('transform');
+      this.press = null;
+    });
   }
 
   get mathEditor(): Editor {
@@ -120,7 +180,8 @@ export class Paper {
   /** Point coordinates of a mouse event on the sheet. */
   private point(e: MouseEvent): { x: number; y: number } {
     const box = this.sheet.getBoundingClientRect();
-    return { x: (e.clientX - box.left) / PT, y: (e.clientY - box.top) / PT };
+    const k = pointsPerPixel();
+    return { x: (e.clientX - box.left) * k, y: (e.clientY - box.top) * k };
   }
 
   private draw(ids: Set<string> | null): void {
@@ -439,7 +500,7 @@ export class Paper {
       this.commitAll();
       const top = this.sheet.getBoundingClientRect().top;
       let bottom = this.doc.ws.page.margins.top - 24;
-      for (const el of this.views.values()) bottom = Math.max(bottom, (el.getBoundingClientRect().bottom - top) / PT);
+      for (const el of this.views.values()) bottom = Math.max(bottom, (el.getBoundingClientRect().bottom - top) * pointsPerPixel());
       at = { left: this.doc.ws.page.margins.left, top: bottom + 24 };
     }
     const ids: string[] = [];
@@ -552,8 +613,9 @@ export class Paper {
       const sheet = this.sheet.getBoundingClientRect();
       const f = this.editor.field.getBoundingClientRect();
       const g = this.ghost.getBoundingClientRect();
-      this.ghost.style.left = `${(f.right - sheet.left) / PT + 2}pt`;
-      this.ghost.style.top = `${(f.top + (f.height - g.height) / 2 - sheet.top) / PT}pt`;
+      const k = pointsPerPixel();
+      this.ghost.style.left = `${(f.right - sheet.left) * k + 2}pt`;
+      this.ghost.style.top = `${(f.top + (f.height - g.height) / 2 - sheet.top) * k}pt`;
     });
   }
 
@@ -581,8 +643,9 @@ export class Paper {
       }
     }
     const box = (over ?? el)?.getBoundingClientRect();
-    const left = box ? ((after ? box.right + 2 : box.left) - sheet.left) / PT : region.left;
-    const top = box ? (box.top - sheet.top) / PT : region.top;
+    const k = pointsPerPixel();
+    const left = box ? ((after ? box.right + 2 : box.left) - sheet.left) * k : region.left;
+    const top = box ? (box.top - sheet.top) * k : region.top;
     this.editing = { kind: 'slot', region, slot };
     if (!after) over?.classList.add('editing');
     this.editor.show(left, top, latex, true);
@@ -786,7 +849,7 @@ export class Paper {
     if (!press) return;
     const p = this.point(e);
     const [dx, dy] = [p.x - press.x, p.y - press.y];
-    const far = Math.hypot(dx, dy) * PT > DRAG_THRESHOLD;
+    const far = Math.hypot(dx, dy) * PT * getZoom() > DRAG_THRESHOLD;
     if (press.kind === 'rotate') {
       // Turned live as the pointer moves; the change is recorded once, on release.
       const item = this.doc.find(press.id);
