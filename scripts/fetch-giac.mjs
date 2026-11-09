@@ -14,7 +14,9 @@
 // see <https://www.gnu.org/licenses/>.
 
 // Fetches Giac, the algebra engine, and checks it's the build this project was tested with. It's
-// 19 MB and GPL-licensed, so it's downloaded rather than kept in the repository.
+// 19 MB and GPL-licensed, so it's downloaded rather than kept in the repository. This build reports
+// "giac 1.9.0-xx"; its author ships the identical file as doc/giacwasm.js in the Giac 2.0.0 source package,
+// giac_2.0.0-14.tar.gz, which is the source About links to (README, "Third-party software").
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

@@ -21,6 +21,10 @@ import { convertLatexToMarkup } from 'mathlive';
 
 const OFF_KEY = 'mathmath.splash';
 
+/** Giac, the algebra engine, and the published source of the build MathMath runs (README, "Third-party software"). */
+export const GIAC_HOME = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html';
+export const GIAC_SOURCE = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz';
+
 /** The viewer's choice, kept in this browser. Storage can be missing or refuse, so it never throws. */
 const remembered = (): boolean => {
   try {
@@ -74,8 +78,11 @@ export class Splash {
         </div>
         <p class="hint">Click on the paper and type. F1 opens help any time.</p>
         <p class="legal">© 2026 Pelican Labs, LLC. MathMath ${version} is free software under the GNU Affero General
-          Public License, version 3 or later, with no warranty.${source ? ` <a href="${source}" target="_blank" rel="noopener">Source code</a>.` : ''} Mathcad is a trademark of PTC Inc. MathMath is not
-          affiliated with or endorsed by PTC.</p>
+          Public License, version 3 or later, with no warranty.${source ? ` <a class="site-source" href="${source}" target="_blank" rel="noopener">Source code</a>.` : ''}
+          Exact answers come from <a class="giac" href="${GIAC_HOME}" target="_blank" rel="noopener">Giac</a>, by
+          Bernard Parisse, Renée De Graeve and others, free software under the GNU General Public License, version 3
+          or later: <a class="giac-source" href="${GIAC_SOURCE}" target="_blank" rel="noopener">its source code</a>.
+          Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;
     this.atStart = this.el.querySelector<HTMLInputElement>('.at-start')!;

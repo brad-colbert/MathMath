@@ -68,8 +68,22 @@ is sent as a header on every file, because the calculation worker takes its poli
 ## Third-party software
 
 Symbolic evaluation uses [Giac](https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html), a computer
-algebra system by Bernard Parisse and others, licensed under the GPL. `scripts/setup.sh` downloads its
-WebAssembly build, and the app runs it unchanged in a Web Worker.
+algebra system by Bernard Parisse, Renée De Graeve and others, licensed under the GNU General Public License,
+version 3 or later. `scripts/setup.sh` downloads its WebAssembly build, and the app runs it unchanged in a Web
+Worker. About shows Giac's name, license and source link.
+
+- **The build.** `giacwasm.js` from <https://www-fourier.univ-grenoble-alpes.fr/~parisse/giacjs/giacwasm.js>
+  (19,016,229 bytes, last modified upstream 2025-10-22), pinned by SHA256 in `scripts/fetch-giac.mjs`:
+  `a39869bb02000d0baaf8a24907a57552ab4b63f1944b53c222db8fba2840cb7c`. Asked with `version()`, it reports
+  `giac 1.9.0-xx`: built from the 1.9.0 series, with the exact patch level not recorded in the build. (The
+  `1.6.0` in that folder's `package.json` is the version of the JavaScript wrapper, not of Giac.)
+- **Its source.** Giac's author distributes this identical file, byte for byte, as `doc/giacwasm.js` inside the
+  Giac 2.0.0 source package `giac_2.0.0-14.tar.gz`, at
+  <https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz>
+  (SHA256 `e746ecf6ed8e59ac04b3e6389e7fa3aef1177b12f54c55e38335ba3784a5323f`, as listed in `giac_2.0.0-14.dsc`
+  beside it). That package is the source this project points to. The scripts for building the WebAssembly
+  file itself aren't in it.
+- **License.** GPL-3.0-or-later, as the `package.json` and `LICENSE` published with `giacwasm.js` state.
 
 The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
 `examples/assets/README.md`.

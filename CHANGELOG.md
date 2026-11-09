@@ -10,6 +10,18 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-08
+
+Giac, the algebra engine, credited in the app with its license and source.
+
+### Added
+
+- About names Giac, the algebra engine behind exact answers, with its authors, its license (GNU GPL, version 3
+  or later) and a link to its source code, in every copy of MathMath. Help's page on symbolic evaluation says
+  the same.
+- The README records which Giac build MathMath runs and where its source is published: the build reports
+  giac 1.9.0-xx, and its author ships the identical file in the Giac 2.0.0 source package.
+
 ## [0.36.0] - 2026-11-08
 
 Five more examples: a shelf, a wall, orbits, a spectrum, and exact answers.
