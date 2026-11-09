@@ -203,10 +203,31 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #splash .actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
 #splash .start { font: inherit; font-weight: 600; padding: 7px 18px; border: 1px solid #1d4ed8; border-radius: 5px; background: #2563eb; color: #fff; cursor: pointer; }
 #splash .start:hover { background: #1d4ed8; }
+#splash .try { font: inherit; padding: 7px 14px; border: 1px solid #93c5fd; border-radius: 5px; background: #eff6ff; color: #1d4ed8; cursor: pointer; }
+#splash .try:hover { background: #dbeafe; }
 #splash label { color: #4b5563; font-size: 13px; }
 #splash .hint { margin: 12px 0 0; color: #4b5563; font-size: 13px; }
 #splash .legal { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 11px; }
 @media print { #splash { display: none; } }
+
+/* The Examples gallery, over the desk like the splash. */
+#examples { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: #1f293799; }
+#examples[hidden] { display: none; }
+#examples .card { width: 600px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; padding: 20px 24px;
+  background: #fff; color: #1f2937; border-radius: 6px; box-shadow: 0 18px 50px #0006; font: 14px/1.45 system-ui, sans-serif; }
+#examples .head { display: flex; align-items: center; justify-content: space-between; }
+#examples h2 { margin: 0; font-size: 22px; color: #111; }
+#examples .close { font-size: 22px; line-height: 1; padding: 2px 8px; border: none; background: none; color: #4b5563; cursor: pointer; }
+#examples .intro { margin: 6px 0 12px; color: #4b5563; }
+#examples .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+#examples .list button { width: 100%; text-align: left; font: inherit; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 5px;
+  background: #fbfdfb; color: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+#examples .list button:hover, #examples .list button:focus-visible { border-color: #2563eb; background: #eff6ff; outline: none; }
+#examples .title { font-weight: 600; color: #111; }
+#examples .summary { color: #4b5563; font-size: 13px; }
+#examples .muted { color: #6b7280; }
+@media print { #examples { display: none; } }
 #toolbar .version { cursor: pointer; }
 
 /* A hosted copy's bar at the left of the desk, for its own content such as an ad: hidden unless its script fills it. */

@@ -1,0 +1,37 @@
+[
+  {
+    "slug": "tour",
+    "title": "A two-minute tour",
+    "summary": "Math as you would write it on paper, with units, plots, solving, matrices and exact answers."
+  },
+  {
+    "slug": "projectile",
+    "title": "A baseball and the air",
+    "summary": "How far a thrown ball really goes: a differential equation with units, solved and plotted."
+  },
+  {
+    "slug": "filter",
+    "title": "An active low-pass filter",
+    "summary": "A Sallen–Key filter from its netlist: node voltages at any frequency, a Bode plot, and the −3 dB point."
+  },
+  {
+    "slug": "matching",
+    "title": "Matching an antenna",
+    "summary": "Two parts that match a 25 Ω antenna to a 50 Ω radio, designed by formula and checked on a Smith chart."
+  },
+  {
+    "slug": "tolerance",
+    "title": "Ten thousand voltage dividers",
+    "summary": "Worst case or Monte Carlo? Random parts, statistics and a histogram for a divider built from 5% resistors."
+  },
+  {
+    "slug": "washer",
+    "title": "Measuring a washer in a noisy picture",
+    "summary": "Image processing on a picture made by formula: noise, dead pixels, a median filter, edges, and an area measured to within a few pixels."
+  },
+  {
+    "slug": "earth",
+    "title": "How cloudy is the Earth?",
+    "summary": "A color photograph read from a web address, split into channels and hue, and sorted pixel by pixel into cloud, ocean and land."
+  }
+]

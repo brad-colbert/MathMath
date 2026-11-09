@@ -42,7 +42,10 @@ const math = (latex: string): string => convertLatexToMarkup(latex);
 
 export class Splash {
   readonly el = document.createElement('div');
+  /** Called for Try an example; the splash closes first. */
+  onExamples: () => void = () => {};
   private start: HTMLButtonElement;
+  private try: HTMLButtonElement;
   private atStart: HTMLInputElement;
   private before: Element | null = null;
 
@@ -66,6 +69,7 @@ export class Splash {
         </div>
         <div class="actions">
           <button type="button" class="start">Start calculating</button>
+          <button type="button" class="try">Try an example</button>
           <label><input type="checkbox" class="at-start"> Show this when MathMath opens</label>
         </div>
         <p class="hint">Click on the paper and type. F1 opens help any time.</p>
@@ -75,20 +79,25 @@ export class Splash {
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;
     this.atStart = this.el.querySelector<HTMLInputElement>('.at-start')!;
+    this.try = this.el.querySelector<HTMLButtonElement>('.try')!;
     this.start.addEventListener('click', () => this.close());
+    this.try.addEventListener('click', () => {
+      this.close();
+      this.onExamples();
+    });
     this.atStart.addEventListener('change', () => remember(this.atStart.checked));
     // A click outside the card, or Esc or Enter, closes it too.
     this.el.addEventListener('mousedown', (e) => {
       if (e.target === this.el) this.close();
     });
     this.el.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' || (e.key === 'Enter' && e.target !== this.atStart)) {
+      if (e.key === 'Escape' || (e.key === 'Enter' && e.target !== this.atStart && e.target !== this.try)) {
         e.preventDefault();
         this.close();
       }
       // Tab stays in the card.
       if (e.key === 'Tab') {
-        const stops = [this.start, this.atStart];
+        const stops = [this.start, this.try, this.atStart];
         const at = stops.indexOf(document.activeElement as HTMLButtonElement);
         e.preventDefault();
         stops[(at + (e.shiftKey ? stops.length - 1 : 1)) % stops.length]!.focus();

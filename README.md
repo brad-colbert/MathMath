@@ -30,6 +30,9 @@ npm run test:e2e    # browser tests on the production build
 npm run build
 ```
 
+The worksheets in Examples are written as code, in `examples/sheets`. After changing one, run
+`npm run examples` to rewrite `public/examples`; `npm test` fails while those files are out of date.
+
 To check the engine against results stored in a folder of `.xmcd` worksheets, and to compare ways of
 running programs:
 
@@ -67,6 +70,9 @@ is sent as a header on every file, because the calculation worker takes its poli
 Symbolic evaluation uses [Giac](https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html), a computer
 algebra system by Bernard Parisse and others, licensed under the GPL. `scripts/setup.sh` downloads its
 WebAssembly build, and the app runs it unchanged in a Web Worker.
+
+The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
+`examples/assets/README.md`.
 
 ## Hosting a copy
 

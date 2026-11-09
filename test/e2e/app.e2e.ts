@@ -26,6 +26,7 @@ import { emptyWorksheet, saveWorksheet } from '../../src/format/native.js';
 import { readTex } from '../../src/latex/latex.js';
 import { readRegion } from '../../src/latex/region.js';
 import { autoAxis } from '../../src/model/ast.js';
+import { buildAll } from '../../examples/index.js';
 
 const shots = process.argv[2];
 execSync('npx vite build --logLevel error', { stdio: 'inherit' });
@@ -2294,6 +2295,54 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.emulateMediaType('print');
   check('the panel doesn\'t print', await page.evaluate(() => getComputedStyle(document.getElementById('help-panel')!).display === 'none'));
   await page.emulateMediaType();
+  await page.close();
+}
+
+// Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
+{
+  const page = await fresh(true);
+  await page.evaluate(() => localStorage.removeItem('mathmath.splash'));
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath');
+  await sleep(100);
+  await page.click('#splash .try');
+  await page.waitForFunction(() => document.querySelectorAll('#examples [data-slug]').length > 0, { timeout: 5000 }).catch(() => {});
+  const gallery = () => page.evaluate(() => ({
+    splash: !document.getElementById('splash')!.hidden,
+    open: !document.getElementById('examples')!.hidden,
+    slugs: [...document.querySelectorAll<HTMLElement>('#examples [data-slug]')].map((b) => b.dataset.slug!),
+    focus: (document.activeElement as HTMLElement | null)?.dataset?.slug ?? '',
+  }));
+  const built = buildAll();
+  let g = await gallery();
+  check('Try an example on the splash closes it and opens the gallery, listing every example', !g.splash && g.open && JSON.stringify(g.slugs) === JSON.stringify(built.map((b) => b.slug)), g);
+  check('the first example has focus', g.focus === built[0]?.slug, g.focus);
+  await page.keyboard.press('Escape');
+  await sleep(60);
+  check('Esc closes the gallery', !(await gallery()).open);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === 'Help')!.click());
+  await sleep(60);
+  await page.evaluate(() => (document.querySelector('#help-panel [data-examples]') as HTMLElement).click());
+  await sleep(60);
+  check('Examples in Help opens it', (await gallery()).open);
+  await page.keyboard.press('Escape');
+  for (const b of built) {
+    await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'Examples')!.click());
+    await page.waitForSelector(`#examples [data-slug="${b.slug}"]`, { timeout: 5000 });
+    await page.click(`#examples [data-slug="${b.slug}"]`);
+    await page.waitForFunction((t) => (window as any).mathmath.doc.name === t, { timeout: 5000 }, b.title).catch(() => {});
+    await idle(page);
+    // Symbolic answers come from the algebra engine, which loads on first use.
+    if (b.symbolic) await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.region')].every((e) => !/→\s*$/.test(e.innerText.trim())), { timeout: 60000 }).catch(() => {});
+    const r = await page.evaluate(() => ({
+      name: (window as any).mathmath.doc.name as string,
+      dirty: (window as any).mathmath.doc.dirty as boolean,
+      regions: document.querySelectorAll('.region').length,
+      errors: [...document.querySelectorAll<HTMLElement>('.region.error, .region.stale')].map((e) => [e.dataset.id!, e.title]),
+    }));
+    const unexpected = r.errors.filter(([id]) => !b.sheet.expectedErrors.has(id!));
+    check(`example ${b.slug} opens and calculates with no errors but its own`, r.name === b.title && !r.dirty && r.regions === b.sheet.ws.regions.length + b.sheet.ws.texts.length && unexpected.length === 0 && r.errors.length === b.sheet.expectedErrors.size, r);
+  }
   await page.close();
 }
 

@@ -10,6 +10,25 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-08
+
+Examples: worksheets that show what MathMath does, built into the app.
+
+### Added
+
+- Examples: a gallery of worksheets that show what MathMath does, each a small real problem worked on paper:
+  - a two-minute tour;
+  - a thrown baseball with air drag;
+  - an active low-pass filter from its netlist, with a Bode plot;
+  - matching an antenna on a Smith chart;
+  - a Monte Carlo tolerance study of ten thousand voltage dividers;
+  - measuring a washer in a noisy picture with image processing;
+  - "How cloudy is the Earth?", which reads NASA's public-domain Apollo 17 photograph from its web address and
+    sorts its pixels into cloud, ocean and land by color.
+
+  Open them from Examples on the toolbar (☰ on a phone), Try an example on the splash, or Help's contents. An
+  example opens in place of the worksheet, as Open does, and asks first if there are unsaved changes.
+
 ## [0.34.2] - 2026-11-08
 
 eigenvals in Mathcad's order, and WRITEPRN exactly as Mathcad writes it.

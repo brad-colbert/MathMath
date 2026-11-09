@@ -38,6 +38,7 @@ export const TOPICS: Topic[] = [
         ['F1', 'Help on the function being typed'], ['Esc', 'Finish typing; with nothing open, stop a calculation'],
         ['Ctrl+Z, Ctrl+Y', 'Undo and redo'],
       ] },
+      { p: '**Examples** on the toolbar opens worksheets that show what MathMath does, each a small problem worked on paper. Open one and change a number: everything below it follows.' },
       { p: 'Names are letters, digits and _; a name like R.load has a literal subscript. Functions are called by name with their arguments in brackets, as `sin(x)`. A function of your own is defined like a variable: `f(x):x^2`.' },
       { id: 'typing-2', example: ['f\\left(x\\right)\\coloneq x^{2}-1', 'f\\left(3\\right)='] },
       { h: 'On a phone or tablet' },
