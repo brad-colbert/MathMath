@@ -10,6 +10,15 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-08
+
+The deployed server sends the app manifest with its proper type.
+
+### Fixed
+
+- The deployed server sends the app manifest as `application/manifest+json`, its proper type, rather than as
+  an unknown file. Browsers read it either way; this keeps it correct.
+
 ## [0.34.0] - 2026-11-08
 
 Mathcad's file writes, WRITEBMP, WRITERGB and WRITEPRN, offer their files to save.
