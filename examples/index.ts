@@ -16,15 +16,20 @@
 /** Every example, in the gallery's order, and how to build them. */
 import { saveWorksheet } from '../src/format/native.js';
 import { type Example, Sheet } from './sheet.js';
+import { beam } from './sheets/beam.js';
 import { earth } from './sheets/earth.js';
 import { filter } from './sheets/filter.js';
+import { laplace } from './sheets/laplace.js';
 import { matching } from './sheets/matching.js';
+import { orbits } from './sheets/orbits.js';
 import { projectile } from './sheets/projectile.js';
+import { spectrum } from './sheets/spectrum.js';
 import { tolerance } from './sheets/tolerance.js';
+import { wall } from './sheets/wall.js';
 import { washer } from './sheets/washer.js';
 import { tour } from './sheets/tour.js';
 
-export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth];
+export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace];
 
 export interface Built { slug: string; title: string; summary: string; text: string; sheet: Sheet; symbolic: boolean }
 

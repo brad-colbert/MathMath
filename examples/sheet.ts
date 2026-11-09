@@ -142,13 +142,14 @@ export class Sheet {
     return this;
   }
 
-  /** A paragraph, wrapped at the text width or a narrower one. */
-  text(text: string, opts: { x?: number; width?: number } = {}): this {
+  /** A paragraph, wrapped at the text width or a narrower one. `end` marks the sheet's last. */
+  text(text: string, opts: { x?: number; width?: number; end?: boolean } = {}): this {
     const width = opts.width ?? TEXT_WIDTH - (opts.x ?? 0);
     const perLine = Math.floor((width * 1.15) / 5.4);
     const lines = text.split('\n').reduce((n, para) => n + Math.max(1, Math.ceil(para.length / perLine)), 0);
     const height = lines * 13.5;
-    this.room(height);
+    // A paragraph introduces what follows it, so it never ends a page alone; the sheet's last one has nothing to wait for.
+    this.room(height + (opts.end ? 0 : 40));
     this.ws.texts.push({ id: String(this.id++), left: LEFT + (opts.x ?? 0), top: this.y, width, height, text });
     this.y += height + 8;
     return this;

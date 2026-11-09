@@ -33,5 +33,30 @@
     "slug": "earth",
     "title": "How cloudy is the Earth?",
     "summary": "A color photograph read from a web address, split into channels and hue, and sorted pixel by pixel into cloud, ocean and land."
+  },
+  {
+    "slug": "beam",
+    "title": "How much does a bookshelf sag?",
+    "summary": "Beam bending with units: the sag of a loaded shelf, plotted for two thicknesses, and the thickness root finds to keep it straight."
+  },
+  {
+    "slug": "wall",
+    "title": "Heat loss through a wall",
+    "summary": "Layers in series, temperatures through the wall in °C, and how much insulation pays: vectors, sums and units."
+  },
+  {
+    "slug": "orbits",
+    "title": "Orbits, from a satellite to a comet",
+    "summary": "Kepler's laws: a solve block for the geostationary orbit, then Halley's Comet on a polar plot, with Kepler's equation solved by root."
+  },
+  {
+    "slug": "spectrum",
+    "title": "Finding a hum in the noise",
+    "summary": "An FFT picks two tones out of a signal buried in noise, then a filter in the frequency domain and ifft bring the clean signal back."
+  },
+  {
+    "slug": "laplace",
+    "title": "Exact answers: calculus and Laplace",
+    "summary": "Symbolic derivatives, integrals, limits and series, then a spring and damper solved exactly with the Laplace transform and checked numerically."
   }
 ]
