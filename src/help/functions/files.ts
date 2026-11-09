@@ -85,7 +85,7 @@ export const FILES: Entry[] = [
   {
     name: 'WRITEPRN', group: 'Files', usage: 'WRITEPRN("name") := M', mathcad: true, results: 'files',
     summary: 'Writes a matrix of numbers to a text data file, a line for each row, as Mathcad does.',
-    details: ['As in Mathcad, it\'s written as a definition: `WRITEPRN("out.prn") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'Numbers are written as Mathcad writes them by default: 4 significant figures, each right-aligned in a column 8 characters wide. Values with units are written in base SI units. [[readTable]] reads such a file back.'],
+    details: ['As in Mathcad, it\'s written as a definition: `WRITEPRN("out.prn") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'Numbers are written as Mathcad writes them by default: 4 significant figures, very large and small ones with an exponent, as 1.235e+005, each right-aligned in a column 8 characters wide. Values with units are written in base SI units. [[readTable]] reads such a file back.'],
     errors: ['A matrix of strings, nested arrays or complex numbers.'],
     example: ['M\\coloneq \\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}', '\\mathrm{WRITEPRN}\\left(\\text{"out.prn"}\\right)\\coloneq M'],
   },
