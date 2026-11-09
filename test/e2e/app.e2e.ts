@@ -2349,6 +2349,56 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Regions stay where they are: editing one moves nothing below it, unless it grows into what's below.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const at = (id: string, top: number, latex: string) => ({ id, left: 72, top, alignX: 72, alignY: top + 8, disabled: false, content: readRegion(latex) });
+  ws.regions.push(at('1', 72, 'a\\coloneq 3'), at('2', 100, 'b\\coloneq a+1'), at('3', 220, 'b='));
+  ws.texts.push({ id: '4', left: 72, top: 150, width: 200, height: 14, text: 'A note below' });
+  await page.evaluate((t) => (window as any).mathmath.load('e.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  const tops = async () => {
+    const m = await model(page);
+    return Object.fromEntries([...m.regions, ...m.texts].map((r: { id: string; top: number }) => [r.id, r.top])) as Record<string, number>;
+  };
+  const edit = async (id: string, keysTyped: string, backspaces = 0) => {
+    const box = await page.evaluate((i) => { const r = document.querySelector<HTMLElement>(`#sheet [data-id="${i}"]`)!.getBoundingClientRect(); return { x: r.right - 2, y: r.top + r.height / 2 }; }, id);
+    await page.mouse.click(box.x, box.y);
+    await sleep(150);
+    await page.keyboard.press('End');
+    for (let n = 0; n < backspaces; n++) await page.keyboard.press('Backspace');
+    await keys(page, keysTyped);
+    await page.keyboard.press('Escape');
+    await idle(page);
+  };
+  const t0 = await tops();
+  await edit('1', '4', 1);
+  const t1 = await tops();
+  check('changing a value moves nothing on the sheet', JSON.stringify(t1) === JSON.stringify(t0) && (await model(page)).regions[0].content.value?.v === 4, [t0, t1]);
+  const note = await page.evaluate(() => { const r = document.querySelector<HTMLElement>('#sheet [data-id="4"]')!.getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 }; });
+  await page.mouse.click(note.x, note.y);
+  await sleep(150);
+  await page.mouse.click(note.x + 400, note.y + 300);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  const afterText = await tops();
+  check('clicking into text and out moves nothing', Object.keys(t0).every((k) => afterText[k] === t0[k]), { afterText, model: JSON.stringify((await model(page)).regions.filter((r: { id: string }) => !(r.id in t0))).slice(0, 300), texts: JSON.stringify((await model(page)).texts.filter((r: { id: string }) => !(r.id in t0))).slice(0, 200) });
+  // Nested fractions make the first region tall enough to reach the next one.
+  await edit('1', '/2/3/5/7');
+  const t2 = await tops();
+  const grown = await page.evaluate(() => { const e = document.querySelector<HTMLElement>('#sheet [data-id="1"]')!; return e.offsetTop + e.offsetHeight; });
+  const second = await page.evaluate(() => document.querySelector<HTMLElement>('#sheet [data-id="2"]')!.offsetTop);
+  const d = t2['2']! - t0['2']!;
+  check('growing into a region moves the ones below just clear of it, together', d > 0 && second >= grown && t2['3']! - t0['3']! === d && t2['4']! - t0['4']! === d && t2['1'] === t0['1'], { t0, t2, grown, second });
+  await page.keyboard.down('Control');
+  await page.keyboard.press('z');
+  await page.keyboard.up('Control');
+  await idle(page);
+  check('one undo puts the edit and the move back', JSON.stringify(await tops()) === JSON.stringify(t0), await tops());
+  await page.close();
+}
+
 // Printing: one PDF page per sheet page, sized from the worksheet.
 {
   const page = await fresh();
