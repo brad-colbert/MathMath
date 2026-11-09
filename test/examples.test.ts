@@ -45,11 +45,12 @@ test.each(built.map((b) => [b.slug, b] as const))('%s calculates with no errors 
   const ms = performance.now() - t;
   const symbolic = outs.filter((o) => o.region.content.k === 'sym');
   if (!b.symbolic) expect(symbolic, 'symbolic regions, so mark it symbolic').toEqual([]);
-  // Symbolic regions need the algebra engine, and attached pictures the browser's decoder: the e2e test opens
-  // those there. A picture counts only if it really is attached, so a missing one still fails here.
+  // Symbolic regions, and what uses their answers, need the algebra engine, and attached pictures the browser's
+  // decoder: the e2e test opens those there. A picture counts only if it really is attached, so a missing one still fails here.
   const attached = Object.keys(ws.assets);
   const browserOnly = (o: (typeof outs)[number]): boolean =>
-    o.region.content.k === 'sym' || attached.some((name) => o.error?.reason.startsWith(`${name} isn't attached`));
+    o.region.content.k === 'sym' || (b.symbolic && o.error?.reason === 'needs symbolic evaluation') ||
+    attached.some((name) => o.error?.reason.startsWith(`${name} isn't attached`));
   const wrong = outs.filter((o) => !browserOnly(o) && Boolean(o.error) !== b.sheet.expectedErrors.has(o.region.id));
   expect(wrong.map((o) => [o.region.id, o.error?.reason ?? 'no error, but one was expected'])).toEqual([]);
   expect(outs.filter((o) => o.value || o.error).length).toBeGreaterThan(3);

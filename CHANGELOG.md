@@ -10,6 +10,22 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-08
+
+Five more examples: a shelf, a wall, orbits, a spectrum, and exact answers.
+
+### Added
+
+- Five more examples:
+  - "How much does a bookshelf sag?", beam bending with units, and the thickness that keeps a shelf straight;
+  - "Heat loss through a wall", layers in series, temperatures through the wall in °C, and what thicker
+    insulation saves in a year;
+  - "Orbits, from a satellite to a comet", a solve block for the geostationary orbit, and Halley's Comet on a
+    polar plot with Kepler's equation;
+  - "Finding a hum in the noise", an FFT that picks two tones out of noise, and a filter that brings them back;
+  - "Exact answers: calculus and Laplace", symbolic calculus and algebra, and a spring and damper solved exactly
+    with the Laplace transform and checked against a numerical solution.
+
 ## [0.35.0] - 2026-11-08
 
 Examples: worksheets that show what MathMath does, built into the app.
