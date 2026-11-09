@@ -2122,13 +2122,16 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   });
   let s = await splash();
   check('the splash shows when the app opens, with the copyright', s.open && s.text.includes('© 2026 Pelican Labs, LLC') && s.text.includes('GNU Affero') && s.text.includes('not affiliated with or endorsed by PTC'), s.text.slice(0, 120));
+  const giac = await page.evaluate(() => [...document.querySelectorAll<HTMLAnchorElement>('#splash .legal a.giac, #splash .legal a.giac-source')].map((a) => a.href));
+  check('it names Giac, its license and its source, in every build', s.text.includes('Giac, by Bernard Parisse') && s.text.includes('GNU General Public License')
+    && giac[0] === 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html' && /\/giac_2\.0\.0-14\.tar\.gz$/.test(giac[1] ?? ''), giac);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);
   check('Esc closes it', !(await splash()).open);
   check('a plain build has no site script, and its site bar stays hidden and empty', await page.evaluate(() => {
     const slot = document.getElementById('site-slot')!;
-    return slot.hidden && slot.childElementCount === 0 && !document.querySelector('script[src="/site/extras.js"]') && !document.querySelector('#splash .legal a');
+    return slot.hidden && slot.childElementCount === 0 && !document.querySelector('script[src="/site/extras.js"]') && !document.querySelector('#splash .legal a.site-source');
   }));
   await page.evaluate(() => (document.querySelector('#toolbar .version') as HTMLElement).click());
   await sleep(60);

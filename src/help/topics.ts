@@ -109,6 +109,7 @@ export const TOPICS: Topic[] = [
     body: [
       { p: 'Type an expression and press Ctrl+. for →: the answer is exact, with letters that have no value kept as symbols. A keyword before → says what to do: choose one from Keywords on the toolbar.' },
       { p: 'Keywords: [[simplify]], [[expand]], [[factor]], [[float]], [[solve]], [[collect]], [[coeffs]], [[series]], [[substitute]], [[parfrac]], [[assume]], [[laplace]], [[invlaplace]], [[ztrans]] and [[invztrans]].' },
+      { p: 'The exact answers come from Giac, a computer algebra system by Bernard Parisse and others, which runs in your browser beside MathMath. It is free software under the GNU General Public License; About MathMath links to its source code.' },
     ],
   },
   {
