@@ -741,7 +741,8 @@ describe('length, last and the file functions, as Mathcad 14 has them', () => {
     expect(why('READRGB')).toMatch(/adds readImage/);
     expect(why('READ_RED')).toMatch(/adds readImage/);
     expect(why('READBIN')).toMatch(/can't read binary/);
-    expect(why('WRITEBMP')).toMatch(/writeImage/);
-    expect(why('WRITEPRN')).toMatch(/doesn't write data files/);
+    expect(why('WRITEBMP')).toMatch(/writes a file when it's defined.*WRITEBMP\("name"\) := M/);
+    expect(why('WRITEPRN')).toMatch(/WRITEPRN\("name"\) := M/);
+    expect(why('APPENDPRN')).toMatch(/doesn't write data files/);
   });
 });

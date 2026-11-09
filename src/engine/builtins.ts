@@ -26,7 +26,7 @@ import { convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
 import { IIR_ARITY, iirFns } from './iir.js';
 import { SYSTEM_ARITY, systemFns } from './systems.js';
 import { ODE_ARITY, odeFns } from './ode.js';
-import { IMAGE_ARITY, type Pixels, imageFns, writeImage } from './image.js';
+import { IMAGE_ARITY, type Pixels, type Written, imageFns, writeImage } from './image.js';
 import { CIRCUIT_ARITY, circuitFns } from './circuit.js';
 import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { RF_ARITY, rfFns } from './rf.js';
@@ -194,8 +194,8 @@ export interface Hooks {
   interpolated?(xs: Float64Array, at: number): void;
   /** The next number in [0, 1) from the stream of the region being calculated. */
   random?(): number;
-  /** An image file the region being calculated wrote, to offer for saving. */
-  wrote?(name: string, image: Pixels): void;
+  /** A file the region being calculated wrote, to offer for saving. */
+  wrote?(file: Written): void;
 }
 
 /** Why a Mathcad file function is refused, and what to use instead: readImage, readTable, writeImage or nothing. */
@@ -204,7 +204,7 @@ function mathcadFileHint(name: string): string {
   if (/^READ(RGB|BMP|_)/.test(name)) return load('readImage');
   if (name === 'READPRN' || name === 'READFILE' || name === 'READ') return load('readTable');
   if (name === 'READBIN') return `${name} is Mathcad's, and reads a binary file on Mathcad's computer. MathMath can't read binary data files: save the data as text (CSV) and load it with Files on the toolbar, which adds readTable.`;
-  if (name === 'WRITEBMP' || name === 'WRITERGB') return `${name} is Mathcad's, and writes a file on Mathcad's computer. Use writeImage instead, which offers the picture to save.`;
+  if (name === 'WRITEBMP' || name === 'WRITERGB' || name === 'WRITEPRN') return `${name} writes a file when it's defined, as in Mathcad: ${name}("name") := M. The region then offers the file to save.`;
   return `${name} is Mathcad's, and writes a file on Mathcad's computer. MathMath doesn't write data files: copy the results from the sheet instead.`;
 }
 

@@ -21,7 +21,7 @@ import { Compiler, type Host, type ProgramState } from './compile.js';
 import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
 import { nthDerivative } from './differentiate.js';
 import { odeGrid } from './ode.js';
-import { type Pixels, type Written, pixels } from './image.js';
+import { MATHCAD_WRITES, type Pixels, type Written, mathcadWrite, pixels } from './image.js';
 import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
   transpose, zip,
@@ -337,19 +337,19 @@ export class Evaluator implements Host {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
       },
       random: () => this.random(),
-      wrote: (name, image) => this.writes.at(-1)?.set(name, image),
+      wrote: (file) => this.writes.at(-1)?.set(file.name, file),
     });
   }
 
   /** Files written by the regions being calculated, innermost last: an included sheet's regions nest. */
-  private writes: Map<string, Pixels>[] = [];
+  private writes: Map<string, Written>[] = [];
 
   beginWrites(): void {
     this.writes.push(new Map());
   }
 
   takeWrites(): Written[] {
-    return [...(this.writes.pop() ?? new Map<string, Pixels>())].map(([name, image]) => ({ name, image }));
+    return [...(this.writes.pop() ?? new Map<string, Written>()).values()];
   }
 
   /** The stream random numbers come from, set as each region starts. */
@@ -1378,6 +1378,16 @@ export class Evaluator implements Host {
 
   define(c: Extract<Content, { k: 'define' }>, s: Scope): Value | undefined {
     const t = c.target;
+    // Mathcad writes a file by defining one of its file functions at the file's name: WRITEBMP("a.bmp") := M.
+    if (t.k === 'fn' && t.file && MATHCAD_WRITES.has(t.name)) {
+      const value = this.eval(c.value, s);
+      this.writes.at(-1)?.set(t.params[0]!, mathcadWrite(t.name, t.params[0]!, value));
+      return undefined;
+    }
+    // Mathcad's other file writes, as APPENDPRN("name") := M, aren't carried out: say so, rather than define a function.
+    if (t.k === 'fn' && t.file) {
+      throw new EvalError('mathcad', `${t.name}("${t.params[0]}") := … writes a file in Mathcad. MathMath writes WRITEBMP, WRITERGB and WRITEPRN files, offering them to save; not ${t.name}.`);
+    }
     if (t.k === 'fn') {
       this.assign(t, () => num(0), c.value, s, s);
       return undefined;

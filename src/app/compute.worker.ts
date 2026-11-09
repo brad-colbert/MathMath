@@ -268,7 +268,7 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
 /** What the page shows for one region, with any image files it wrote, copied as pixels are. */
 function shownOf(o: Outcome, format: NumberFormat): Shown {
   const shown = shownValue(o, format);
-  return o.files ? { ...shown, files: o.files.map((f) => ({ name: f.name, image: { ...f.image, rgba: f.image.rgba.slice() } })) } : shown;
+  return o.files ? { ...shown, files: o.files.map((f) => (f.image ? { ...f, image: { ...f.image, rgba: f.image.rgba.slice() } } : { ...f })) } : shown;
 }
 
 /** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */
@@ -306,7 +306,7 @@ function buffersOf(shown: Shown[]): ArrayBuffer[] {
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.plot?.surface ? [s.plot.surface.x.buffer, s.plot.surface.y.buffer, s.plot.surface.z.buffer] : []),
     ...(s.image ? [s.image.rgba.buffer] : []),
-    ...(s.files?.map((f) => f.image.rgba.buffer) ?? []),
+    ...(s.files?.flatMap((f) => (f.image ? [f.image.rgba.buffer] : [])) ?? []),
   ]))] as ArrayBuffer[];
 }
 

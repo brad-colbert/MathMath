@@ -205,7 +205,10 @@ function parseTarget(raw: XElement): Target {
   if (tag === 'function') {
     const [name, vars] = kids(e);
     if (!name || !vars) return { k: 'unsupported', tag: 'function:shape' };
-    return { k: 'fn', name: idName(name), params: kids(vars).map(idName) };
+    const params = kids(vars);
+    // WRITEBMP("name") := M: the parameter is a file's name in quotes, not a name to bind.
+    if (params.length === 1 && params[0]!.localName === 'str') return { k: 'fn', name: idName(name), params: [(params[0]!.textContent ?? '')], file: true };
+    return { k: 'fn', name: idName(name), params: params.map(idName) };
   }
   if (tag === 'matrix') return { k: 'multi', targets: kids(e).map(parseTarget) };
   if (tag === 'apply') {
