@@ -16,6 +16,7 @@
 // Prints the worksheet tree as LaTeX and reads it back. An editor built on LaTeX needs both, so its
 // size and its failures are part of what this spike measures.
 import { type Expr, type Stmt, type Target, realFrom } from '../model/ast.js';
+import { MATHCAD_WRITES } from '../xmcd/names.js';
 
 const GREEK: Record<string, string> = {
   'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ε': '\\varepsilon', 'ζ': '\\zeta', 'η': '\\eta', 'θ': '\\theta',
@@ -117,7 +118,8 @@ export function target(t: Target): string {
     case 'var': return name(t.name);
     case 'index': return `${t.name.includes('.') ? `{${name(t.name)}}` : name(t.name)}_{${t.index.map(tex).join(',')}}`;
     case 'col': return `${name(t.name)}^{\\langle ${tex(t.index)}\\rangle}`;
-    case 'fn': return `${name(t.name)}\\left(${t.params.map(name).join(',')}\\right)`;
+    // A Mathcad file write's parameter is the file's name, kept as a string so its spaces survive.
+    case 'fn': return `${name(t.name)}\\left(${t.params.map((p) => (t.file ? `\\text{"${escapeText(p)}"}` : name(p))).join(',')}\\right)`;
     case 'multi': return `\\begin{pmatrix}${t.targets.map(target).join('\\\\')}\\end{pmatrix}`;
     default: return '\\mathrm{unsupported}';
   }
@@ -261,6 +263,8 @@ export function exprToTarget(e: Expr): Target {
   if (e.k === 'id') return { k: 'var', name: e.name };
   if (e.k === 'call' && e.fn.k === 'id') {
     // A parameter is a name: WRITEPRN("out.prn") := M, Mathcad's way of writing a file, isn't a definition here.
+    // Mathcad writes a file by defining a file function at its name: WRITEBMP("out.bmp") := M.
+    if (MATHCAD_WRITES.has(e.fn.name) && e.args.length === 1 && e.args[0]!.k === 'str') return { k: 'fn', name: e.fn.name, params: [e.args[0]!.v], file: true };
     if (e.args.some((a) => a.k !== 'id')) throw new Error("a function's parameters must be names");
     return { k: 'fn', name: e.fn.name, params: e.args.map((a) => (a as { name: string }).name) };
   }

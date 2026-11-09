@@ -19,7 +19,7 @@
  * for the name being typed.
  */
 import { convertLatexToMarkup } from 'mathlive';
-import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
+import { MATHCAD_FILE_FUNCTIONS, MATHCAD_WRITES } from '../xmcd/names.js';
 import { BY_NAME, ENTRIES, type Entry, GROUPS, RESULTS, TOPICS, TOPIC_BY_ID, type Topic } from '../help/index.js';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`);
@@ -249,7 +249,7 @@ function example(lines: string[], answers: string[] | undefined, note?: string):
 
 function entryPage(e: Entry): string {
   const also = e.also?.length ? `<p class="muted">Also written ${e.also.map((a) => `<code>${esc(a)}</code>`).join(', ')}.</p>` : '';
-  const origin = `<span class="badge">${MATHCAD_FILE_FUNCTIONS.has(e.name) ? 'Mathcad\'s: refused here' : e.mathcad ? 'As in Mathcad' : 'MathMath\'s own'}</span>`;
+  const origin = `<span class="badge">${MATHCAD_FILE_FUNCTIONS.has(e.name) && !MATHCAD_WRITES.has(e.name) ? 'Mathcad\'s: refused here' : e.mathcad ? 'As in Mathcad' : 'MathMath\'s own'}</span>`;
   const section = (title: string, html: string): string => (html ? `<h3>${title}</h3>${html}` : '');
   let answers: string[] | undefined = RESULTS[e.name];
   let note: string | undefined;

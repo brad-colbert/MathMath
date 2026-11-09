@@ -17,9 +17,9 @@ import { describe, expect, test } from 'vitest';
 import { makeBuiltins } from '../src/engine/builtins.js';
 import { runWorksheet } from '../src/engine/evaluate.js';
 import { bayer, pixels } from '../src/engine/image.js';
-import { type Mat, type Value, fromValues, newMat, num, str } from '../src/engine/values.js';
+import { type Mat, type Num, type Value, fromValues, newMat, num, str } from '../src/engine/values.js';
 import { emptyWorksheet } from '../src/format/native.js';
-import { readRegion } from '../src/latex/region.js';
+import { readRegion, regionLatex } from '../src/latex/region.js';
 import ref from './image-reference.json' with { type: 'json' };
 
 // The expected values are SciPy's and Python's answers on invented images, from test/image-reference.py.
@@ -190,7 +190,7 @@ describe('dithering', () => {
 describe('writing and showing', () => {
   test('writeImage hands the region its pixels, and gives back the matrix', () => {
     const wrote: { name: string; w: number; h: number; first: number[] }[] = [];
-    const W = makeBuiltins(0, undefined, { wrote: (name, img) => wrote.push({ name, w: img.width, h: img.height, first: [...img.rgba.slice(0, 4)] }) });
+    const W = makeBuiltins(0, undefined, { wrote: ({ name, image: img }) => wrote.push({ name, w: img!.width, h: img!.height, first: [...img!.rgba.slice(0, 4)] }) });
     const small = mat([[10, 20, 30], [40, 50, 60]]);
     expect(W.get('writeImage')!.call([str('out.png'), small])).toBe(small);
     expect(wrote).toEqual([{ name: 'out.png', w: 3, h: 2, first: [10, 10, 10, 255] }]);
@@ -205,7 +205,7 @@ describe('writing and showing', () => {
       id: `r${i}`, left: 0, top: i * 30 - 8, alignX: 0, alignY: i * 30, disabled: false, content: readRegion(l),
     }));
     const out = runWorksheet(ws);
-    expect(out[1]!.files?.map((f) => [f.name, f.image.width, f.image.height])).toEqual([['a.png', 2, 1]]);
+    expect(out[1]!.files?.map((f) => [f.name, f.image!.width, f.image!.height])).toEqual([['a.png', 2, 1]]);
     expect(out[0]!.files).toBeUndefined();
     expect(out[2]!.files).toBeUndefined();
   });
@@ -217,3 +217,44 @@ describe('writing and showing', () => {
     expect([...fc.slice(4, 7)]).toEqual([0x0d, 0x36, 0x6b]);
   });
 });
+
+describe("Mathcad's file writes, WRITEBMP(\"name\") := M", () => {
+  const run = (...lines: string[]) => {
+    const ws = emptyWorksheet();
+    ws.regions = lines.map((l, i) => ({ id: `r${i}`, left: 0, top: i * 30 - 8, alignX: 0, alignY: i * 30, disabled: false, content: readRegion(l) }));
+    return runWorksheet(ws);
+  };
+  const M = 'M\\coloneq \\begin{pmatrix}0&255\\\\128&64\\end{pmatrix}';
+  test('WRITEBMP offers a gray image, named without its folder', () => {
+    const out = run(M, '\\mathrm{WRITEBMP}\\left(\\text{"C:\\textbackslash data\\textbackslash a b.bmp"}\\right)\\coloneq M');
+    const f = out[1]!.files![0]!;
+    expect([f.name, f.image!.width, f.image!.height, [...f.image!.rgba.slice(0, 8)]]).toEqual(['a b.bmp', 2, 2, [0, 0, 0, 255, 255, 255, 255, 255]]);
+  });
+  test('WRITERGB reads its matrix as red, green and blue side by side', () => {
+    const f = run('C\\coloneq \\begin{pmatrix}255&0&9\\end{pmatrix}', '\\mathrm{WRITERGB}\\left(\\text{"red.gif"}\\right)\\coloneq C')[1]!.files![0]!;
+    expect([f.image!.width, [...f.image!.rgba]]).toEqual([1, [255, 0, 9, 255]]);
+  });
+  test('WRITEPRN writes numbers as Mathcad does: 4 figures, right-aligned in columns of 8', () => {
+    const f = run(M, '\\mathrm{WRITEPRN}\\left(\\text{"d.prn"}\\right)\\coloneq M\\cdot 1.23456')[1]!.files![0]!;
+    expect(f).toEqual({ name: 'd.prn', text: '       0   314.8\r\n     158   79.01\r\n' });
+  });
+  test('the name keeps its spaces through the text form, and the write is undone by a definition of its own', () => {
+    const typed = '\\mathrm{WRITEBMP}\\left(\\text{"my picture.bmp"}\\right)\\coloneq M';
+    const region = readRegion(typed);
+    expect(region).toMatchObject({ k: 'define', target: { k: 'fn', name: 'WRITEBMP', params: ['my picture.bmp'] } });
+    expect(regionLatex(region)).toBe(typed);
+    // A sheet that defines a function named WRITEPRN gets its own function, not a file.
+    const own = run('\\mathrm{WRITEPRN}\\left(x\\right)\\coloneq x+1', '\\mathrm{WRITEPRN}\\left(2\\right)=');
+    expect((own[1]!.value as Num).re).toBe(3);
+  });
+  test("Mathcad's other file writes say they aren't carried out", () => {
+    const ws = emptyWorksheet();
+    ws.regions = [{ id: 'r', left: 0, top: 0, alignX: 0, alignY: 8, disabled: false, content: { k: 'define', target: { k: 'fn', name: 'APPENDPRN', params: ['log.prn'], file: true }, value: { k: 'real', v: 1 }, global: false, stored: null, unit: null, shown: false } }];
+    expect(runWorksheet(ws)[0]!.error).toMatchObject({ kind: 'mathcad', reason: expect.stringMatching(/not APPENDPRN/) });
+  });
+  test('what a write refuses', () => {
+    expect(run('\\mathrm{WRITERGB}\\left(\\text{"a.bmp"}\\right)\\coloneq \\begin{pmatrix}1&2\\end{pmatrix}')[0]!.error?.reason).toMatch(/three equal blocks/);
+    expect(run('\\mathrm{WRITEPRN}\\left(\\text{"a.prn"}\\right)\\coloneq \\begin{pmatrix}1\\mathrm{i}\\end{pmatrix}')[0]!.error?.reason).toMatch(/real numbers only/);
+  });
+});
+

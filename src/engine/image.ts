@@ -27,6 +27,7 @@
  * The tests check them against SciPy's `ndimage`, on invented images.
  */
 import { EvalError, type Mat, type Value, fromValues, isNoDim, newMat, requireReal } from './values.js';
+import { MATHCAD_WRITES } from '../xmcd/names.js';
 
 /** One channel, column by column, as matrices are stored. */
 interface Channel { rows: number; cols: number; v: Float64Array }
@@ -509,7 +510,8 @@ export interface Pixels {
 }
 
 /** An image file a region wrote with `writeImage`, kept with its outcome so the page can offer to save it. */
-export interface Written { name: string; image: Pixels }
+/** A file a region wrote, for the page to offer to save: an image, or text such as a data file. */
+export interface Written { name: string; image?: Pixels; text?: string }
 
 /** The sequential blue ramp the surface plots use, light to dark, for false color. */
 const RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b']
@@ -576,11 +578,42 @@ export function pixels(v: Value, mode: 'gray' | 'rgb', look: Look = {}): Pixels 
 }
 
 /** `writeImage("name.png", M)`: M as an image file to save, gray from a plain matrix, color from (R; G; B). */
-export function writeImage(name: Value, m: Value, wrote: ((name: string, image: Pixels) => void) | undefined): Value {
+export function writeImage(name: Value, m: Value, wrote: ((file: Written) => void) | undefined): Value {
   if (name.t !== 'str') throw new EvalError('runtime', 'writeImage needs a file name in quotes, such as "result.png"');
   if (/[\\/]/.test(name.v)) throw new EvalError('runtime', 'writeImage takes a file name, not a folder path: the browser asks where to save it');
   if (!/\.(png|jpe?g|webp)$/i.test(name.v)) throw new EvalError('runtime', 'writeImage writes .png, .jpg or .webp files');
   const img = imageOf(m, 'writeImage');
-  wrote?.(name.v, pixels(valueOf(img), 'gray'));
+  wrote?.({ name: name.v, image: pixels(valueOf(img), 'gray') });
   return m;
+}
+
+/**
+ * Mathcad's file-writing definitions, `WRITEBMP("name") := M`, which MathMath offers to save as writeImage
+ * does: WRITEBMP a gray image, WRITERGB a color one with its red, green and blue blocks side by side, and
+ * WRITEPRN a data file of numbers. The file is named without its folder, since the browser asks where it goes.
+ */
+export { MATHCAD_WRITES };
+
+export function mathcadWrite(fn: string, path: string, v: Value): Written {
+  const name = path.split(/[\\/]/).pop()?.trim() || path;
+  if (fn === 'WRITEPRN') return { name, text: prnText(v) };
+  return { name, image: pixels(v, fn === 'WRITERGB' ? 'rgb' : 'gray') };
+}
+
+/**
+ * Numbers as Mathcad's WRITEPRN writes them, with its default PRNPRECISION of 4 significant figures and
+ * PRNCOLWIDTH of 8: a line for each row, each number right-aligned in its column. Units go as base SI values.
+ */
+function prnText(v: Value): string {
+  const m: Mat = v.t === 'mat' ? v : v.t === 'num' ? Object.assign(newMat(1, 1), { re: Float64Array.of(v.re) }) : (() => {
+    throw new EvalError('runtime', 'WRITEPRN writes a matrix or a number');
+  })();
+  if (m.cells || m.im?.some((x) => x !== 0)) throw new EvalError('runtime', 'WRITEPRN writes real numbers only: no nested arrays, strings or complex numbers');
+  const lines: string[] = [];
+  for (let i = 0; i < m.rows; i++) {
+    let line = '';
+    for (let j = 0; j < m.cols; j++) line += String(Number(m.re[i + j * m.rows]!.toPrecision(4))).padStart(8);
+    lines.push(line);
+  }
+  return `${lines.join('\r\n')}\r\n`;
 }

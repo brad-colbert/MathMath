@@ -14,20 +14,57 @@
 // see <https://www.gnu.org/licenses/>.
 
 /**
- * The Save buttons under a region that wrote image files with writeImage. A browser can't write to disk
- * while a sheet calculates, so the region keeps the pixels and the button saves them when clicked: the
- * file is encoded then, as PNG, JPEG or WebP from its name, and the browser's download asks where it goes.
+ * The Save buttons under a region that wrote files, with writeImage or Mathcad's WRITEBMP, WRITERGB and
+ * WRITEPRN. A browser can't write to disk while a sheet calculates, so the region keeps what it wrote and the
+ * button saves it when clicked: an image is encoded then, as PNG, JPEG or WebP by the browser or BMP here, from
+ * its name; text goes as it is. The browser's download asks where it goes.
  */
 import type { Pixels, Written } from '../engine/image.js';
 
-const TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+const TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
 
 export function mimeOf(name: string): string {
   return TYPES[name.split('.').pop()!.toLowerCase()] ?? 'image/png';
 }
 
+/** The name an image is saved under: one the browser can't write, as .gif, becomes .png. */
+export function savedName(name: string): string {
+  return TYPES[name.split('.').pop()!.toLowerCase()] ? name : `${name.replace(/\.[^.]*$/, '')}.png`;
+}
+
+/** An uncompressed 24-bit BMP, bottom row first, as Mathcad writes. Browsers don't encode BMP. */
+function bmp(image: Pixels): Blob {
+  const { width: w, height: h, rgba } = image;
+  const row = Math.ceil((w * 3) / 4) * 4;
+  const size = 54 + row * h;
+  const out = new DataView(new ArrayBuffer(size));
+  out.setUint8(0, 0x42);
+  out.setUint8(1, 0x4d);
+  out.setUint32(2, size, true);
+  out.setUint32(10, 54, true);
+  out.setUint32(14, 40, true);
+  out.setInt32(18, w, true);
+  out.setInt32(22, h, true);
+  out.setUint16(26, 1, true);
+  out.setUint16(28, 24, true);
+  out.setUint32(34, row * h, true);
+  out.setInt32(38, 2835, true);
+  out.setInt32(42, 2835, true);
+  for (let y = 0; y < h; y++) {
+    const at = 54 + (h - 1 - y) * row;
+    for (let x = 0; x < w; x++) {
+      const p = (y * w + x) * 4;
+      out.setUint8(at + x * 3, rgba[p + 2]!);
+      out.setUint8(at + x * 3 + 1, rgba[p + 1]!);
+      out.setUint8(at + x * 3 + 2, rgba[p]!);
+    }
+  }
+  return new Blob([out.buffer], { type: 'image/bmp' });
+}
+
 /** The image encoded as its file type. */
 export function encode(image: Pixels, mime: string): Promise<Blob> {
+  if (mime === 'image/bmp') return Promise.resolve(bmp(image));
   const canvas = document.createElement('canvas');
   canvas.width = image.width;
   canvas.height = image.height;
@@ -36,11 +73,12 @@ export function encode(image: Pixels, mime: string): Promise<Blob> {
 }
 
 async function save(file: Written): Promise<void> {
-  const blob = await encode(file.image, mimeOf(file.name));
+  const name = file.image ? savedName(file.name) : file.name;
+  const blob = file.image ? await encode(file.image, mimeOf(name)) : new Blob([file.text ?? ''], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = file.name;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -59,8 +97,11 @@ export function drawSaves(el: HTMLElement, files: Written[] | undefined): void {
   for (const f of files) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = `Save ${f.name}`;
-    b.title = `${f.image.width} × ${f.image.height} pixels, from writeImage. Saves the latest result`;
+    const name = f.image ? savedName(f.name) : f.name;
+    b.textContent = `Save ${name}`;
+    b.title = f.image
+      ? `${f.image.width} × ${f.image.height} pixels${name !== f.name ? `, as PNG: the browser can't write ${f.name.split('.').pop()} files` : ''}. Saves the latest result`
+      : `${(f.text ?? '').split('\n').length - 1} lines of numbers. Saves the latest result`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       void save(f);

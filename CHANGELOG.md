@@ -10,6 +10,25 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-08
+
+Mathcad's file writes, WRITEBMP, WRITERGB and WRITEPRN, offer their files to save.
+
+### Added
+
+- Mathcad's file writes work: `WRITEBMP("name") := M` writes a gray picture, `WRITERGB("name") := M` a color one
+  from red, green and blue blocks side by side, and `WRITEPRN("name") := M` a data file of numbers. As with
+  `writeImage`, the region shows a Save button that downloads the file, named without the folder in its path.
+  They work in Mathcad worksheets you open, and can be typed. A .bmp name gives a bitmap, as Mathcad writes;
+  a kind the browser can't write, such as .gif, is saved as PNG. WRITEPRN writes 4 significant figures in
+  columns 8 wide, Mathcad's defaults.
+
+### Fixed
+
+- A Mathcad file write in an opened worksheet no longer defines a function named after it, silently writing
+  nothing; and its file name keeps its spaces. `APPENDPRN` and `WRITEBIN` writes now say they aren't carried
+  out.
+
 ## [0.33.0] - 2026-11-08
 
 Phones and tablets: the page fits the screen, a one-row toolbar, and a keypad for math.

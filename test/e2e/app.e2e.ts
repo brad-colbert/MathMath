@@ -2000,6 +2000,42 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('clicking it downloads a PNG named as written', file.type === 'image/png' && file.bytes.join(',') === '137,80,78,71,13,10,26,10' && file.clicked[0] === 'out.png', file);
   await page.close();
 
+  // Mathcad's file writes, WRITEBMP("name") := M and the like, get Save buttons too.
+  const writes = await fresh();
+  await writes.evaluate((lines) => (window as any).mathmath.paper.insertExample(lines), [
+    'M\\coloneq \\begin{pmatrix}0&255\\\\128&64\\end{pmatrix}',
+    '\\mathrm{WRITEBMP}\\left(\\text{"C:\\textbackslash pictures\\textbackslash two by two.bmp"}\\right)\\coloneq M',
+    '\\mathrm{WRITERGB}\\left(\\text{"stars.gif"}\\right)\\coloneq \\begin{pmatrix}255&0&9\\end{pmatrix}',
+    '\\mathrm{WRITEPRN}\\left(\\text{"d.prn"}\\right)\\coloneq M',
+  ]);
+  await idle(writes);
+  await sleep(150);
+  const saves = await writes.evaluate(() => [...document.querySelectorAll('.saves button')].map((b) => b.textContent));
+  check("Mathcad's WRITEBMP, WRITERGB and WRITEPRN offer their files, named without folders; a .gif as PNG", JSON.stringify(saves) === JSON.stringify(['Save two by two.bmp', 'Save stars.png', 'Save d.prn']), saves);
+  const got = await writes.evaluate(async () => {
+    const made: Blob[] = [];
+    const original = URL.createObjectURL;
+    URL.createObjectURL = (b: Blob | MediaSource) => {
+      made.push(b as Blob);
+      return original(b);
+    };
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {};
+    const out: { type: string; head: string }[] = [];
+    for (const b of document.querySelectorAll<HTMLButtonElement>('.saves button')) {
+      const n = made.length;
+      b.click();
+      for (let k = 0; k < 50 && made.length === n; k++) await new Promise((r) => setTimeout(r, 20));
+      const blob = made.at(-1)!;
+      out.push({ type: blob.type, head: new TextDecoder('latin1').decode(new Uint8Array(await blob.arrayBuffer()).slice(0, 16)) });
+    }
+    URL.createObjectURL = original;
+    HTMLAnchorElement.prototype.click = click;
+    return out;
+  });
+  check('they download a bitmap, a PNG and the numbers as text', got[0]?.type === 'image/bmp' && got[0].head.startsWith('BM') && got[1]?.type === 'image/png' && got[2]?.type === 'text/plain' && got[2].head.startsWith('       0     255'), got);
+  await writes.close();
+
   const typed = await fresh();
   await type(typed, 72, 72, 'A:identity(5', R, '*200');
   await type(typed, 72, 160, 'rows(gaussianBlur(A,1', R, R, '=');

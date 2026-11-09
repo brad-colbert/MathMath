@@ -23,6 +23,12 @@ export const MATHCAD_FUNCTIONS: Record<string, string> = {};
  * Mathcad's file functions read paths on Mathcad's machine, which a browser can't. They stay in the
  * sheet, grayed, with advice to load the file with Files instead.
  */
+/**
+ * Mathcad's file-writing functions that MathMath carries out, as `WRITEBMP("name") := M`: the region offers
+ * the file to save (see mathcadWrite in src/engine/image.ts). The rest of MATHCAD_FILE_FUNCTIONS are refused.
+ */
+export const MATHCAD_WRITES = new Set(['WRITEBMP', 'WRITERGB', 'WRITEPRN']);
+
 export const MATHCAD_FILE_FUNCTIONS = new Set([
   'READRGB', 'READBMP', 'READ_IMAGE', 'READ_RED', 'READ_GREEN', 'READ_BLUE', 'READ_HLS', 'READ_HSV',
   'READBIN', 'READPRN', 'READ', 'READFILE', 'WRITERGB', 'WRITEBMP', 'WRITEPRN', 'WRITEBIN', 'WRITE', 'APPENDPRN',

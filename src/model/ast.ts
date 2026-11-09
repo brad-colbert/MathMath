@@ -42,7 +42,11 @@ export type Target =
   | { k: 'var'; name: string }
   | { k: 'index'; name: string; index: Expr[] }
   | { k: 'col'; name: string; index: Expr }
-  | { k: 'fn'; name: string; params: string[] }
+  /**
+   * A function. `file` marks Mathcad's way of writing a file, WRITEBMP("name") := M, whose one parameter is
+   * the file's name in quotes rather than a name to bind.
+   */
+  | { k: 'fn'; name: string; params: string[]; file?: true }
   | { k: 'multi'; targets: Target[] }
   | { k: 'unsupported'; tag: string };
 
