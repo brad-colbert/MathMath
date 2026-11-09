@@ -45,6 +45,9 @@ const snapshot = (ws: Worksheet): Snapshot => ({
 
 const HISTORY = 100;
 
+/** The gap kept between a region that grew and the regions it pushed down, in points. */
+const SEPARATION = 6;
+
 export class Doc {
   ws: Worksheet = emptyWorksheet();
   outcomes = new Map<string, Shown>();
@@ -435,12 +438,15 @@ export class Doc {
     this.touched();
   }
 
-  /** Moves regions below a grown one down by the growth, if they overlap it across the page. */
-  pushDown(id: string, bottom: number, grownBy: number, spans: (other: string) => boolean): void {
-    if (grownBy <= 0) return;
-    const below = new Set(
-      this.items().filter((i) => i.region.id !== id && i.region.top >= bottom - 1 && spans(i.region.id)).map((i) => i.region.id),
-    );
-    if (below.size > 0) this.move(below, 0, grownBy);
+  /**
+   * Moves the regions that were below a region, and share some of its width, down just far enough to clear
+   * its new bottom with a small gap, if it now reaches into any of them. Nothing moves otherwise.
+   */
+  separateBelow(id: string, oldBottom: number, newBottom: number, spans: (other: string) => boolean): void {
+    const below = this.items().filter((i) => i.region.id !== id && i.region.top >= oldBottom - 1 && spans(i.region.id));
+    if (below.length === 0) return;
+    const clearance = newBottom + SEPARATION - Math.min(...below.map((i) => i.region.top));
+    if (clearance > 0) this.move(new Set(below.map((i) => i.region.id)), 0, clearance);
   }
+
 }

@@ -724,6 +724,7 @@ export class Paper {
     const { region, bottom, isNew } = editing;
     const latex = this.editor.value();
     const changed = this.editor.edited();
+    // Where to start a region below: the editor's height is the math as typed, with the editor's padding.
     const height = this.editor.field.offsetHeight / PT;
     this.editor.close(next === 'below');
     this.editing = null;
@@ -738,18 +739,26 @@ export class Paper {
     } else if (changed) {
       this.doc.batch(() => {
         this.doc.setMath(region, latex);
-        this.pushBelow(region.id, bottom, region.top + height);
+        this.separateBelow(region.id, bottom);
       });
     }
     if (next === 'below') this.beginAt(region.left, snap(region.alignY + Math.max(LINE, height)));
   }
 
-  private pushBelow(id: string, oldBottom: number, newBottom: number): void {
-    const box = this.views.get(id)?.getBoundingClientRect();
-    if (!box) return;
-    this.doc.pushDown(id, oldBottom, newBottom - oldBottom, (other) => {
+  /**
+   * Keeps what's below an edited region clear of it. The region is drawn now, as it will show, and measured
+   * the way `bottom` was, so an edit that leaves it the same size moves nothing. Regions below move only if
+   * it now reaches into them, and only far enough to clear it, all together so their layout holds.
+   */
+  private separateBelow(id: string, oldBottom: number): void {
+    this.draw(new Set([id]));
+    const el = this.views.get(id);
+    const region = this.doc.find(id)?.region;
+    if (!el || !region) return;
+    const box = el.getBoundingClientRect();
+    this.doc.separateBelow(id, oldBottom, region.top + el.offsetHeight / PT, (other) => {
       const b = this.views.get(other)?.getBoundingClientRect();
-      return !!b && b.left < box.right + 200 && b.right > box.left - 200;
+      return !!b && b.left < box.right && b.right > box.left;
     });
   }
 

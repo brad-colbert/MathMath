@@ -10,6 +10,17 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-11-09
+
+Editing math no longer moves the regions below it.
+
+### Fixed
+
+- Editing math no longer moves the regions below it. Any change to a region, even one that kept it the same
+  size, pushed everything below it down by a few points, because the editor's box was measured against the
+  region as drawn. Now regions below move only when the edited one actually grows into them, and then just
+  far enough to clear it, all together, as one step to undo.
+
 ## [0.37.0] - 2026-11-08
 
 Giac, the algebra engine, credited in the app with its license and source.
