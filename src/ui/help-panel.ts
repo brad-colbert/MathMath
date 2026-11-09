@@ -100,6 +100,8 @@ export class HelpPanel {
   onOpen: () => void = () => {};
   /** Called for About MathMath on the contents page. */
   onAbout: () => void = () => {};
+  /** Called for Examples on the contents page. */
+  onExamples: () => void = () => {};
 
   constructor(private insert: (lines: string[]) => void) {
     this.el.id = 'help-panel';
@@ -154,6 +156,10 @@ export class HelpPanel {
       if ((e.target as HTMLElement).closest('[data-about]')) {
         e.preventDefault();
         this.onAbout();
+      }
+      if ((e.target as HTMLElement).closest('[data-examples]')) {
+        e.preventDefault();
+        this.onExamples();
       }
       const ins = (e.target as HTMLElement).closest<HTMLElement>('[data-insert]');
       if (ins) this.insert(JSON.parse(ins.dataset.insert!) as string[]);
@@ -225,7 +231,7 @@ function home(): string {
     const names = ENTRIES.filter((e) => e.group === g).map((e) => `<a href="#" data-go="${esc(e.name)}" title="${esc(e.summary)}">${esc(e.name)}</a>`);
     return names.length ? `<h3>${esc(g)}</h3><p class="names">${names.join(' ')}</p>` : '';
   }).join('');
-  return `<p class="muted">Press F1 while typing a function's name to open its entry here. <a href="#" data-about>About MathMath</a></p>${topics ? `<h2>Topics</h2><ul class="topics">${topics}</ul>` : ''}<h2>Functions and keywords</h2>${groups}`;
+  return `<p class="muted">Press F1 while typing a function's name to open its entry here. <a href="#" data-examples>Examples</a> are worksheets that show what MathMath does. <a href="#" data-about>About MathMath</a></p>${topics ? `<h2>Topics</h2><ul class="topics">${topics}</ul>` : ''}<h2>Functions and keywords</h2>${groups}`;
 }
 
 function results(query: string): string {

@@ -22,6 +22,7 @@ import { Paper } from '../ui/paper.js';
 import { KEYWORDS } from '../symbolic/keywords.js';
 import { HelpPanel, nameAt } from '../ui/help-panel.js';
 import { Splash } from '../ui/splash.js';
+import { ExamplesDialog, fetchExample, type ExampleInfo } from '../ui/examples.js';
 import { fitWidth, getZoom, setZoom, startZoom } from '../ui/zoom.js';
 import { startKeypad } from '../ui/keypad.js';
 import { touchScreen } from '../ui/editor.js';
@@ -238,6 +239,25 @@ const fresh = (): void => {
   doc.replace(emptyWorksheet(), 'Untitled');
 };
 
+/** Opens an example in place of the worksheet, as Open would. */
+const openExample = async (example: ExampleInfo): Promise<void> => {
+  paper.commitAll();
+  if (doc.dirty && !window.confirm('Discard unsaved changes?')) return;
+  try {
+    const text = await fetchExample(example.slug);
+    forgetFile();
+    doc.replace(readAny(`${example.slug}.mathmath`, text), example.title);
+  } catch (err) {
+    fail(err);
+  }
+};
+const examples = new ExamplesDialog();
+examples.onPick = (example) => void openExample(example);
+const showExamples = (): void => {
+  if (splash.isOpen) splash.close();
+  examples.open();
+};
+
 const print = (): void => {
   paper.commitAll();
   window.print();
@@ -269,6 +289,7 @@ button('Open', 'Open a worksheet (Ctrl+O)', () => void open());
 button('Save', 'Save (Ctrl+S)', () => void save());
 button('Print', 'Print (Ctrl+P)', print);
 button('Help', 'Functions, keywords and topics (F1 on a name)', () => openHelp());
+button('Examples', 'Example worksheets that show what MathMath does', showExamples);
 // On a phone the toolbar is one row: these, the most used, and ☰ for everything else (see app.css).
 for (const b of [
   button('↶', 'Undo (Ctrl+Z)', () => {
@@ -461,6 +482,7 @@ const help = new HelpPanel((lines) => {
 });
 help.onOpen = () => tracePanel.close();
 help.onAbout = () => splash.open();
+help.onExamples = showExamples;
 /** Opens help at the name being typed, or in the selected region, or at the contents. */
 function openHelp(): void {
   if (splash.isOpen) splash.close();
@@ -617,4 +639,5 @@ window.mathmath = { doc, paper, load: (name: string, text: string) => doc.replac
 
 // What MathMath is, when it opens, unless the viewer has turned that off.
 const splash = new Splash(__APP_VERSION__, __SOURCE_URL__);
+splash.onExamples = showExamples;
 splash.atLaunch();
