@@ -10,6 +10,18 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-11-08
+
+eigenvals in Mathcad's order, and WRITEPRN exactly as Mathcad writes it.
+
+### Fixed
+
+- `eigenvals` lists eigenvalues in Mathcad's order. Mathcad doesn't sort them: their order comes from how they
+  are found, which is LAPACK's way, so MathMath now finds them the same way. 11 of 12 test matrices come out in
+  Mathcad 14's exact order, against 7 before; `eigenvecs` follows the same order.
+- `WRITEPRN` writes numbers exactly as Mathcad 14 does, checked against a file it wrote: very large and small
+  numbers in exponent form, as 1.235e+005, and a space before every column so wide numbers stay apart.
+
 ## [0.34.1] - 2026-11-08
 
 The deployed server sends the app manifest with its proper type.

@@ -234,9 +234,11 @@ describe("Mathcad's file writes, WRITEBMP(\"name\") := M", () => {
     const f = run('C\\coloneq \\begin{pmatrix}255&0&9\\end{pmatrix}', '\\mathrm{WRITERGB}\\left(\\text{"red.gif"}\\right)\\coloneq C')[1]!.files![0]!;
     expect([f.image!.width, [...f.image!.rgba]]).toEqual([1, [255, 0, 9, 255]]);
   });
-  test('WRITEPRN writes numbers as Mathcad does: 4 figures, right-aligned in columns of 8', () => {
-    const f = run(M, '\\mathrm{WRITEPRN}\\left(\\text{"d.prn"}\\right)\\coloneq M\\cdot 1.23456')[1]!.files![0]!;
-    expect(f).toEqual({ name: 'd.prn', text: '       0   314.8\r\n     158   79.01\r\n' });
+  test('WRITEPRN writes numbers as Mathcad 14 does: %.4g, a space, and right-aligned in columns of 8', () => {
+    // Mathcad 14 wrote exactly this for the same matrix, from a probe sheet.
+    const N = 'N\\coloneq \\begin{pmatrix}0&314.81234&-1.5\\\\158.2&79.01&123456.789\\\\10^{-7}&2.5\\cdot 10^{10}&42\\end{pmatrix}';
+    const f = run(N, '\\mathrm{WRITEPRN}\\left(\\text{"d.prn"}\\right)\\coloneq N')[1]!.files![0]!;
+    expect(f).toEqual({ name: 'd.prn', text: '       0   314.8    -1.5\r\n   158.2   79.01 1.235e+005\r\n  1e-007 2.5e+010      42\r\n' });
   });
   test('the name keeps its spaces through the text form, and the write is undone by a definition of its own', () => {
     const typed = '\\mathrm{WRITEBMP}\\left(\\text{"my picture.bmp"}\\right)\\coloneq M';

@@ -601,8 +601,23 @@ export function mathcadWrite(fn: string, path: string, v: Value): Written {
 }
 
 /**
- * Numbers as Mathcad's WRITEPRN writes them, with its default PRNPRECISION of 4 significant figures and
- * PRNCOLWIDTH of 8: a line for each row, each number right-aligned in its column. Units go as base SI values.
+ * A number as C's %.4g writes it, as Mathcad 14 does: 4 significant figures, trailing zeros dropped, and an
+ * exponent of three digits when it is below −4 or 4 and above: 1.235e+005, 1e-007.
+ */
+export function prnNumber(x: number, precision = 4): string {
+  if (x === 0) return '0';
+  if (!Number.isFinite(x)) return Number.isNaN(x) ? 'NaN' : x > 0 ? 'Inf' : '-Inf';
+  const [mantissa, power] = x.toExponential(precision - 1).split('e') as [string, string];
+  const exp = Number(power);
+  const trim = (s: string): string => (s.includes('.') ? s.replace(/\.?0+$/, '') : s);
+  if (exp < -4 || exp >= precision) return `${trim(mantissa)}e${exp < 0 ? '-' : '+'}${String(Math.abs(exp)).padStart(3, '0')}`;
+  return trim(x.toFixed(Math.max(0, precision - 1 - exp)));
+}
+
+/**
+ * Numbers as Mathcad's WRITEPRN writes them, with its default PRNPRECISION of 4 and PRNCOLWIDTH of 8: a line for
+ * each row, each number after a space and right-aligned in the rest of its column, CRLF line ends. Probed in
+ * Mathcad 14. Units go as base SI values.
  */
 function prnText(v: Value): string {
   const m: Mat = v.t === 'mat' ? v : v.t === 'num' ? Object.assign(newMat(1, 1), { re: Float64Array.of(v.re) }) : (() => {
@@ -612,7 +627,7 @@ function prnText(v: Value): string {
   const lines: string[] = [];
   for (let i = 0; i < m.rows; i++) {
     let line = '';
-    for (let j = 0; j < m.cols; j++) line += String(Number(m.re[i + j * m.rows]!.toPrecision(4))).padStart(8);
+    for (let j = 0; j < m.cols; j++) line += ` ${prnNumber(m.re[i + j * m.rows]!).padStart(7)}`;
     lines.push(line);
   }
   return `${lines.join('\r\n')}\r\n`;
