@@ -290,6 +290,7 @@ export const SOLVING: Entry[] = [
     summary: 'A value of x that makes the expression f(x) equal to 0.',
     details: [
       'There are two forms. With a guess, `root(f(x), x)`, x must have a value defined above, and the search runs from there. With a bracket, `root(f(x), x, a, b)`, the search stays between a and b, and f must have opposite signs at the two ends, so a root lies between them.',
+      'With a bracket, x belongs to root, so it can share its name with a range variable, as Mathcad allows: root(J0(x), x, 2, 3) is one answer even after x := 0, 0.1 .. 20. With a guess, x is the guess, and a range variable x gives a root from each of its values, as a vector.',
       'root finds real roots of real expressions. It is not part of a solve block. For polynomials, [[polyroots]] gives all the roots at once.',
     ],
     units: 'The answer is in the units of the guess, or of a and b.',

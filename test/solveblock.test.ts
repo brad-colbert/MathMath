@@ -150,6 +150,21 @@ describe('root, Maximize and Minimize', () => {
     expect(() => last('\\mathrm{root}\\left(x^2-2,x,2,3\\right)=')).toThrow(/opposite signs/);
     expect(() => last('x\\coloneq 1', '\\mathrm{root}\\left(x^2+1,x\\right)=')).toThrow(/no root/);
   });
+  test('a range variable as root\'s variable: bound between a and b, a guess for each value otherwise, as in Mathcad 14', () => {
+    const X = 'x\\coloneq 1,1.5..3';
+    // Between a and b, x belongs to root: one answer, defined or shown.
+    expect(re(last(X, 'z\\coloneq \\mathrm{root}\\left(J0\\left(x\\right),x,2,3\\right)', 'z='))).toBeCloseTo(2.404825557695773, 12);
+    expect(re(last(X, '\\mathrm{root}\\left(J0\\left(x\\right),x,2,3\\right)='))).toBeCloseTo(2.404825557695773, 12);
+    expect(re(last(X, 'f\\left(t\\right)\\coloneq t^2-2', 'w\\coloneq \\mathrm{root}\\left(f\\left(x\\right),x,0,3\\right)', 'w='))).toBeCloseTo(Math.SQRT2, 12);
+    // From a guess, each value of x is one: a root for each, shown as a vector, and an error to define from.
+    const roots = vec(last(X, '\\mathrm{root}\\left(x^{2}-2,x\\right)='));
+    expect(roots).toHaveLength(5);
+    roots.forEach((r) => expect(r).toBeCloseTo(Math.SQRT2, 8));
+    expect(() => last(X, 'w\\coloneq \\mathrm{root}\\left(x^{2}-2,x\\right)')).toThrow(/range variable/);
+    // A range in a or b still iterates, and an interval with no sign change fails the whole result.
+    expect(() => last(X, 't\\coloneq 0', '\\mathrm{root}\\left(J0\\left(t\\right),t,x,x+2\\right)=')).toThrow(/opposite signs/);
+    expect(vec(last('x\\coloneq 1,1.5..2', '\\mathrm{root}\\left(J0\\left(t\\right),t,x,x+2\\right)='))).toHaveLength(3);
+  });
   test('Maximize and Minimize, alone and inside a solve block', () => {
     expect(re(last('f\\left(x\\right)\\coloneq -\\left(x-3\\right)^2', 'x\\coloneq 1', '\\mathrm{Maximize}\\left(f,x\\right)='))).toBeCloseTo(3, 6);
     expect(re(last('f\\left(x\\right)\\coloneq \\left(x-3\\right)^2', 'x\\coloneq 1', '\\mathrm{Given}', 'x\\le 2', '\\mathrm{Minimize}\\left(f,x\\right)='))).toBeCloseTo(2, 2);

@@ -10,6 +10,17 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-11-10
+
+root keeps its own variable when that name is also a range variable, as in Mathcad.
+
+### Fixed
+
+- root(f(x), x, a, b) gives one answer when x is also a range variable on the sheet, as in Mathcad: the x inside it
+  belongs to root. Before, defining a value from it said "range variable in a non-indexed definition", and showing
+  it gave a column of the same root, once for each value of x. The guess form, root(f(x), x), still takes each
+  value of a range variable x as a guess, as Mathcad does.
+
 ## [0.43.0] - 2026-11-10
 
 The Bessel, Hankel, Airy and spherical Bessel functions take complex arguments, from a port of Amos's library.
