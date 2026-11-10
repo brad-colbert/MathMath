@@ -44,9 +44,17 @@ describe("curve fitting, against Mathcad 14's answers", () => {
     g.forEach((v, i) => expect(Math.abs(v - c.want![i]!), `element ${i}: ${v} against ${c.want![i]}`).toBeLessThanOrEqual(c.tol! * Math.max(Math.abs(c.want![i]!), 1e-12)));
   });
 
-  test("genfit takes an F that gives the value alone, which Mathcad 14 can't fit, and finds the same answer", () => {
+  test('genfit takes an F that gives the value alone, and finds the same answer', () => {
     const [scalar, full] = run(REF.defs, REF.cases.filter((c) => c.label.startsWith('genfit exact')).map((c) => c.latex));
     numbers(scalar!).forEach((v, i) => expect(v).toBeCloseTo(numbers(full!)[i]!, 12));
+  });
+
+  test('genfit takes the parameters one by one, as F(x, A, c), and a plain number as the guess for one', () => {
+    const out = run(['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}1\\\\3\\\\9\\\\27\\end{pmatrix}',
+      'F\\left(t,A,c\\right)\\coloneq A\\cdot e^{c\\cdot t}', 'G\\left(t,c\\right)\\coloneq e^{c\\cdot t}'],
+      ['\\mathrm{genfit}\\left(x,y,\\begin{pmatrix}2\\\\1\\end{pmatrix},F\\right)=', '\\mathrm{genfit}\\left(x,y,1,G\\right)=']);
+    numbers(out[0]!).forEach((v, i) => expect(v).toBeCloseTo([1, Math.log(3)][i]!, 10));
+    expect(numbers(out[1]!)[0]).toBeCloseTo(Math.log(3), 10);
   });
 });
 

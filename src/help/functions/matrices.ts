@@ -260,4 +260,40 @@ export const MATRICES: Entry[] = [
     details: ['Append the right-hand side with [[augment]] to solve a system by hand. [[rank]] counts the nonzero rows.'],
     example: ['A\\coloneq \\begin{pmatrix}1&2&5\\\\3&4&11\\end{pmatrix}', '\\mathrm{rref}\\left(A\\right)='],
   },
+  {
+    name: 'lookup', group: 'Vectors and matrices', usage: 'lookup(z, A, B)', mathcad: true,
+    summary: 'The values in B at the places where A holds z, as a vector.',
+    details: [
+      'They come in column order, top left first, and as a vector even when there\'s one. Numbers match within TOL, as an absolute difference; strings match exactly. B must be at least as big as A.',
+    ],
+    errors: ['No match.'],
+    example: ['A\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\2\\end{pmatrix}', 'B\\coloneq \\begin{pmatrix}10\\\\20\\\\30\\\\40\\end{pmatrix}', '\\mathrm{lookup}\\left(2,A,B\\right)='],
+  },
+  {
+    name: 'hlookup', group: 'Vectors and matrices', usage: 'hlookup(z, A, r)', mathcad: true,
+    summary: 'The values in row r of A, in the columns whose first row holds z, as a vector.',
+    details: [
+      'Rows count from ORIGIN. Numbers match within TOL; strings exactly. See also [[vlookup]].',
+    ],
+    errors: ['No match.', 'A row number outside A.'],
+    example: ['M\\coloneq \\begin{pmatrix}1&2&3\\\\10&20&30\\end{pmatrix}', '\\mathrm{hlookup}\\left(2,M,1\\right)='],
+  },
+  {
+    name: 'vlookup', group: 'Vectors and matrices', usage: 'vlookup(z, A, c)', mathcad: true,
+    summary: 'The values in column c of A, in the rows whose first column holds z, as a vector.',
+    details: [
+      'Columns count from ORIGIN. Numbers match within TOL; strings exactly. See also [[hlookup]].',
+    ],
+    errors: ['No match.', 'A column number outside A.'],
+    example: ['M\\coloneq \\begin{pmatrix}1&10\\\\2&20\\\\3&30\\end{pmatrix}', '\\mathrm{vlookup}\\left(3,M,1\\right)='],
+  },
+  {
+    name: 'match', group: 'Vectors and matrices', usage: 'match(z, A)', mathcad: true,
+    summary: 'Where z is in A: the indices, as a vector.',
+    details: [
+      'For a vector, the index of each match, counted from ORIGIN; for a matrix, each match\'s (row, column), in column order. Numbers match within TOL; strings exactly.',
+    ],
+    errors: ['No match.'],
+    example: ['A\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\2\\end{pmatrix}', '\\mathrm{match}\\left(2,A\\right)='],
+  },
 ];

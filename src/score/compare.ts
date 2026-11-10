@@ -26,7 +26,9 @@ const pass: Verdict = { ok: true };
 const fail = (reason: string): Verdict => ({ ok: false, reason });
 
 function close(a: number, b: number, tol: number, scale: number): boolean {
-  if (Number.isNaN(a) || Number.isNaN(b)) return false;
+  // NaN, Mathcad's missing value, matches only NaN.
+  if (Number.isNaN(a) || Number.isNaN(b)) return Number.isNaN(a) && Number.isNaN(b);
+  if (a === b) return true;
   return Math.abs(a - b) <= tol * Math.max(Math.abs(a), Math.abs(b), scale);
 }
 

@@ -14,7 +14,9 @@
 // see <https://www.gnu.org/licenses/>.
 
 import { describe, expect, test } from 'vitest';
-import { drawnStrings, mathMarkup } from '../src/ui/markup.js';
+import { str } from '../src/engine/values.js';
+import { formatValue } from '../src/ui/format.js';
+import { drawnStrings, exactStrings, mathMarkup } from '../src/ui/markup.js';
 
 describe('strings in drawn math', () => {
   test.each([
@@ -29,5 +31,19 @@ describe('strings in drawn math', () => {
     const html = mathMarkup('x\\mathrel{:=}\\text{"The\\_Earth\\_seen"}');
     expect(html.match(/class="ML__text"/g)).toHaveLength(1);
     expect(html).toMatch(/:=<\/span><span style="display:inline-block;width:0\.28em"><\/span><span class="ML__text">"The_Earth_seen"/);
+  });
+
+  test.each(['a{b}c', 'back\\slash', 'til~de', 'hat^x', '100%', 'a_b', 'x&y#z$', 'vector{2} [1, 2]'])('a string answer %s draws every character', (s) => {
+    const html = mathMarkup(formatValue(str(s), { precision: 3, exponent: 3, trailingZeros: false }));
+    const shown = html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    expect(shown).toBe(`"${s}"`);
+  });
+
+  test("a space typed after a brace in a string survives, though MathLive's LaTeX loses it", () => {
+    const latex = "\\mathrm{format}\\left(\\text{''\\textbraceleft0\\textbraceright x \\textbraceleft1\\textbraceright y''},3\\right)";
+    expect(exactStrings(latex, () => '\\mathop format(”{0}x {1} y”,3)')).toBe("\\mathrm{format}\\left(\\text{''\\{0\\}x \\{1\\} y''},3\\right)");
+    // Nothing to repair, or strings that don't line up: the LaTeX stands.
+    expect(exactStrings("\\text{''ab''}", () => '')).toBe("\\text{''ab''}");
+    expect(exactStrings(latex, () => 'no strings')).toBe(latex);
   });
 });

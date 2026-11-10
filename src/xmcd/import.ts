@@ -105,7 +105,8 @@ function boundOne(e: XElement): string {
   return names[0] ?? '';
 }
 
-const SOLVE_TAGS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve']);
+/** Functions Mathcad saves as an element of their own, holding a setting such as the method: <ml:genfit method=…>. */
+const SOLVE_TAGS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'genfit', 'polyroots', 'Pdesolve', 'numol']);
 
 function parseApply(e: XElement): Expr {
   const [head, ...rest] = kids(e);
@@ -137,7 +138,7 @@ function parseApply(e: XElement): Expr {
     return { k: 'derivative', varName: boundOne(vars), body: parseExpr(body), ...(degree ? { degree: parseExpr(degree) } : {}) };
   }
   const args = argList(rest).map(parseExpr);
-  // Mathcad saves a solve block's function as an element of its own, holding the solver's settings.
+  // Mathcad saves a solve block's function, and a few others with a method to choose, as elements of their own.
   if (SOLVE_TAGS.has(tag)) return { k: 'call', fn: { k: 'id', name: tag }, args };
   if (tag === 'id') return { k: 'call', fn: { k: 'id', name: translateFunction(idName(head)) }, args };
   if (tag === 'apply' || tag === 'parens') return { k: 'call', fn: parseExpr(head), args };
@@ -245,8 +246,9 @@ function parseStoredValue(e: XElement): StoredValue {
   if (tag === 'real') return { k: 'num', re: parseNumber(e.textContent), im: 0 };
   if (tag === 'imag') return { k: 'num', re: 0, im: parseNumber(e.textContent) };
   if (tag === 'complex') {
-    const [re, im] = kids(e);
-    return { k: 'num', re: parseNumber(re?.textContent ?? '0'), im: parseNumber(im?.textContent ?? '0') };
+    // By name: a result with no real part, as str2num("2i"), stores the imag alone.
+    const part = (name: string): string => kids(e).find((k) => k.localName === name)?.textContent ?? '0';
+    return { k: 'num', re: parseNumber(part('real')), im: parseNumber(part('imag')) };
   }
   if (tag === 'str') return { k: 'str', v: e.textContent ?? '' };
   if (tag === 'id' && (e.textContent ?? '').startsWith('ƒ')) return { k: 'fn', type: e.textContent ?? '' };

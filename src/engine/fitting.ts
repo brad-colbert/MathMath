@@ -16,7 +16,7 @@
 /**
  * Curve fitting, as Mathcad 14's: straight lines (slope, intercept, line, stderr, medfit), linear combinations
  * (linfit, regress and the interp of a regress vector), and the nonlinear fits (genfit, expfit, lgsfit, logfit,
- * lnfit, pwrfit, sinfit). Probed in Mathcad 14, and checked against the answers stored in Mathcad's own example sheets:
+ * lnfit, pwrfit, sinfit), and predict. Probed in Mathcad 14, and checked against the answers stored in Mathcad's own example sheets:
  *
  * - Every fit is ordinary least squares in y, converged fully: Mathcad's answers don't move with TOL.
  * - Straight lines work from sums about the means, which keep their digits when x is far from 0. (Mathcad's own
@@ -26,8 +26,8 @@
  *   mean of the medians' intercepts, of the outer two when the middle third is empty.
  * - regress returns 3, 3, the degree, then the coefficients. For one variable they run from the constant up;
  *   for several, in Mathcad's order (`termOrder`).
- * - genfit's F(x, u) returns f and then its partial derivatives in u, as Mathcad 14 requires. MathMath also takes
- *   an F that returns f alone and works out the derivatives itself, where Mathcad 14 says it doesn't converge.
+ * - genfit's F gives f alone, or f and then its partial derivatives, with its parameters as a vector u or one by
+ *   one, as Mathcad 14's Help describes.
  */
 import { leastSquares } from './solve.js';
 import { type Dim, EvalError, type Fn, type Mat, NODIM, type Value, dimDiv, isNoDim, newMat, num, requireMat } from './values.js';
@@ -37,7 +37,7 @@ type Impl = (...args: Value[]) => Value;
 /** How many arguments each fitting function takes, at least and at most. */
 export const FIT_ARITY: Record<string, [number, number]> = {
   slope: [2, 2], intercept: [2, 2], line: [2, 2], stderr: [2, 2], medfit: [2, 2], linfit: [3, 3], regress: [3, 3],
-  genfit: [4, 4], expfit: [2, 3], lgsfit: [3, 3], logfit: [3, 3], lnfit: [2, 2], pwrfit: [3, 3], sinfit: [3, 3],
+  genfit: [4, 4], expfit: [2, 3], lgsfit: [3, 3], logfit: [3, 3], lnfit: [2, 2], pwrfit: [3, 3], sinfit: [3, 3], predict: [3, 3],
 };
 
 const column = (values: ArrayLike<number>, dim: Dim = NODIM): Mat => {
@@ -208,8 +208,50 @@ function regress(vx: Value | undefined, vy: Value | undefined, vk: Value | undef
   if (!isNoDim(X.dim) || !isNoDim(y.dim)) throw new EvalError('runtime', 'regress takes numbers without units');
   if (X.rows !== y.re.length) throw new EvalError('runtime', `regress's x values and y vector must have the same number of rows: ${X.rows} and ${y.re.length}`);
   const order = termOrder(X.cols, k);
-  const cols = order.map((e) => Float64Array.from({ length: X.rows }, (_, i) => e.reduce((p, ej, j) => p * power(X.re[i + j * X.rows]!, ej), 1)));
-  return column([3, 3, k, ...qrSolve(cols, y.re, 'regress')]);
+  if (X.rows < order.length) throw new EvalError('runtime', `regress needs at least as many points as coefficients: ${order.length} for degree ${k}`);
+  // Fitted in centred, scaled variables, (x − mean)/spread, where powers stay well apart even when x is far from
+  // 0; then expanded back into powers of x itself, which is what Mathcad's coefficients are.
+  const m = X.cols;
+  const centre: number[] = [];
+  const spread: number[] = [];
+  for (let j = 0; j < m; j++) {
+    const xs = X.re.subarray(j * X.rows, (j + 1) * X.rows);
+    const mu = xs.reduce((s, v) => s + v, 0) / X.rows;
+    const s = Math.sqrt(xs.reduce((t, v) => t + (v - mu) ** 2, 0) / X.rows) || 1;
+    centre.push(mu);
+    spread.push(s);
+  }
+  const u = (i: number, j: number): number => (X.re[i + j * X.rows]! - centre[j]!) / spread[j]!;
+  const cols = order.map((e) => Float64Array.from({ length: X.rows }, (_, i) => e.reduce((p, ej, j) => p * power(u(i, j), ej), 1)));
+  const a = qrSolve(cols, y.re, 'regress');
+  return column([3, 3, k, ...expandTerms(order, a, centre, spread)]);
+}
+
+/** Coefficients of Σ aₜ·Π((xⱼ − cⱼ)/sⱼ)^eⱼ, as coefficients of the plain powers Π xⱼ^eⱼ, in the same term order. */
+function expandTerms(order: number[][], a: Float64Array, centre: number[], spread: number[]): Float64Array {
+  const key = (e: number[]): string => e.join(',');
+  const index = new Map(order.map((e, t) => [key(e), t]));
+  const out = new Float64Array(order.length);
+  const choose = (n: number, r: number): number => {
+    let c = 1;
+    for (let i = 1; i <= r; i++) c = (c * (n - r + i)) / i;
+    return c;
+  };
+  order.forEach((e, t) => {
+    // Each variable's (x − c)^e / s^e as powers of x: C(e, q)·x^q·(−c)^(e − q) / s^e for q = 0..e.
+    let terms: [number[], number][] = [[[], a[t]!]];
+    e.forEach((ej, j) => {
+      const next: [number[], number][] = [];
+      for (const [exps, coef] of terms) for (let q = 0; q <= ej; q++) next.push([[...exps, q], (coef * choose(ej, q) * (-centre[j]!) ** (ej - q)) / spread[j]! ** ej]);
+      terms = next;
+    });
+    for (const [exps, coef] of terms) {
+      const at = index.get(key(exps));
+      if (at === undefined) throw new Error(`regress: no term ${key(exps)}`);
+      out[at] += coef;
+    }
+  });
+  return out;
 }
 
 /** interp of a regress vector: the polynomial at x, or at the point x for several variables. */
@@ -329,23 +371,94 @@ function expfitNoGuess(d: Data): Float64Array {
   return best;
 }
 
-/** genfit's F(x, u): f and its partial derivatives in u, as Mathcad 14 takes it, or f alone. */
-function genfit(d: Data, vg: Value | undefined, vF: Value | undefined): Float64Array {
-  const g = vector(vg, 'genfit', 'guess');
+/**
+ * genfit, as Mathcad 14's Help describes it: F(x, u) with u the parameter vector, or F(x, a, b, …) with them one by
+ * one (up to 9), giving either the value alone, whose derivatives are worked out numerically (Mathcad's optimized
+ * Levenberg–Marquardt, the default), or the value and then its partial derivatives in each parameter. With one
+ * parameter, the guess can be a plain number.
+ */
+function genfit(d: Data, vg: Value | undefined, vF: Value | undefined): Value {
+  const scalarGuess = vg?.t === 'num';
+  const g = scalarGuess ? { re: Float64Array.of(vg.re), dim: vg.dim } : vector(vg, 'genfit', 'guess');
+  if (scalarGuess && (vg.im !== 0 || !isNoDim(vg.dim))) throw new EvalError('runtime', "genfit's guess must be real numbers without units");
   const n = g.re.length;
-  if (vF?.t !== 'fn') throw new EvalError('runtime', "genfit's last argument must be a function F(x, u) of x and the parameter vector u");
+  if (vF?.t !== 'fn') throw new EvalError('runtime', "genfit's last argument must be a function, F(x, u) of x and the parameter vector u, or F(x, a, b, …)");
   const F = vF as Fn;
+  const separate = F.arity !== undefined && F.arity > 2;
+  if (separate && F.arity !== n + 1) throw new EvalError('runtime', `genfit: F takes ${F.arity! - 1} parameters after x, and the guess has ${n}`);
   const call = (x: number, p: Float64Array): number[] => {
-    const out = F.call([num(x), column(p)]);
+    const args = separate ? [num(x), ...Array.from(p, (v) => num(v))] : [num(x), scalarGuess ? num(p[0]!) : column(p)];
+    const out = F.call(args);
     if (out.t === 'num') return [out.re];
     if (out.t === 'mat' && !out.cells && out.cols === 1) return Array.from(out.re);
-    throw new EvalError('runtime', `genfit: F(x, u) must give f, or a vector of f and its ${n} partial derivatives in u`);
+    throw new EvalError('runtime', `genfit: F must give f, or a vector of f and its ${n} partial derivatives`);
   };
-  const first = call(d.x[0]!, Float64Array.from(g.re));
-  if (first.length !== 1 && first.length !== n + 1) throw new EvalError('runtime', `genfit: F(x, u) gives ${first.length} values: it must give f, or f and its ${n} partial derivatives in u, ${n + 1} in all`);
+  const p0 = Float64Array.from(g.re);
+  const first = call(d.x[0]!, p0);
+  if (first.length !== 1 && first.length !== n + 1) throw new EvalError('runtime', `genfit: F gives ${first.length} values: it must give f, or f and its ${n} partial derivatives, ${n + 1} in all`);
   const f = (x: number, p: Float64Array): number => call(x, p)[0]!;
   const df = first.length > 1 ? (x: number, p: Float64Array): number[] => call(x, p).slice(1) : undefined;
-  return nonlinear(d, f, Float64Array.from(g.re), 'genfit', df);
+  const p = nonlinear(d, f, p0, 'genfit', df);
+  return scalarGuess ? num(p[0]!) : column(p);
+}
+
+/**
+ * predict(v, m, n): n values past the end of v, by linear prediction. As probed, Mathcad's matches Burg's method
+ * over the whole of v with m coefficients, then each new value from the m before it (Numerical Recipes' memcof
+ * and predic), to 1e−15.
+ */
+function predict(vv: Value | undefined, vm: Value | undefined, vn: Value | undefined): Mat {
+  const v = vector(vv, 'predict', 'data');
+  if (!isNoDim(v.dim)) throw new EvalError('runtime', 'predict takes numbers without units');
+  const data = v.re;
+  const n = data.length;
+  const count = (x: Value | undefined, what: string): number => {
+    const k = x?.t === 'num' && x.im === 0 && isNoDim(x.dim) ? x.re : NaN;
+    if (!Number.isInteger(k) || k < 1) throw new EvalError('runtime', `predict's ${what} must be a whole number, 1 or more`);
+    return k;
+  };
+  const m = count(vm, 'number of coefficients m');
+  const future = count(vn, 'number of values n');
+  if (m >= n - 1) throw new EvalError('runtime', `predict needs m less than the number of values less 1: m < ${n - 1}`);
+  // Burg's method: the m coefficients, from forward and backward prediction errors.
+  const d = new Float64Array(m + 1);
+  const wkm = new Float64Array(m + 1);
+  const wk1 = new Float64Array(n);
+  const wk2 = new Float64Array(n);
+  wk1[0] = data[0]!;
+  wk2[n - 2] = data[n - 1]!;
+  for (let j = 1; j < n - 1; j++) {
+    wk1[j] = data[j]!;
+    wk2[j - 1] = data[j]!;
+  }
+  for (let k = 1; k <= m; k++) {
+    let num = 0;
+    let den = 0;
+    for (let j = 0; j < n - k; j++) {
+      num += wk1[j]! * wk2[j]!;
+      den += wk1[j]! ** 2 + wk2[j]! ** 2;
+    }
+    if (den === 0) throw new EvalError('runtime', 'predict needs data that isn\'t all 0');
+    d[k] = (2 * num) / den;
+    for (let i = 1; i < k; i++) d[i] = wkm[i]! - d[k]! * wkm[k - i]!;
+    if (k === m) break;
+    for (let i = 1; i <= k; i++) wkm[i] = d[i]!;
+    for (let j = 0; j < n - k - 1; j++) {
+      wk1[j]! -= wkm[k]! * wk2[j]!;
+      wk2[j] = wk2[j + 1]! - wkm[k]! * wk1[j + 1]!;
+    }
+  }
+  // Each new value from the m before it, the newest first.
+  const reg = Array.from({ length: m }, (_, j) => data[n - 1 - j]!);
+  const out: number[] = [];
+  for (let t = 0; t < future; t++) {
+    let s = 0;
+    for (let k = 0; k < m; k++) s += d[k + 1]! * reg[k]!;
+    reg.pop();
+    reg.unshift(s);
+    out.push(s);
+  }
+  return column(out);
 }
 
 export const fitFns: Record<string, Impl> = {
@@ -385,13 +498,14 @@ export const fitFns: Record<string, Impl> = {
     return column(qrSolve(Array.from({ length: p }, (_, j) => Float64Array.from(rows, (r) => r[j]!)), d.y, 'linfit'));
   },
   regress,
+  predict,
   lnfit: (vx, vy) => {
     const d = data(vx, vy, 'lnfit');
     if (d.x.some((x) => !(x > 0))) throw new EvalError('runtime', 'lnfit needs x values above 0, for ln(x)');
     const { a, b } = straight({ ...d, x: d.x.map(Math.log) }, 'lnfit');
     return column([b, a]);
   },
-  genfit: (vx, vy, vg, F) => column(genfit(data(vx, vy, 'genfit'), vg, F)),
+  genfit: (vx, vy, vg, F) => genfit(data(vx, vy, 'genfit'), vg, F),
   ...Object.fromEntries(Object.entries(MODELS).map(([fn, { n, f }]) => [fn, (vx: Value, vy: Value, vg?: Value) => {
     const d = data(vx, vy, fn);
     if (fn === 'expfit' && vg === undefined) return column(expfitNoGuess(d));

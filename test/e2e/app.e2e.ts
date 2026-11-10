@@ -2313,6 +2313,19 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Strings and rounding to a step, typed as a user would.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'str2num("0FFh")=');
+  await type(page, 72, 108, 'Floor(0.3,0.1', R, '=');
+  await type(page, 72, 144, 'format("{0} and {1}",3,4.5)=');
+  await type(page, 72, 180, 'concat("a","b")=');
+  const s = await shown(page);
+  check('typed str2num("0FFh"), Floor(0.3,0.1), format and concat("a","b") give Mathcad\'s answers, braces shown', s[0]?.replace(/\s/g, '') === 'str2num("0FFh")=255'
+    && s[1]?.replace(/\s/g, '') === 'Floor(0.3,0.1)=0.3' && s[2]?.replace(/\s/g, '') === 'format("{0}and{1}",3,4.5)="3and4.5"' && s[3]?.replace(/\s/g, '') === 'concat("a","b")="ab"', s);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);

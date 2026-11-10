@@ -373,11 +373,11 @@ export const CORE: Entry[] = [
     example: ['\\mathrm{angle}\\left(0,1\\right)=', '\\mathrm{angle}\\left(1,-1\\right)='],
   },
   {
-    name: 'num2str', group: 'Strings', usage: 'num2str(x)', mathcad: true,
-    summary: 'The number x written as a string.',
-    details: ['Gives as many digits as needed, not the displayed ones. Join strings with [[concat]].'],
-    units: 'Only the number is used; units are dropped.',
-    errors: ['A complex number.'],
+    name: 'num2str', group: 'Strings', usage: 'num2str(z)', mathcad: true,
+    summary: 'The number z written as a string.',
+    details: ['To 15 significant digits, as Mathcad writes it, not the displayed ones: 1/3 is "0.333333333333333", and 1e−5 is "1e-05". A complex number comes out as "2 + 3i". Join strings with [[concat]]; [[str2num]] goes back.'],
+    units: 'z has no units, as in Mathcad: divide by the unit first.',
+    errors: ['A value with units.'],
     example: ['\\mathrm{num2str}\\left(2.5\\right)=', '\\mathrm{concat}\\left(\\text{"R = "},\\mathrm{num2str}\\left(47\\right)\\right)='],
   },
   {
@@ -391,6 +391,191 @@ export const CORE: Entry[] = [
     summary: 'The number of characters in the string s.',
     details: ['Anything that isn\'t a string gives 0.'],
     example: ['\\mathrm{strlen}\\left(\\text{"hello"}\\right)=', '\\mathrm{strlen}\\left(\\text{""}\\right)='],
+  },
+  {
+    name: 'substr', group: 'Strings', usage: 'substr(S, m, n)', mathcad: true,
+    summary: 'The part of the string S that starts at position m and is n characters long.',
+    details: [
+      'Positions in a string count from 0, whatever ORIGIN is. Past the end of S it stops there, so n can be generous. See [[search]] and [[strlen]].',
+    ],
+    errors: ['A start m below 0 or past the end of S.', 'An m or n that isn\'t a whole number, or a negative n.'],
+    example: ['\\mathrm{substr}\\left(\\text{"Hello, world"},7,5\\right)=', '\\mathrm{substr}\\left(\\text{"Hello"},1,100\\right)='],
+  },
+  {
+    name: 'search', group: 'Strings', usage: 'search(S, SubS, m)', mathcad: true,
+    summary: 'Where the string SubS first appears in S, looking from position m on; −1 if it doesn\'t.',
+    details: [
+      'Positions in a string count from 0, whatever ORIGIN is. Capitals matter: "O" isn\'t found in "world". To find the next one, search again from one past the last.',
+    ],
+    errors: ['A start m below 0 or past the end of S.'],
+    example: ['\\mathrm{search}\\left(\\text{"Hello, world"},\\text{"o"},0\\right)=', '\\mathrm{search}\\left(\\text{"Hello, world"},\\text{"o"},5\\right)=', '\\mathrm{search}\\left(\\text{"Hello"},\\text{"z"},0\\right)='],
+  },
+  {
+    name: 'str2num', group: 'Strings', usage: 'str2num(S)', mathcad: true,
+    summary: 'The number written in the string S.',
+    details: [
+      'S uses Mathcad\'s way of writing numbers: 3.25, 1e3 or 1.5E−3, complex numbers as 3+4i or 2j, and hexadecimal, octal and binary as 0FFh, 17o and 101b (hexadecimal starts with a digit). Spaces at the ends don\'t matter. [[num2str]] goes the other way.',
+    ],
+    errors: ['A string that isn\'t a number, such as "12abc" or "0x1F".'],
+    example: ['\\mathrm{str2num}\\left(\\text{"3.25"}\\right)=', '\\mathrm{str2num}\\left(\\text{"0FFh"}\\right)=', '\\mathrm{str2num}\\left(\\text{"3+4i"}\\right)='],
+  },
+  {
+    name: 'str2vec', group: 'Strings', usage: 'str2vec(S)', mathcad: true,
+    summary: 'The character codes of the string S, as a vector.',
+    details: [
+      '"A" is 65, a space 32. An empty string gives 0. [[vec2str]] goes back.',
+    ],
+    example: ['\\mathrm{str2vec}\\left(\\text{"AB z"}\\right)='],
+  },
+  {
+    name: 'vec2str', group: 'Strings', usage: 'vec2str(v)', mathcad: true,
+    summary: 'The string whose character codes are in the vector v.',
+    details: [
+      'Fractions are cut off, so 65.9 is "A". Codes below 32 aren\'t allowed except tab (9), newline (10) and carriage return (13). [[str2vec]] goes back.',
+    ],
+    errors: ['A row or a matrix: v must be a column.', 'A code below 32 other than 9, 10 and 13.'],
+    example: ['\\mathrm{vec2str}\\left(\\begin{pmatrix}72\\\\105\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'format', group: 'Strings', usage: 'format(Sf, x, …)', mathcad: true,
+    summary: 'A string with the values x, … put into the pattern Sf, at {0}, {1}, ….',
+    details: [
+      'Numbers are written to 15 significant digits, as [[num2str]] writes them; a string comes out in quotes, and a vector or matrix with its size, as vector{2} [1, 2]. Units are dropped, leaving the SI value. {{ and }} give braces. With one argument that isn\'t a string, format writes it alone.',
+    ],
+    errors: ['A {n} with no nth value after the pattern.', 'A single { or } not doubled.'],
+    example: ['\\mathrm{format}\\left(\\text{"\\{0\\} and \\{1\\}"},3,4.5\\right)=', '\\mathrm{format}\\left(\\text{"\\{1\\}\\{0\\}"},1,2\\right)=', '\\mathrm{format}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'error', group: A, usage: 'error(S)', mathcad: true,
+    summary: 'Stops the calculation with the message S, as an error on the region.',
+    details: [
+      'Mostly used in a program, to refuse a value the program can\'t use.',
+    ],
+    example: ['f\\left(x\\right)\\coloneq \\mathrm{if}\\left(x<0,\\mathrm{error}\\left(\\text{"x must be 0 or more"}\\right),\\sqrt{x}\\right)', 'f\\left(4\\right)='],
+  },
+  {
+    name: 'IsString', group: A, usage: 'IsString(x)', mathcad: true,
+    summary: '1 if x is a string, 0 if not.',
+    details: [
+      'Mostly useful in a program\'s conditions. See also [[IsArray]], [[IsScalar]] and [[IsNaN]].',
+    ],
+    example: ['\\mathrm{IsString}\\left(\\text{"a"}\\right)=', '\\mathrm{IsString}\\left(3\\right)='],
+  },
+  {
+    name: 'IsArray', group: A, usage: 'IsArray(x)', mathcad: true,
+    summary: '1 if x is a vector or matrix, 0 if not.',
+    details: [
+      'See also [[IsScalar]] and [[IsString]].',
+    ],
+    example: ['\\mathrm{IsArray}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=', '\\mathrm{IsArray}\\left(3\\right)='],
+  },
+  {
+    name: 'IsScalar', group: A, usage: 'IsScalar(x)', mathcad: true,
+    summary: '1 if x is a single number, real or complex, with or without units; 0 if not.',
+    details: [
+      'A string isn\'t a scalar. See also [[IsArray]].',
+    ],
+    example: ['\\mathrm{IsScalar}\\left(3\\cdot \\mathrm{m}\\right)=', '\\mathrm{IsScalar}\\left(\\text{"a"}\\right)='],
+  },
+  {
+    name: 'IsNaN', group: A, usage: 'IsNaN(x)', mathcad: true,
+    summary: '1 if x is NaN, the marker for a missing value; 0 if not.',
+    details: [
+      'Not element by element: a vector holding NaN gives 0. Type NaN to write the value itself.',
+    ],
+    example: ['\\mathrm{IsNaN}\\left(\\mathrm{NaN}\\right)=', '\\mathrm{IsNaN}\\left(3\\right)='],
+  },
+  {
+    name: 'SIUnitsOf', group: A, usage: 'SIUnitsOf(x)', mathcad: true,
+    summary: 'The units of x, as 1 of its SI unit: 1 m for any length.',
+    details: [
+      'Divide by it to strip units, in SI, for a function that won\'t take them, such as [[regress]], and multiply by it to put them back. A number without units gives 1. UnitsOf is the same.',
+    ],
+    example: ['x\\coloneq 3\\cdot \\mathrm{ft}', '\\mathrm{SIUnitsOf}\\left(x\\right)=', '\\frac{x}{\\mathrm{SIUnitsOf}\\left(x\\right)}='],
+  },
+  {
+    name: 'UnitsOf', group: A, usage: 'UnitsOf(x)', mathcad: true,
+    summary: 'The units of x, as 1 of its SI unit: the same as [[SIUnitsOf]].',
+    details: [
+      'Mathcad\'s older name for SIUnitsOf, kept so older worksheets calculate.',
+    ],
+    example: ['\\mathrm{UnitsOf}\\left(2\\cdot \\frac{\\mathrm{m}}{\\mathrm{s}}\\right)='],
+  },
+  {
+    name: 'gcd', group: A, usage: 'gcd(A, B, …)', mathcad: true,
+    summary: 'The greatest common divisor: the largest whole number that divides them all.',
+    details: [
+      'Takes positive whole numbers, or vectors and matrices of them. See also [[lcm]].',
+    ],
+    errors: ['0, a negative number or a fraction, as in Mathcad.'],
+    example: ['\\mathrm{gcd}\\left(12,18\\right)=', '\\mathrm{gcd}\\left(\\begin{pmatrix}12\\\\18\\\\8\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'lcm', group: A, usage: 'lcm(A, B, …)', mathcad: true,
+    summary: 'The least common multiple: the smallest whole number they all divide.',
+    details: [
+      'Takes positive whole numbers, or vectors and matrices of them. See also [[gcd]].',
+    ],
+    errors: ['0, a negative number or a fraction.'],
+    example: ['\\mathrm{lcm}\\left(4,6\\right)=', '\\mathrm{lcm}\\left(4,6,10\\right)='],
+  },
+  {
+    name: 'combin', group: A, usage: 'combin(n, k)', mathcad: true,
+    summary: 'The number of ways to choose k things from n, when order doesn\'t matter: n! / (k!·(n − k)!).',
+    details: [
+      'See also [[permut]].',
+    ],
+    errors: ['n or k negative or not whole, or k more than n.'],
+    example: ['\\mathrm{combin}\\left(5,2\\right)=', '\\mathrm{combin}\\left(52,5\\right)='],
+  },
+  {
+    name: 'permut', group: A, usage: 'permut(n, k)', mathcad: true,
+    summary: 'The number of ways to arrange k things chosen from n, in order: n! / (n − k)!.',
+    details: [
+      'Mathcad 14 gives 0 once the answer is very large, as permut(60, 30); MathMath gives the number. See also [[combin]].',
+    ],
+    errors: ['n or k negative or not whole, or k more than n.'],
+    example: ['\\mathrm{permut}\\left(5,2\\right)=', '\\mathrm{permut}\\left(10,3\\right)='],
+  },
+  {
+    name: 'Ceil', group: A, usage: 'Ceil(z, y)', mathcad: true,
+    summary: 'z rounded up to a multiple of y, in z\'s units.',
+    details: [
+      'For a value with units, y is in the same kind of unit: Ceil(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+    ],
+    units: 'z and y have the same units, and the answer is in them.',
+    errors: ['A y of 0.', 'A y in different units from z.'],
+    example: ['x\\coloneq 3.23\\cdot \\mathrm{m}', '\\mathrm{Ceil}\\left(x,\\mathrm{ft}\\right)=', '\\mathrm{Ceil}\\left(1.234,0.01\\right)='],
+  },
+  {
+    name: 'Floor', group: A, usage: 'Floor(z, y)', mathcad: true,
+    summary: 'z rounded down to a multiple of y, in z\'s units.',
+    details: [
+      'For a value with units, y is in the same kind of unit: Floor(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+    ],
+    units: 'z and y have the same units, and the answer is in them.',
+    errors: ['A y of 0.', 'A y in different units from z.'],
+    example: ['x\\coloneq 3.23\\cdot \\mathrm{m}', '\\mathrm{Floor}\\left(x,\\mathrm{ft}\\right)=', '\\mathrm{Floor}\\left(0.3,0.1\\right)='],
+  },
+  {
+    name: 'Round', group: A, usage: 'Round(z, y)', mathcad: true,
+    summary: 'z rounded to the nearest a multiple of y, in z\'s units.',
+    details: [
+      'For a value with units, y is in the same kind of unit: Round(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+    ],
+    units: 'z and y have the same units, and the answer is in them.',
+    errors: ['A y of 0.', 'A y in different units from z.'],
+    example: ['x\\coloneq 3.23\\cdot \\mathrm{m}', '\\mathrm{Round}\\left(x,\\mathrm{ft}\\right)=', '\\mathrm{Round}\\left(2.5,1\\right)='],
+  },
+  {
+    name: 'Trunc', group: A, usage: 'Trunc(z, y)', mathcad: true,
+    summary: 'z cut toward 0 to a multiple of y, in z\'s units.',
+    details: [
+      'For a value with units, y is in the same kind of unit: Trunc(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+    ],
+    units: 'z and y have the same units, and the answer is in them.',
+    errors: ['A y of 0.', 'A y in different units from z.'],
+    example: ['\\mathrm{Trunc}\\left(-2.6,1\\right)=', '\\mathrm{Trunc}\\left(7,2\\right)='],
   },
   {
     name: 'mean', group: 'Statistics', usage: 'mean(A, …)', mathcad: true,
