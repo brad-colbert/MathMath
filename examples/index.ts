@@ -17,11 +17,15 @@
 import { saveWorksheet } from '../src/format/native.js';
 import { type Example, Sheet } from './sheet.js';
 import { beam } from './sheets/beam.js';
+import { cooling } from './sheets/cooling.js';
+import { drum } from './sheets/drum.js';
 import { earth } from './sheets/earth.js';
 import { filter } from './sheets/filter.js';
+import { hardware } from './sheets/hardware.js';
 import { laplace } from './sheets/laplace.js';
 import { matching } from './sheets/matching.js';
 import { orbits } from './sheets/orbits.js';
+import { phasors } from './sheets/phasors.js';
 import { projectile } from './sheets/projectile.js';
 import { spectrum } from './sheets/spectrum.js';
 import { tolerance } from './sheets/tolerance.js';
@@ -29,7 +33,7 @@ import { wall } from './sheets/wall.js';
 import { washer } from './sheets/washer.js';
 import { tour } from './sheets/tour.js';
 
-export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace];
+export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace, phasors, cooling, hardware, drum];
 
 export interface Built { slug: string; title: string; summary: string; text: string; sheet: Sheet; symbolic: boolean }
 
