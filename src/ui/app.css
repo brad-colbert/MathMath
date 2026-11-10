@@ -63,6 +63,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 /* The answer of a region being edited, kept in view until the sheet calculates again. */
 .ghost-answer { position: absolute; font-size: 10pt; line-height: 1.15; white-space: nowrap; color: #6b7280; pointer-events: none; }
 .region.plot .slot .auto { color: #52514e; font: 6pt system-ui, sans-serif; }
+.region.plot .slot .typed { color: #0b0b0b; font: 6pt system-ui, sans-serif; }
 .region.plot .slot sup { font-size: 4.5pt; }
 .region.plot [data-slot^="x"], .region.plot [data-slot^="y"] { font-size: 6pt; }
 .region.plot [data-slot="x"], .region.plot [data-slot="ys"] { font-size: 8pt; }

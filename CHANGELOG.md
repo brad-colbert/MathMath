@@ -8,6 +8,18 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.38.2] - 2026-11-09
+
+Typed plot axis limits show as numbers, and strings show straight quotes.
+
+### Fixed
+
+- A plot axis limit typed with a unit, such as `0.2·s` on an axis in seconds, shows as a number in the axis's unit,
+  `0.2`, in the same style as the limits fitted to the data, instead of as the expression in a different font.
+  Clicking it still edits what was typed.
+- Strings show straight quotes, `"abc"`, as in Mathcad, where both quotes were closing curly ones, `”abc”`. They
+  stay curly while a string is being edited.
+
 ## [0.38.1] - 2026-11-09
 
 Strings no longer show a gap before an underscore.

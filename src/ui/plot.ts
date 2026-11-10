@@ -17,7 +17,7 @@
  * Draws a plot as SVG, which prints as sharp vectors and matches the screen. Axis expressions and
  * limits are slots, edited in place like Mathcad's placeholders.
  */
-import type { PlotData } from '../engine/evaluate.js';
+import type { LimitKey, PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
@@ -125,6 +125,10 @@ export function scaleFor(values: Float64Array[], log: boolean, min?: number, max
   }
   return { lo, hi, log };
 }
+
+/** An axis limit as a number: gray when fitted to the data, in ink when typed. */
+const limitNumber = (v: number, kind: 'auto' | 'typed'): string =>
+  `<span class="${kind}">${esc(label(v)).replace(/10\^(-?\d+)$/, '10<sup>$1</sup>')}</span>`;
 
 /** A short, readable tick label. */
 export function label(v: number): string {
@@ -248,7 +252,14 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     : '');
   const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('')
     + unit('yunit', labels?.y, labels?.yChosen);
-  const limit = (e: Plot['xAxis']['min'], auto: number | undefined): string => (e ? markup(tex(e)) : auto !== undefined ? `<span class="auto">${esc(label(auto)).replace(/10\^(-?\d+)$/, '10<sup>$1</sup>')}</span>` : '');
+  // A typed limit shows its value in the axis's unit, as the limits fitted to the data do, so 0.2·s on an axis in
+  // seconds reads 0.2. Its expression comes back to edit; one that doesn't calculate stays as typed.
+  const limit = (key: LimitKey, auto: number | undefined): string => {
+    const e = key === 'xmin' ? c.xAxis.min : key === 'xmax' ? c.xAxis.max : key === 'ymin' ? c.yAxis.min : c.yAxis.max;
+    const typed = data?.limits[key];
+    if (e) return typed !== undefined ? limitNumber(typed, 'typed') : markup(tex(e));
+    return auto !== undefined ? limitNumber(auto, 'auto') : '';
+  };
   const auto = (s: Scale | string): { lo?: number; hi?: number } => (typeof s === 'string' ? {} : { lo: s.lo, hi: s.hi });
   const [ax, ay] = [auto(sx), auto(sy)];
   const below = area.y + area.h;
@@ -256,10 +267,10 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     parts.join(''),
     slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'y values. Separate several with commas'),
     slot('x', c.x ? `${markup(tex(c.x))}${unit('xunit', labels?.x, labels?.xChosen)}` : '', `left:${area.x}pt;width:${area.w}pt;top:${below + M.bottom - 16}pt`, 'x values'),
-    slot('ymax', limit(c.yAxis.max, ay.hi), `left:${area.x - 28}pt;width:25pt;top:${area.y - 4}pt;justify-content:flex-end`, 'Top of the y axis. Leave empty to fit the data'),
-    slot('ymin', limit(c.yAxis.min, ay.lo), `left:${area.x - 28}pt;width:25pt;top:${below - 7}pt;justify-content:flex-end`, 'Bottom of the y axis. Leave empty to fit the data'),
-    slot('xmin', limit(c.xAxis.min, ax.lo), `left:${area.x - 4}pt;top:${below + 2}pt`, 'Left end of the x axis. Leave empty to fit the data'),
-    slot('xmax', limit(c.xAxis.max, ax.hi), `left:${area.x + area.w - 28}pt;top:${below + 2}pt;justify-content:flex-end;width:32pt`, 'Right end of the x axis. Leave empty to fit the data'),
+    slot('ymax', limit('ymax', ay.hi), `left:${area.x - 28}pt;width:25pt;top:${area.y - 4}pt;justify-content:flex-end`, 'Top of the y axis. Leave empty to fit the data'),
+    slot('ymin', limit('ymin', ay.lo), `left:${area.x - 28}pt;width:25pt;top:${below - 7}pt;justify-content:flex-end`, 'Bottom of the y axis. Leave empty to fit the data'),
+    slot('xmin', limit('xmin', ax.lo), `left:${area.x - 4}pt;top:${below + 2}pt`, 'Left end of the x axis. Leave empty to fit the data'),
+    slot('xmax', limit('xmax', ax.hi), `left:${area.x + area.w - 28}pt;top:${below + 2}pt;justify-content:flex-end;width:32pt`, 'Right end of the x axis. Leave empty to fit the data'),
     hasTitle ? slot('title', esc(c.title!), `left:${area.x}pt;width:${area.w}pt;top:0;height:${TITLE.top}pt`, 'Plot title. Click to type it; Format turns it off') : '',
     hasX ? slot('titlex', esc(c.xAxis.title!), `left:${area.x}pt;width:${area.w}pt;top:${h - TITLE.bottom}pt;height:${TITLE.bottom}pt`, 'x axis title. Click to type it; Format turns it off') : '',
     hasY ? slot('titley', esc(c.yAxis.title!), `left:0;width:${TITLE.left}pt;top:${area.y}pt;height:${area.h}pt`, 'y axis title. Click to type it; Format turns it off') : '',
@@ -378,7 +389,7 @@ function drawPolar(el: HTMLElement, c: Plot, data: PlotData | undefined, problem
   parts.push('</svg>');
   const swatch = (n: number): string => legendSwatch(c, n);
   const ys = c.ys.map((y, n) => `<div class="ylabel">${c.ys.length > 1 ? swatch(n) : ''}${markup(tex(y))}</div>`).join('');
-  const limit = c.yAxis.max ? markup(tex(c.yAxis.max)) : rmax !== undefined ? `<span class="auto">${esc(label(rmax))}</span>` : '';
+  const limit = c.yAxis.max && data?.limits.ymax === undefined ? markup(tex(c.yAxis.max)) : rmax !== undefined ? limitNumber(rmax, c.yAxis.max ? 'typed' : 'auto') : '';
   el.innerHTML = [
     parts.join(''),
     slot('ys', ys, `left:${m.left - M.left}pt;top:${area.y}pt;width:${M.left - 26}pt;height:${area.h}pt`, 'Radius. Separate several with commas'),

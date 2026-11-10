@@ -2345,6 +2345,15 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     }));
     const unexpected = r.errors.filter(([id]) => !b.sheet.expectedErrors.has(id!));
     check(`example ${b.slug} opens and calculates with no errors but its own`, r.name === b.title && !r.dirty && r.regions === b.sheet.ws.regions.length + b.sheet.ws.texts.length && unexpected.length === 0 && r.errors.length === b.sheet.expectedErrors.size, r);
+    if (b.slug === 'spectrum') {
+      // Its time plots end at a typed 0.2·s, shown in the axis's unit as the fitted limits are.
+      const ends = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.plot [data-slot="xmax"]')].slice(0, 1).map((e) => [e.innerText.trim(), e.querySelector('.typed') !== null]));
+      check('a typed axis limit with a unit shows as a number in the axis unit', JSON.stringify(ends) === '[["0.2",true]]', ends);
+    }
+    if (b.slug === 'earth') {
+      const s = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].map((e) => e.innerText.replace(/\s+/g, '')).find((t) => t.includes('Apollo_17.jpg')));
+      check('a string shows straight quotes', s === 'file:="The_Earth_seen_from_Apollo_17.jpg"', s);
+    }
   }
   await page.close();
 }

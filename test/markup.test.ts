@@ -14,19 +14,20 @@
 // see <https://www.gnu.org/licenses/>.
 
 import { describe, expect, test } from 'vitest';
-import { groupStrings, mathMarkup } from '../src/ui/markup.js';
+import { drawnStrings, mathMarkup } from '../src/ui/markup.js';
 
 describe('strings in drawn math', () => {
   test.each([
-    ['\\mathrm{file}\\coloneq \\text{"The\\_Earth\\_seen"}', '\\mathrm{file}\\coloneq {\\text{"The\\_Earth\\_seen"}}'],
-    ['\\mathrm{concat}\\left(\\text{"a\\{b\\}"},\\text{"c"}\\right)', '\\mathrm{concat}\\left({\\text{"a\\{b\\}"}},{\\text{"c"}}\\right)'],
-    ['x=\\text{"back\\textbackslash slash"}', 'x={\\text{"back\\textbackslash slash"}}'],
+    ['\\mathrm{file}\\coloneq \\text{"The\\_Earth\\_seen"}', '\\mathrm{file}\\coloneq {\\text{\\char34{}The\\_Earth\\_seen\\char34{}}}'],
+    ['\\mathrm{concat}\\left(\\text{"a\\{b\\}"},\\text{"c"}\\right)', '\\mathrm{concat}\\left({\\text{\\char34{}a\\{b\\}\\char34{}}},{\\text{\\char34{}c\\char34{}}}\\right)'],
+    ['x=\\text{"back\\textbackslash slash"}', 'x={\\text{\\char34{}back\\textbackslash slash\\char34{}}}'],
     ['x_{\\text{geo}}\\coloneq 1', 'x_{\\text{geo}}\\coloneq 1'],
-  ])('%s', (latex, want) => expect(groupStrings(latex)).toBe(want));
+    ['s\\coloneq \\text{"say "hi""}', 's\\coloneq {\\text{\\char34{}say \\char34{}hi\\char34{}\\char34{}}}'],
+  ])('%s', (latex, want) => expect(drawnStrings(latex)).toBe(want));
 
-  test('a string after := is drawn in one piece, spaced from the := like a number', () => {
+  test('a string after := is drawn in one piece, spaced from the := like a number, in straight quotes', () => {
     const html = mathMarkup('x\\mathrel{:=}\\text{"The\\_Earth\\_seen"}');
     expect(html.match(/class="ML__text"/g)).toHaveLength(1);
-    expect(html).toMatch(/:=<\/span><span style="display:inline-block;width:0\.28em"><\/span><span class="ML__text">”The_Earth_seen”/);
+    expect(html).toMatch(/:=<\/span><span style="display:inline-block;width:0\.28em"><\/span><span class="ML__text">"The_Earth_seen"/);
   });
 });
