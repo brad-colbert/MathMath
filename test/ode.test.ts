@@ -14,6 +14,7 @@
 // see <https://www.gnu.org/licenses/>.
 
 import { describe, expect, test } from 'vitest';
+import { type Engine, type F, type Setup, adams, adamsBdf, bdf, bulirschStoer, cashKarp, radau, rosenbrock, semiImplicitExtrapolation } from '../src/engine/ode-methods.js';
 import { runWorksheet } from '../src/engine/evaluate.js';
 import { type Mat, type Num, type Value, getEl } from '../src/engine/values.js';
 import { emptyWorksheet } from '../src/format/native.js';
@@ -159,5 +160,57 @@ describe("units, MathMath's own", () => {
 
   test('a derivative in the wrong units is refused', () => {
     expect(() => last(...RC, 'G\\left(t,v\\right)\\coloneq \\begin{pmatrix}v_{0}\\end{pmatrix}', '\\mathrm{rkfixed}\\left(u,0,1\\cdot \\mathrm{s},4,G\\right)=')).toThrow(/wrong units/);
+  });
+});
+
+describe('each solver name has its own method', () => {
+  const ENGINES = { cashKarp, bulirschStoer, adams, rosenbrock, semiImplicitExtrapolation, radau, bdf, adamsBdf };
+  const osc: F = (_, y) => Float64Array.of(y[1]!, -y[0]!);
+  /** The oscillator from 0 to x2 at a tolerance: the steps taken, and the error at x2. */
+  const run = (engine: (s: Setup) => Engine, tol: number, x2 = 20): { steps: number; err: number } => {
+    let steps = 0;
+    const y = engine({ f: osc, x1: 0, y0: Float64Array.of(1, 0), x2, rtol: tol, atol: tol, fn: 'test' }).to(x2, () => steps++);
+    return { steps, err: Math.hypot(y[0]! - Math.cos(x2), y[1]! + Math.sin(x2)) };
+  };
+  test.each(Object.entries(ENGINES))('%s: a tighter tolerance gives a smaller error', (_, engine) => {
+    const coarse = run(engine, 1e-6);
+    const fine = run(engine, 1e-10);
+    expect(fine.err).toBeLessThan(coarse.err / 100);
+    expect(fine.err).toBeLessThan(1e-6);
+  });
+  // A method of order p needs about 1000^(1/p) times the steps for a 1000 times smaller tolerance.
+  test.each([
+    ['cashKarp, order 5', cashKarp, 3, 5],
+    ['rosenbrock, order 4', rosenbrock, 4.5, 7],
+    ['radau, order 5', radau, 4, 7],
+    ['bdf, orders 1 to 5', bdf, 2, 4],
+    ['adams, orders 1 to 12', adams, 1, 2.5],
+    ['bulirschStoer, extrapolation', bulirschStoer, 1, 2],
+    ['semiImplicitExtrapolation, extrapolation', semiImplicitExtrapolation, 1, 2],
+  ] as const)('%s: the steps grow as its order says', (_, engine, lo, hi) => {
+    const ratio = run(engine, 1e-8).steps / run(engine, 1e-5).steps;
+    expect(ratio).toBeGreaterThan(lo);
+    expect(ratio).toBeLessThan(hi);
+  });
+  test('they give different answers, each within its tolerance', () => {
+    const answers = Object.values(ENGINES).map((engine) =>
+      Array.from(engine({ f: osc, x1: 0, y0: Float64Array.of(1, 0), x2: 3, rtol: 1e-5, atol: 1e-5, fn: 'test' }).to(3)));
+    for (const a of answers) expect(Math.abs(a[0]! - Math.cos(3))).toBeLessThan(1e-3);
+    // AdamsBDF is Adams while the problem isn't stiff, so those two agree; every other pair differs.
+    const distinct = new Set(answers.map((a) => a.join()));
+    expect(distinct.size).toBe(answers.length - 1);
+  });
+  test('Adams crawls through a stiff problem, which AdamsBDF hands to BDF', () => {
+    const rob: F = (_, y) => Float64Array.of(-0.04 * y[0]! + 1e4 * y[1]! * y[2]!, 0.04 * y[0]! - 1e4 * y[1]! * y[2]! - 3e7 * y[1]! ** 2, 3e7 * y[1]! ** 2);
+    const count = (engine: (s: Setup) => Engine): { steps: number; y: Float64Array } => {
+      let steps = 0;
+      const y = engine({ f: rob, x1: 0, y0: Float64Array.of(1, 0, 0), x2: 40, rtol: 1e-6, atol: 1e-10, fn: 'test' }).to(40, () => steps++);
+      return { steps, y };
+    };
+    const a = count(adams);
+    const ab = count(adamsBdf);
+    expect(ab.steps).toBeLessThan(400);
+    expect(a.steps).toBeGreaterThan(100 * ab.steps);
+    ref.robertson.y.at(-1)!.forEach((want, k) => expect(Math.abs(ab.y[k]! - want)).toBeLessThan(1e-6 + 1e-4 * Math.abs(want)));
   });
 });

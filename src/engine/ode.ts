@@ -20,14 +20,17 @@
  * number; x2 may be below x1; and the number of points must be a positive whole number.
  *
  * `rkfixed` is the classic fourth-order Runge–Kutta at fixed steps, with its arithmetic in the same order as
- * Mathcad's, so the answers agree to the last digit. The rest share two solvers: an adaptive Runge–Kutta
- * (Dormand–Prince 5(4)) for `Rkadapt`, `rkadapt`, `Bulstoer`, `bulstoer` and `Adams`, and a stiff solver
- * (Rosenbrock 4(3), Shampine's constants) for `Stiffb`, `Stiffr`, `stiffb`, `stiffr`, `Radau`, `BDF` and
- * `AdamsBDF`. Their answers agree with Mathcad's to each method's accuracy, not digit for digit.
+ * Mathcad's, so the answers agree to the last digit. Each family of the others has its own method, in
+ * ode-methods.ts: Cash–Karp Runge–Kutta for Rkadapt and rkadapt, Bulirsch–Stoer for Bulstoer and bulstoer,
+ * Adams–Bashforth–Moulton for Adams, semi-implicit extrapolation for Stiffb and stiffb, Rosenbrock for Stiffr and
+ * stiffr, Radau IIA for Radau, BDF for BDF, and Adams switching to BDF for AdamsBDF. Their answers agree with
+ * Mathcad's to each method's accuracy, not digit for digit. Odesolve keeps its own pair: Dormand–Prince, and
+ * Rosenbrock if the problem proves stiff.
  *
  * Units are MathMath's own (Mathcad 14 refuses them here): x may have one unit and each y its own, and D's
  * values must then be in y's units per x's.
  */
+import { type Engine, type Jacobian, type Setup, adams, adamsBdf, bdf, bulirschStoer, cashKarp, numericJacobian, radau, rosenbrock as rosenbrockEngine, rosenbrockStep, semiImplicitExtrapolation } from './ode-methods.js';
 import { type Dim, EvalError, type Fn, type Mat, type Num, type Value, dimDiv, dimEq, dimMul, getEl, isNoDim, newMat, num, requireMat } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
@@ -288,27 +291,6 @@ function solveInPlace(A: Float64Array[], b: Float64Array, what: string): Float64
   return x;
 }
 
-/** ∂f/∂x and ∂f/∂y at (x, y): from the sheet's Jacobian if given, else by finite differences. */
-type Jacobian = (x: number, y: Float64Array, fy: Float64Array) => { dfdx: Float64Array; dfdy: Float64Array[] };
-
-function numericJacobian(f: F): Jacobian {
-  return (x, y, fy) => {
-    const n = y.length;
-    const dfdy = Array.from({ length: n }, () => new Float64Array(n));
-    const yp = y.slice();
-    for (let j = 0; j < n; j++) {
-      const d = Math.sqrt(2.2e-16) * Math.max(Math.abs(y[j]!), 1);
-      yp[j] = y[j]! + d;
-      const fp = f(x, yp);
-      for (let i = 0; i < n; i++) dfdy[i]![j] = (fp[i]! - fy[i]!) / d;
-      yp[j] = y[j]!;
-    }
-    const dx = Math.sqrt(2.2e-16) * Math.max(Math.abs(x), 1);
-    const fx = f(x + dx, y);
-    return { dfdx: fx.map((v, i) => (v - fy[i]!) / dx), dfdy };
-  };
-}
-
 /**
  * The sheet's Jacobian J(x, y). With `withX`, as Stiffb and Stiffr take it: n × (n+1), ∂D/∂x in the first
  * column, then ∂Dᵢ/∂yⱼ. Without, as Radau, BDF and AdamsBDF take it (probed): n × n, ∂Dᵢ/∂yⱼ only, and ∂D/∂x
@@ -335,35 +317,14 @@ function sheetJacobian(J: Fn, n: number, xDim: Dim, yDims: Dim[], withX: boolean
   };
 }
 
-/** Rosenbrock 4(3) with Shampine's constants (Numerical Recipes' `stiff`), for stiff systems. */
+/** Rosenbrock 4(3) with Shampine's constants (Numerical Recipes' `stiff`), for Odesolve when the problem is stiff. */
 function rosenbrock(f: F, jac: Jacobian, rtol: number, atol: number): Stepper {
-  const GAM = 1 / 2, A21 = 2, A31 = 48 / 25, A32 = 6 / 25, C21 = -8, C31 = 372 / 25, C32 = 12 / 5;
-  const C41 = -112 / 125, C42 = -54 / 125, C43 = -2 / 5, B1 = 19 / 9, B2 = 1 / 2, B3 = 25 / 108, B4 = 125 / 108;
-  const E1 = 17 / 54, E2 = 7 / 36, E3 = 0, E4 = 125 / 108, C1X = 1 / 2, C2X = -3 / 2, C3X = 121 / 50, C4X = 29 / 250;
-  const A2X = 1, A3X = 3 / 5;
+  const step = rosenbrockStep(f, jac);
   return {
     order: 4,
     step(x, y, h) {
-      const n = y.length;
-      const dydx = f(x, y);
-      const { dfdx, dfdy } = jac(x, y, dydx);
-      const A = dfdy.map((row, i) => row.map((v, j) => -v + (i === j ? 1 / (GAM * h) : 0)));
-      const solve = (b: Float64Array): Float64Array => solveInPlace(A, b, 'the step matrix');
-      const g1 = solve(dydx.map((v, i) => v + h * C1X * dfdx[i]!));
-      let yt = y.map((v, i) => v + A21 * g1[i]!);
-      let dy = f(x + A2X * h, yt);
-      const g2 = solve(dy.map((v, i) => v + h * C2X * dfdx[i]! + (C21 * g1[i]!) / h));
-      yt = y.map((v, i) => v + A31 * g1[i]! + A32 * g2[i]!);
-      dy = f(x + A3X * h, yt);
-      const g3 = solve(dy.map((v, i) => v + h * C3X * dfdx[i]! + (C31 * g1[i]! + C32 * g2[i]!) / h));
-      const g4 = solve(dy.map((v, i) => v + h * C4X * dfdx[i]! + (C41 * g1[i]! + C42 * g2[i]! + C43 * g3[i]!) / h));
-      const y1 = new Float64Array(n);
-      const err = new Float64Array(n);
-      for (let i = 0; i < n; i++) {
-        y1[i] = y[i]! + B1 * g1[i]! + B2 * g2[i]! + B3 * g3[i]! + B4 * g4[i]!;
-        err[i] = E1 * g1[i]! + E2 * g2[i]! + E3 * g3[i]! + E4 * g4[i]!;
-      }
-      return { y: y1, err: norm(err, y, y1, rtol, atol) };
+      const r = step(x, y, h);
+      return { y: r.y, err: norm(r.err, y, r.y, rtol, atol) };
     },
   };
 }
@@ -412,19 +373,14 @@ function firstStep(f: F, x: number, y: Float64Array, span: number, rtol: number,
 }
 
 /** Answers at npoints + 1 evenly spaced x, as Rkadapt, Radau and the rest give them. */
-function evenly(p: Problem, points: number, st: Stepper, rtol: number, atol: number, fn: string): Mat {
+function evenly(p: Problem, points: number, engine: Engine): Mat {
   const step = (p.x2 - p.x1) / points;
   const xs = [p.x1];
   const ys: Vec[] = [p.y0.slice()];
-  const h = { v: firstStep(p.f, p.x1, p.y0, p.x2 - p.x1, rtol, atol) };
-  let y: Vec = p.y0.slice();
-  let x = p.x1;
   for (let k = 1; k <= points; k++) {
     const target = k === points ? p.x2 : p.x1 + k * step;
-    y = integrate(st, x, y, target, h, fn);
-    x = target;
-    xs.push(x);
-    ys.push(y);
+    ys.push(engine.to(target));
+    xs.push(target);
   }
   return table(p, xs, ys);
 }
@@ -434,11 +390,10 @@ function evenly(p: Problem, points: number, st: Stepper, rtol: number, atol: num
  * the start, then a point whenever x has moved more than `save` since the last one kept, up to `kmax` points,
  * and always the end.
  */
-function ownPoints(p: Problem, kmax: number, save: number, st: Stepper, tol: number, fn: string): Mat {
+function ownPoints(p: Problem, kmax: number, save: number, engine: Engine): Mat {
   const xs = [p.x1];
   const ys: Vec[] = [p.y0.slice()];
-  const h = { v: firstStep(p.f, p.x1, p.y0, p.x2 - p.x1, tol, tol) };
-  const yEnd = integrate(st, p.x1, p.y0.slice(), p.x2, h, fn, (x, y) => {
+  const yEnd = engine.to(p.x2, (x, y) => {
     // The end is added after, as the last step lands on it exactly.
     if (x === p.x2) return;
     if (xs.length < kmax - 1 && Math.abs(x - xs.at(-1)!) > Math.abs(save)) {
@@ -450,6 +405,10 @@ function ownPoints(p: Problem, kmax: number, save: number, st: Stepper, tol: num
   ys.push(yEnd);
   return table(p, xs, ys);
 }
+
+/** What an engine needs, from the problem and a tolerance. */
+const setup = (p: Problem, tol: number, fn: string, jac?: Jacobian, f: F = p.f): Setup =>
+  ({ f, x1: p.x1, y0: p.y0, x2: p.x2, rtol: tol, atol: tol, fn, ...(jac ? { jac } : {}) });
 
 // ── The sheet's functions ─────────────────────────────────────────────────────────────────────────
 
@@ -478,62 +437,64 @@ function withMass(f: F, M: Mat, n: number, fn: string): F {
   return (x, y) => solveInPlace(A, f(x, y), `${fn}'s mass matrix`);
 }
 
-const nonstiffEvenly = (fn: string, withTol: boolean): Impl => (...args) => {
+type Method = (s: Setup) => Engine;
+
+const nonstiffEvenly = (fn: string, method: Method, withTol: boolean): Impl => (...args) => {
   const p = problem(args, fn);
   const points = count(args[3]!, fn, 'number of points');
   const tol = withTol && args[5] ? tolerance(args[5], fn, 'tolerance') : DEFAULT_TOL;
-  return evenly(p, points, dopri(p.f, tol, tol), tol, tol, fn);
+  return evenly(p, points, method(setup(p, tol, fn)));
 };
 
-const nonstiffOwn = (fn: string): Impl => (...args) => {
+const nonstiffOwn = (fn: string, method: Method): Impl => (...args) => {
   const p = problem(args, fn);
   const acc = tolerance(args[3]!, fn, 'accuracy');
   const kmax = count(args[5]!, fn, 'most points kmax');
   const save = realNum(args[6]!, `${fn}'s spacing save`).re;
-  return ownPoints(p, kmax, save, dopri(p.f, acc, acc), acc, fn);
+  return ownPoints(p, kmax, save, method(setup(p, acc, fn)));
 };
 
-const stiffEvenly = (fn: string): Impl => (...args) => {
+const stiffEvenly = (fn: string, method: Method): Impl => (...args) => {
   const p = problem(args, fn);
   const points = count(args[3]!, fn, 'number of points');
   const J = fnOf(args[5], fn, 'Jacobian');
   const jac = sheetJacobian(J, p.n, p.xDim, p.yDims, true, p.f, fn);
-  return evenly(p, points, rosenbrock(p.f, jac, DEFAULT_TOL, DEFAULT_TOL), DEFAULT_TOL, DEFAULT_TOL, fn);
+  return evenly(p, points, method(setup(p, DEFAULT_TOL, fn, jac)));
 };
 
-const stiffOwn = (fn: string): Impl => (...args) => {
+const stiffOwn = (fn: string, method: Method): Impl => (...args) => {
   const p = problem(args, fn);
   const acc = tolerance(args[3]!, fn, 'accuracy');
   const J = fnOf(args[5], fn, 'Jacobian');
   const kmax = count(args[6]!, fn, 'most points kmax');
   const save = realNum(args[7]!, `${fn}'s spacing save`).re;
   const jac = sheetJacobian(J, p.n, p.xDim, p.yDims, true, p.f, fn);
-  return ownPoints(p, kmax, save, rosenbrock(p.f, jac, acc, acc), acc, fn);
+  return ownPoints(p, kmax, save, method(setup(p, acc, fn, jac)));
 };
 
-const implicit = (fn: string, allowMass: boolean): Impl => (...args) => {
+const implicit = (fn: string, method: Method, allowMass: boolean): Impl => (...args) => {
   const p = problem(args, fn);
   const points = count(args[3]!, fn, 'number of points');
   const { J, M, tol } = optionals(args.slice(5), fn, allowMass);
   const f = M ? withMass(p.f, M, p.n, fn) : p.f;
-  const jac = J && !M ? sheetJacobian(J, p.n, p.xDim, p.yDims, false, f, fn) : numericJacobian(f);
-  return evenly({ ...p, f }, points, rosenbrock(f, jac, tol, tol), tol, tol, fn);
+  const jac = J && !M ? sheetJacobian(J, p.n, p.xDim, p.yDims, false, f, fn) : undefined;
+  return evenly(p, points, method(setup(p, tol, fn, jac, f)));
 };
 
 export const odeFns: Record<string, Impl> = {
   rkfixed: (...args) => rkfixed(problem(args, 'rkfixed'), count(args[3]!, 'rkfixed', 'number of points')),
-  Rkadapt: nonstiffEvenly('Rkadapt', false),
-  Bulstoer: nonstiffEvenly('Bulstoer', false),
-  Adams: nonstiffEvenly('Adams', true),
-  rkadapt: nonstiffOwn('rkadapt'),
-  bulstoer: nonstiffOwn('bulstoer'),
-  Stiffb: stiffEvenly('Stiffb'),
-  Stiffr: stiffEvenly('Stiffr'),
-  stiffb: stiffOwn('stiffb'),
-  stiffr: stiffOwn('stiffr'),
-  Radau: implicit('Radau', true),
-  BDF: implicit('BDF', false),
-  AdamsBDF: implicit('AdamsBDF', false),
+  Rkadapt: nonstiffEvenly('Rkadapt', cashKarp, false),
+  rkadapt: nonstiffOwn('rkadapt', cashKarp),
+  Bulstoer: nonstiffEvenly('Bulstoer', bulirschStoer, false),
+  bulstoer: nonstiffOwn('bulstoer', bulirschStoer),
+  Adams: nonstiffEvenly('Adams', adams, true),
+  Stiffb: stiffEvenly('Stiffb', semiImplicitExtrapolation),
+  stiffb: stiffOwn('stiffb', semiImplicitExtrapolation),
+  Stiffr: stiffEvenly('Stiffr', rosenbrockEngine),
+  stiffr: stiffOwn('stiffr', rosenbrockEngine),
+  Radau: implicit('Radau', radau, true),
+  BDF: implicit('BDF', bdf, false),
+  AdamsBDF: implicit('AdamsBDF', adamsBdf, false),
 };
 
 export const ODE_ARITY: Record<string, [number, number]> = {

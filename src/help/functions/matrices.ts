@@ -197,8 +197,11 @@ export const MATRICES: Entry[] = [
   {
     name: 'eigenvecs', group: 'Linear algebra', usage: 'eigenvecs(A)', mathcad: true,
     summary: 'A matrix whose columns are the unit-length eigenvectors of A, in the order [[eigenvals]] lists the values.',
-    details: ['Each real vector is signed so its first nonzero element is negative, so a column can differ in sign from [[eigenvec]]. A repeated eigenvalue gets independent vectors.'],
-    errors: ['A matrix that is not square, or whose vectors fail to converge.'],
+    details: [
+      'Found as Mathcad finds them, by LAPACK\'s method, so the columns match Mathcad\'s, signs included. Each has unit length. A complex vector is turned so that its largest element is real, and the vectors of a complex-conjugate pair of eigenvalues are conjugates.',
+      'A column\'s sign can differ from [[eigenvec]]\'s, which finds one vector its own way. For a repeated eigenvalue of a matrix without enough independent eigenvectors, two columns come out nearly parallel, as in Mathcad.',
+    ],
+    errors: ['A matrix that is not square, or that has units.'],
     example: ['A\\coloneq \\begin{pmatrix}2&0\\\\0&3\\end{pmatrix}', '\\mathrm{eigenvecs}\\left(A\\right)='],
   },
   {

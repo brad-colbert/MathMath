@@ -8,7 +8,37 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
-## [Unreleased]
+## [0.38.0] - 2026-11-09
+
+`eigenvecs` gives Mathcad's eigenvectors, signs included, and each differential equation solver has its own method.
+
+### Changed
+
+- Each of Mathcad's differential equation solvers now uses its own method, as Mathcad's do, where before all
+  but `rkfixed` shared two:
+  - `Rkadapt` and `rkadapt`: Cash–Karp Runge–Kutta;
+  - `Bulstoer` and `bulstoer`: Bulirsch–Stoer extrapolation, which takes very long steps on smooth solutions;
+  - `Adams`: Adams–Bashforth–Moulton of orders 1 to 12, efficient on smooth problems and slow on stiff ones;
+  - `Stiffb` and `stiffb`: semi-implicit extrapolation;
+  - `Stiffr` and `stiffr`: Rosenbrock (as before);
+  - `Radau`: Radau IIA of order 5;
+  - `BDF`: backward differentiation formulas of orders 1 to 5;
+  - `AdamsBDF`: Adams until the equations prove stiff, then BDF, and back again.
+
+  Answers agree with the old ones, and with Mathcad's, to each method's accuracy. Odesolve is unchanged.
+
+### Fixed
+
+- `eigenvecs` gives Mathcad's eigenvectors, signs included. Mathcad 14 finds them with LAPACK 3.0's method, and
+  MathMath now does the same, down to the order of its arithmetic, where a column's sign can hang on the last
+  bit. 53 of 54 test matrices probed in Mathcad 14 now match it exactly, against 2 before.
+- `eigenvals` lists eigenvalues in Mathcad's order on every matrix probed, including one where it differed before.
+
+### Known limits
+
+- On a matrix whose eigenvalues are all on the unit circle, such as a rotation, a column of `eigenvecs` can still
+  come out with the opposite sign to Mathcad's: there, the sign depends on rounding inside Mathcad's own
+  arithmetic library.
 
 ## [0.37.1] - 2026-11-09
 

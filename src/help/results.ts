@@ -126,7 +126,7 @@ export const RESULTS: Record<string, string[]> = {
   "dweibull": ["0.316"],
   "eigenvals": ["","\\begin{pmatrix}2\\\\3\\end{pmatrix}"],
   "eigenvec": ["","\\begin{pmatrix}0\\\\1\\end{pmatrix}"],
-  "eigenvecs": ["","\\begin{pmatrix}-1&0\\\\0&-1\\end{pmatrix}"],
+  "eigenvecs": ["","\\begin{pmatrix}1&0\\\\0&1\\end{pmatrix}"],
   "ellipBandpass": ["","-1"],
   "ellipBandstop": ["","-1"],
   "ellipHighpass": ["","-1"],
