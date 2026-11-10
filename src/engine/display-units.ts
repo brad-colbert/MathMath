@@ -69,8 +69,8 @@ export function chooseUnits(dim: Dim): Chosen {
   return { parts, factor: 1 };
 }
 
-/** A unit's name as LaTeX. kΩ and μF stay one name in `\\mathrm`, so the unit editor reads them back whole. */
-export const unitNameLatex = (name: string): string => (name === 'Ω' ? '\\Omega' : `\\mathrm{${name}}`);
+/** A unit's name as LaTeX. kΩ and μF stay one name in `\\mathrm`, so the unit editor reads them back whole; % is a command, as in a comment it would hide the rest. */
+export const unitNameLatex = (name: string): string => (name === 'Ω' ? '\\Omega' : name === '%' ? '\\%' : `\\mathrm{${name}}`);
 const up = unitNameLatex;
 const power = (p: UnitPart, n: number): string => (n === 1 ? up(p.name) : `${up(p.name)}^{${n}}`);
 

@@ -10,6 +10,24 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-10
+
+Mathcad's finance functions, and percent as a unit.
+
+### Added
+
+- Mathcad's 18 finance functions: pmt, pv, fv, nper and rate for loans and savings; ipmt, ppmt, cumint and cumprn
+  for the interest and principal in each payment; npv, irr, mirr and fvc for a series of cash flows; eff and nom
+  for nominal and effective rates; cnper, crate and fvadj for growth without payments. They follow Mathcad's
+  conventions, probed in Mathcad 14: money paid out is negative, npv discounts the first flow by one period, and
+  irr and rate solve from a guess of 10%. At a rate of 0, fv keeps pv and nper keeps fv's sign, as the formulas
+  do; Mathcad 14 gets both wrong there. irr((−1000, 100)) gives −90%, where Mathcad 14 was
+  still calculating after a minute.
+- Percent is a unit, as in Mathcad: type 8.25%, which is 0.0825, and show a result in % by typing % in its unit.
+- Help has a Finance group and a Finance topic page, and the Units page mentions %.
+- A new example in the gallery, a mortgage month by month: its payment, where each payment goes, what paying a
+  little extra saves, and whether solar panels pay their way.
+
 ## [0.43.1] - 2026-11-10
 
 root keeps its own variable when that name is also a range variable, as in Mathcad.

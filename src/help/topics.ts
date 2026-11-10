@@ -57,6 +57,7 @@ export const TOPICS: Topic[] = [
       { p: 'A result shows in SI units, with a blank after it: click the blank and type a unit, as `km/hr`, to show the result in that unit instead. A unit you choose stays with the region.' },
       { p: 'Some units have typing shortcuts, since the editor has no Ω or μ key: `kohm`, `Mohm` and `ohm` for kΩ, MΩ and Ω; u for micro, as `uF`, `uA` and `us`; `Omega` alone for Ω.' },
       { p: 'Angles are in radians; `deg` is a unit, so `30*deg` is π/6. Temperatures convert with [[°C]] and [[°F]].' },
+      { p: 'Percent is a unit too, as in Mathcad: type `8.25%`, which is 0.0825. To show a result as a percentage, type % in its unit blank.' },
     ],
   },
   {
@@ -142,6 +143,16 @@ export const TOPICS: Topic[] = [
       { id: 'special-1', example: ['J0\\left(2.4048\\right)=', '\\mathrm{Jn}\\left(0.5,3\\right)=', '\\Gamma\\left(0.5\\right)^{2}='] },
       { p: 'The Bessel and Airy functions take complex arguments as well as real ones, as Mathcad\'s do, and the spherical js and ys too; the order stays real. At a negative real argument a fractional order gives a complex answer, as it should: Mathcad 14 keeps only the real part there. Only ber and bei need a real argument, as in Mathcad. Far out, beyond |z| of about 10⁹, Mathcad 14 gives up on J, Y and the Hankel functions; MathMath still gives their values.' },
       { id: 'special-2', example: ['J0\\left(1+1\\mathrm{i}\\right)=', '\\mathrm{Kn}\\left(0.5,2+1\\mathrm{i}\\right)=', '\\mathrm{Ai}\\left(-2+1\\mathrm{i}\\right)='] },
+    ],
+  },
+  {
+    id: 'finance', title: 'Finance', summary: 'Loans, savings and investments: payments, present and future values, rates and returns.',
+    body: [
+      { p: 'The finance functions are Mathcad\'s, which follow the spreadsheet conventions. Money paid out is negative and money received positive: a loan of 200 000 received now is a pv of 200000, and its payments come back negative. A rate is per period, so for monthly payments divide a yearly rate by 12; it can be written as a percentage, as 8%.' },
+      { id: 'finance-1', example: ['r\\coloneq \\frac{6.5\\%}{12}', '\\mathrm{pmt}\\left(r,360,300000\\right)=', '\\mathrm{cumint}\\left(r,360,300000,1,12\\right)='] },
+      { p: 'An annuity has five quantities, each from the other four: [[pmt]], [[pv]], [[fv]], [[nper]] and [[rate]]. Each payment splits into interest, [[ipmt]], and principal, [[ppmt]], and [[cumint]] and [[cumprn]] add them over a run of periods. Payments come at the end of each period unless the last argument, type, is 1.' },
+      { p: 'For a series of cash flows, one a period in a column vector: [[npv]], the net present value, [[irr]], the internal rate of return, [[mirr]], and [[fvc]], the future value. [[npv]] discounts the first flow by one period, as Mathcad\'s does. [[eff]] and [[nom]] convert between nominal and effective yearly rates; [[cnper]], [[crate]] and [[fvadj]] are for a sum growing without payments.' },
+      { id: 'finance-2', example: ['c\\coloneq \\begin{pmatrix}-1000\\\\300\\\\400\\\\500\\end{pmatrix}', '\\mathrm{irr}\\left(c\\right)=', '\\mathrm{npv}\\left(8\\%,c\\right)='] },
     ],
   },
   {
