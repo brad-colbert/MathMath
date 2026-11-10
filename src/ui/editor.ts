@@ -122,6 +122,21 @@ export interface EditorEvents {
   closed?: () => void;
 }
 
+/**
+ * Whether the math before the cursor ends in a name with digits, as J0, not a number, as 2e3 or 1.5. MathLive's
+ * offsets run straight through groups, so this walks back one character at a time: an empty one is the edge of a
+ * group, such as the ( of acosh(0, where the name has ended.
+ */
+function endsInName(field: Field): boolean {
+  const char = (k: number): string => (k > 0 ? field.getValue(k - 1, k, 'latex-unstyled') : '');
+  let k = field.position;
+  if (!/^[0-9]$/.test(char(k))) return false;
+  while (/^[0-9]$/.test(char(k))) k--;
+  if (!/^[A-Za-z]$/.test(char(k))) return false;
+  while (/^[A-Za-z]$/.test(char(k))) k--;
+  return !/^[0-9.]$/.test(char(k));
+}
+
 export class Editor {
   readonly field: MathfieldElement;
   private open = false;
@@ -389,8 +404,8 @@ export class Editor {
           }
         });
       case '.':
-        // After a letter, a period starts a name's literal subscript, as in Mathcad.
-        if (/[A-Za-z]$/.test(previousChar(f))) {
+        // After a name, a period starts its literal subscript, as in Mathcad: x.max, and J0.sc after a digit too.
+        if (/[A-Za-z]$/.test(previousChar(f)) || endsInName(f)) {
           this.consume(e, () => {
             f.executeCommand('moveToSubscript');
             f.mode = 'text';
