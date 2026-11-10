@@ -8,6 +8,16 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.38.1] - 2026-11-09
+
+Strings no longer show a gap before an underscore.
+
+### Fixed
+
+- A string with an underscore, brace or other escaped character in it, such as `"data_2.csv"`, no longer shows a
+  gap before that character. The gap was the space that belongs after `:=` or `=`, put in the wrong place;
+  strings now sit that space away from the operator, as numbers do.
+
 ## [0.38.0] - 2026-11-09
 
 `eigenvecs` gives Mathcad's eigenvectors, signs included, and each differential equation solver has its own method.

@@ -17,10 +17,10 @@
  * Draws a plot as SVG, which prints as sharp vectors and matches the screen. Axis expressions and
  * limits are slots, edited in place like Mathcad's placeholders.
  */
-import { convertLatexToMarkup } from 'mathlive';
 import type { PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
+import { mathMarkup } from './markup.js';
 import { drawContour, drawSurface } from './plot3d.js';
 import { pointsPerPixel } from './zoom.js';
 
@@ -148,7 +148,7 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCode
 
 function markup(latex: string): string {
   try {
-    return convertLatexToMarkup(latex);
+    return mathMarkup(latex);
   } catch {
     return esc(latex);
   }

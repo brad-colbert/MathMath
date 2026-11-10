@@ -18,10 +18,10 @@
  * Mathcad's trace format offers. Changes apply as they're made. Styles only change how a plot looks, so
  * nothing recalculates.
  */
-import { convertLatexToMarkup } from 'mathlive';
 import type { Doc } from '../app/document.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Region, TraceStyle } from '../model/ast.js';
+import { mathMarkup } from './markup.js';
 import { SERIES, traceLook } from './plot.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
@@ -121,7 +121,7 @@ export class TracePanel {
       const name = document.createElement('div');
       name.className = 'name';
       try {
-        name.innerHTML = convertLatexToMarkup(tex(y));
+        name.innerHTML = mathMarkup(tex(y));
       } catch {
         name.textContent = `Trace ${n + 1}`;
       }

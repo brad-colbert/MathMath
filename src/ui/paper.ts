@@ -17,13 +17,13 @@
  * The sheet of paper. Positions are in points, like the file format. The paper is continuous, with
  * dashed guides where pages break, because a worksheet can run for many pages.
  */
-import { convertLatexToMarkup } from 'mathlive';
 import { type Doc, GRID, type Item } from '../app/document.js';
 import { tex } from '../latex/latex.js';
 import { isEditable, regionLatex } from '../latex/region.js';
 import type { Content, NumberFormat, Region, TextRegion } from '../model/ast.js';
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
+import { mathMarkup } from './markup.js';
 import { drawPlot } from './plot.js';
 import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
@@ -44,9 +44,9 @@ function display(latex: string): string {
 /** One oversized or unusual region must never stop the rest of a sheet from drawing. */
 function render(latex: string): string {
   try {
-    return convertLatexToMarkup(latex);
+    return mathMarkup(latex);
   } catch {
-    return convertLatexToMarkup('\\text{Too large to display}');
+    return mathMarkup('\\text{Too large to display}');
   }
 }
 
