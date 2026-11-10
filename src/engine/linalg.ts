@@ -19,7 +19,7 @@
  * geninv, cholesky and lu match it. Eigenvectors, svd and qr are unique only up to sign, and Mathcad's
  * signs come from routines not reproduced here, so they can differ from it in sign.
  */
-import { eigenvalues } from './eigen.js';
+import { lapackEigenvectors } from './eigen.js';
 import { type Dim, EvalError, type Mat, NODIM, type Num, dimDiv, dimPow, isNoDim, newMat } from './values.js';
 
 type Rows = number[][];
@@ -375,35 +375,34 @@ function complexColumns(cols: C[][]): Mat {
 }
 
 /**
- * Eigenvectors as columns, unit length, in the order eigenvals gives the values. A real vector's first
- * nonzero element is negative, a complex one's real and positive: Mathcad's signs in most cases measured.
+ * Eigenvectors as columns, as LAPACK's dgeev gives them, which is how Mathcad's eigenvecs gives them: in its
+ * eigenvalue order, each of unit length, a real vector's sign as dgeev's back-substitution leaves it, and a
+ * complex pair turned so the largest component is real. See lapackEigenvectors.
  */
 export function eigenvectors(m: Mat): Mat {
   unitless(m, 'eigenvecs');
   const a = rowsOf(m);
   square(a, 'eigenvecs');
-  const vals = eigenvalues(m);
-  const cols = Array.from(vals.re, (re, k): C[] => {
-    const lambda: C = [re, vals.im ? vals.im[k]! : 0];
-    const x = eigenvectorFor(a, lambda, k);
-    if (!x) throw new EvalError('runtime', 'eigenvecs: an eigenvector did not converge');
-    return phase(x, lambda[1] === 0 ? -1 : 1);
-  });
-  // A repeated real eigenvalue gets independent vectors: orthonormalize each group against the ones before.
-  const scale = Math.max(largest(a), 1e-300);
-  for (let k = 1; k < cols.length; k++) {
-    if (vals.im?.[k]) continue;
-    const same = cols.slice(0, k).filter((_, j) => !vals.im?.[j] && Math.abs(vals.re[j]! - vals.re[k]!) <= 1e-9 * scale);
-    if (same.length === 0) continue;
-    let x = cols[k]!.map((c) => c[0]);
-    for (const q of same) {
-      const d = x.reduce((t, v, i) => t + v * q[i]![0], 0);
-      x = x.map((v, i) => v - d * q[i]![0]);
+  const n = a.length;
+  const { im, vr } = lapackEigenvectors(a);
+  const out = newMat(n, n);
+  const imag = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) {
+    for (let r = 0; r < n; r++) {
+      if (im[j] === 0) {
+        out.re[r + j * n] = vr[r]![j]!;
+      } else if (im[j]! > 0) {
+        out.re[r + j * n] = vr[r]![j]!;
+        imag[r + j * n] = vr[r]![j + 1]!;
+      } else {
+        // The conjugate of the vector before it.
+        out.re[r + j * n] = vr[r]![j - 1]!;
+        imag[r + j * n] = -vr[r]![j]!;
+      }
     }
-    const norm = Math.hypot(...x);
-    if (norm > 1e-8) cols[k] = phase(x.map((v): C => [v / norm, 0]), -1);
   }
-  return complexColumns(cols);
+  if (im.some((x) => x !== 0)) out.im = imag;
+  return out;
 }
 
 /** The unit eigenvector for eigenvalue z, first nonzero element positive. Mathcad errors when z isn't one. */

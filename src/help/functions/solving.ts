@@ -182,7 +182,7 @@ export const SOLVING: Entry[] = [
     name: 'Rkadapt', group: 'Differential equations', usage: 'Rkadapt(y, x1, x2, npoints, D)', mathcad: true,
     summary: 'The solution of a system of differential equations by an adaptive Runge–Kutta method, given at equal steps from x1 to x2.',
     details: [
-      'Arguments and answer are as for [[rkfixed]]: a matrix of npoints+1 rows, x first. Inside, it takes whatever smaller steps keep the error low, then reports at the equal points, so the answer is more accurate than `rkfixed` for the same npoints.',
+      'Arguments and answer are as for [[rkfixed]]: a matrix of npoints+1 rows, x first. Inside, it takes whatever smaller steps keep the error low, then reports at the equal points, so the answer is more accurate than `rkfixed` for the same npoints. The method is the Cash–Karp Runge–Kutta pair of orders 5 and 4.',
       'It differs from [[rkadapt]] in the output: `Rkadapt` gives the points you ask for, `rkadapt` gives the points the solver itself chose.',
     ],
     units: 'As for [[rkfixed]].',
@@ -204,7 +204,7 @@ export const SOLVING: Entry[] = [
     name: 'Bulstoer', group: 'Differential equations', usage: 'Bulstoer(y, x1, x2, npoints, D)', mathcad: true,
     summary: 'The solution of a system of differential equations, given at equal steps from x1 to x2, for smooth equations.',
     details: [
-      'Arguments and answer are as for [[Rkadapt]]: a matrix of npoints+1 rows, x first. Mathcad\'s Bulirsch–Stoer method suits smooth solutions; in MathMath it shares the adaptive Runge–Kutta solver [[Rkadapt]] uses, so the two agree.',
+      'Arguments and answer are as for [[Rkadapt]]: a matrix of npoints+1 rows, x first. It uses the Bulirsch–Stoer method: each step is taken several times, with more and more modified-midpoint substeps, and the answers extrapolated to a step of zero. On smooth solutions it takes very long steps.',
       'It differs from [[bulstoer]] in the output: `Bulstoer` reports at equal points, `bulstoer` at the solver\'s own.',
     ],
     units: 'As for [[rkfixed]].',
@@ -226,7 +226,7 @@ export const SOLVING: Entry[] = [
     name: 'Adams', group: 'Differential equations', usage: 'Adams(y, x1, x2, npoints, D, [tol])', mathcad: true,
     summary: 'The solution of a system of differential equations, given at equal steps from x1 to x2, for smooth equations, to an optional tolerance.',
     details: [
-      'Arguments and answer are as for [[Rkadapt]], with an optional last argument: the tolerance, a number above 0 (10⁻⁹ if omitted). In MathMath it shares the adaptive Runge–Kutta solver of [[Rkadapt]].',
+      'Arguments and answer are as for [[Rkadapt]], with an optional last argument: the tolerance, a number above 0 (10⁻⁹ if omitted). It uses the Adams–Bashforth–Moulton methods, choosing an order from 1 to 12 as it goes: efficient on smooth solutions, but slow on stiff ones, where it has to keep its steps tiny.',
       'For stiff equations see [[AdamsBDF]] and [[Radau]].',
     ],
     units: 'As for [[rkfixed]].',
@@ -238,7 +238,7 @@ export const SOLVING: Entry[] = [
     summary: 'The solution of a stiff system of differential equations, given at equal steps from x1 to x2, using the Jacobian J.',
     details: [
       'Arguments are as for [[rkfixed]], with one more: J(x, y), a function you define that gives an n×(n+1) matrix. Its first column holds ∂D/∂x, and the n columns after it ∂Dᵢ/∂yⱼ. A system is stiff when the plain solvers need very small steps to stay stable.',
-      'In MathMath `Stiffb` and [[Stiffr]] use the same stiff solver, so they give the same answers, though Mathcad\'s differ in method. The lowercase [[stiffb]] gives the solver\'s own points instead of equal ones.',
+      'It uses semi-implicit extrapolation (Bader and Deuflhard\'s method): steps that stay stable on stiff equations, taken with more and more substeps and extrapolated, so it takes long steps where the solution is smooth. [[Stiffr]] uses a Rosenbrock method instead. The lowercase [[stiffb]] gives the solver\'s own points instead of equal ones.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['A J that isn\'t n×(n+1).', 'As for [[rkfixed]].'],
@@ -249,7 +249,7 @@ export const SOLVING: Entry[] = [
     summary: 'As Stiffb, but at the points the solver chose, to an accuracy you give.',
     details: [
       'J is as for [[Stiffb]], an n×(n+1) matrix. acc, kmax and save are as for [[rkadapt]]: the accuracy, the most rows, and the least spacing in x between rows kept. The end x2 is always the last row.',
-      'The solver is the same as [[Stiffb]]\'s, and the same as [[stiffr]]\'s in MathMath.',
+      'The method is the same as [[Stiffb]]\'s; only the points reported differ.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['As for [[Stiffb]] and [[rkadapt]].'],
@@ -259,7 +259,7 @@ export const SOLVING: Entry[] = [
     name: 'Stiffr', group: 'Differential equations', usage: 'Stiffr(y, x1, x2, npoints, D, J)', mathcad: true,
     summary: 'The solution of a stiff system of differential equations, given at equal steps from x1 to x2, using the Jacobian J.',
     details: [
-      'Arguments and answer are as for [[Stiffb]]. Mathcad\'s `Stiffr` is a Rosenbrock method; in MathMath it and `Stiffb` use the same solver, so they give the same answers. The lowercase [[stiffr]] gives the solver\'s own points instead.',
+      'Arguments and answer are as for [[Stiffb]]. It uses a fourth-order Rosenbrock method with Shampine\'s constants, where [[Stiffb]] uses extrapolation. The lowercase [[stiffr]] gives the solver\'s own points instead.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['As for [[Stiffb]].'],
@@ -280,7 +280,7 @@ export const SOLVING: Entry[] = [
     summary: 'The solution of a system of differential equations, given at equal steps from x1 to x2, switching between methods to suit stiff or smooth stretches.',
     details: [
       'Arguments and answer are as for [[rkfixed]]. After D come two optional arguments, in this order: a Jacobian J(x, y), an n×n matrix of ∂Dᵢ/∂yⱼ (without the ∂D/∂x column [[Stiffb]] takes), and a tolerance. Without J it is found numerically. The default tolerance is 10⁻⁹.',
-      'In MathMath it uses the same stiff solver as [[BDF]] and [[Radau]].',
+      'It starts with the Adams methods, as [[Adams]], and switches to the backward differentiation formulas of [[BDF]] when the equations prove stiff, and back when they no longer are.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['A J that isn\'t n×n.', 'An optional argument that isn\'t a function or a number.', 'As for [[rkfixed]].'],
@@ -290,7 +290,7 @@ export const SOLVING: Entry[] = [
     name: 'BDF', group: 'Differential equations', usage: 'BDF(y, x1, x2, npoints, D, [J], [tol])', mathcad: true,
     summary: 'The solution of a stiff system of differential equations, given at equal steps from x1 to x2, by a backward differentiation method.',
     details: [
-      'Arguments are as for [[AdamsBDF]]: optionally an n×n Jacobian J(x, y) and then a tolerance. Without J it is found numerically. In MathMath it uses the same solver as [[AdamsBDF]] and [[Radau]]. [[Radau]] also takes a mass matrix.',
+      'Arguments are as for [[AdamsBDF]]: optionally an n×n Jacobian J(x, y) and then a tolerance. Without J it is found numerically. It uses the backward differentiation formulas, choosing an order from 1 to 5 as it goes. [[Radau]] also takes a mass matrix.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['As for [[AdamsBDF]].'],
@@ -300,7 +300,7 @@ export const SOLVING: Entry[] = [
     name: 'Radau', group: 'Differential equations', usage: 'Radau(y, x1, x2, npoints, D, [J], [M], [tol])', mathcad: true,
     summary: 'The solution of a stiff system of differential equations, given at equal steps from x1 to x2, optionally with a mass matrix.',
     details: [
-      'Arguments are as for [[BDF]], with a third optional argument: a constant, invertible n×n mass matrix M, which solves M·y′ = D(x, y). The optional arguments go in the order J, M, tol and are told apart by kind: a function is J, a matrix is M, a number is the tolerance. When M is given, J is not used.',
+      'It uses the Radau IIA method of order 5, an implicit Runge–Kutta method that stays stable however stiff the equations. Arguments are as for [[BDF]], with a third optional argument: a constant, invertible n×n mass matrix M, which solves M·y′ = D(x, y). The optional arguments go in the order J, M, tol and are told apart by kind: a function is J, a matrix is M, a number is the tolerance. When M is given, J is not used.',
     ],
     units: 'As for [[rkfixed]].',
     errors: ['A singular mass matrix: a system with no solution for y′ isn\'t supported.', 'A mass matrix that isn\'t n×n.', 'As for [[AdamsBDF]].'],
