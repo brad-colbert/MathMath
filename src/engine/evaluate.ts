@@ -184,6 +184,15 @@ function rangeCount(r: Range): number {
 }
 
 /** Identifiers used in a tree, and those bound inside it. */
+/** A call root(f, x, a, b), the form that searches between a and b: its expression, its variable and its ends. */
+function rootBracket(n: Record<string, unknown>): { body: unknown; name: string; ends: unknown[] } | null {
+  if (n.k !== 'call') return null;
+  const fn = n.fn as Expr;
+  const args = n.args as Expr[];
+  if (fn.k !== 'id' || fn.name !== 'root' || args.length !== 4 || args[1]!.k !== 'id') return null;
+  return { body: args[0], name: args[1]!.name, ends: [args[2], args[3]] };
+}
+
 export function collectIds(node: unknown, used: Set<string>, bound: Set<string>): void {
   if (Array.isArray(node)) {
     for (const n of node) collectIds(n, used, bound);
@@ -191,6 +200,16 @@ export function collectIds(node: unknown, used: Set<string>, bound: Set<string>)
   }
   if (typeof node !== 'object' || node === null) return;
   const n = node as Record<string, unknown>;
+  // root(f(x), x, a, b) binds x inside f, as Mathcad 14 does (probed): a range variable x doesn't make it iterate,
+  // though a range in a or b still does. The guess form, root(f(x), x), takes x's value as its guess, so x counts.
+  const root = rootBracket(n);
+  if (root) {
+    const inner = new Set<string>();
+    collectIds(root.body, inner, bound);
+    for (const name of inner) if (name !== root.name) used.add(name);
+    collectIds(root.ends, used, bound);
+    return;
+  }
   if (n.k === 'id') used.add(n.name as string);
   if (typeof n.varName === 'string') bound.add(n.varName);
   if (n.k === 'assign') {
