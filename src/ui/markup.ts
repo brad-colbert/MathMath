@@ -14,15 +14,19 @@
 // see <https://www.gnu.org/licenses/>.
 
 /**
- * Math as HTML, through MathLive's convertLatexToMarkup, with one fix. MathLive spaces a string on its own,
- * character by character, so the space due after an operator, as in x := "a_b", lands before the string's first
- * escaped character (\_, \{, \%, …) instead of after the operator: the string hugs the := and a gap opens inside
- * it. Wrapped in braces, a string is one piece, spaced like any other operand. Only the drawing changes: what a
- * region stores, and what its editor shows, stay as they are.
+ * Math as HTML, through MathLive's convertLatexToMarkup, with two fixes to strings, made only as they're drawn:
+ * what a region stores, and what its editor shows, stay as they are.
+ *
+ * - MathLive spaces a string character by character, so the space due after an operator, as in x := "a_b",
+ *   lands before the string's first escaped character (\_, \{, \%, …) instead of after the operator: the string
+ *   hugs the := and a gap opens inside it. Wrapped in braces, a string is one piece, spaced like any other operand.
+ * - MathLive draws every " in text as a closing curly quote, so "abc" came out ”abc”. Mathcad's quotes are
+ *   straight, and \char34{} draws one.
  */
 import { convertLatexToMarkup } from 'mathlive';
 
-/** Each string, \text{"…"}, in braces. */
-export const groupStrings = (latex: string): string => latex.replace(/\\text\{"(?:[^{}\\]|\\.)*"\}/g, '{$&}');
+/** Each string, \text{"…"}, in braces, with its quotes straight. */
+export const drawnStrings = (latex: string): string =>
+  latex.replace(/\\text\{"(?:[^{}\\]|\\.)*"\}/g, (s) => `{${s.replace(/"/g, '\\char34{}')}}`);
 
-export const mathMarkup = (latex: string): string => convertLatexToMarkup(groupStrings(latex));
+export const mathMarkup = (latex: string): string => convertLatexToMarkup(drawnStrings(latex));
