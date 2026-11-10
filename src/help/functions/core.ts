@@ -215,14 +215,14 @@ export const CORE: Entry[] = [
     example: ['\\mathrm{acsch}\\left(1\\right)='],
   },
   {
-    name: 'csgn', group: A, usage: 'csgn(z)', mathcad: true,
+    name: 'csgn', group: 'Complex numbers', usage: 'csgn(z)', mathcad: true,
     summary: 'The sign of a complex number: 1 or −1 by the sign of its real part, or of its imaginary part when the real part is 0.',
     details: ['csgn(0) is 0. For a real number it is the same as [[sign]]. Element by element for a vector or matrix. See also [[signum]].'],
     units: 'Any units: the answer has none.',
     example: ['\\mathrm{csgn}\\left(-3+4\\mathrm{i}\\right)=', '\\mathrm{csgn}\\left(2\\mathrm{i}\\right)='],
   },
   {
-    name: 'signum', group: A, usage: 'signum(z)', mathcad: true,
+    name: 'signum', group: 'Complex numbers', usage: 'signum(z)', mathcad: true,
     summary: 'z divided by its magnitude: the point on the unit circle in the direction of z.',
     details: ['signum(0) is 1, as in Mathcad. For a real number it is 1 or −1. Element by element for a vector or matrix. See also [[csgn]] and [[sign]].'],
     units: 'Any units: the answer has none.',

@@ -58,5 +58,25 @@
     "slug": "laplace",
     "title": "Exact answers: calculus and Laplace",
     "summary": "Symbolic derivatives, integrals, limits and series, then a spring and damper solved exactly with the Laplace transform and checked numerically."
+  },
+  {
+    "slug": "phasors",
+    "title": "Phasors and power factor",
+    "summary": "A motor as a complex impedance: its current as a phasor, a capacitor to correct its power factor, and RLC ringing."
+  },
+  {
+    "slug": "cooling",
+    "title": "Fitting a cooling curve",
+    "summary": "Coffee readings fitted with a line, an exponential and a model of our own, and when it will be cool enough to drink."
+  },
+  {
+    "slug": "hardware",
+    "title": "Ordering by the box",
+    "summary": "A parts table of strings and numbers: looking parts up, rounding up to whole boxes, and writing the order as text."
+  },
+  {
+    "slug": "drum",
+    "title": "A drumhead and Bessel functions",
+    "summary": "A drumhead's modes from the zeros of Bessel functions, and Γ giving the volume of a ball in n dimensions."
   }
 ]

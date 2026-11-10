@@ -8,6 +8,25 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [Unreleased]
+
+## [0.42.1] - 2026-11-10
+
+Help and the Examples gallery catch up with the functions added in 0.39 to 0.42.
+
+### Added
+
+- Four new examples in the gallery, one for each batch of functions added in 0.39 to 0.42: phasors and power-factor
+  correction (complex numbers), fitting a cooling curve (line, expfit, genfit and regress), ordering parts by the box
+  (strings, lookup and rounding to a step), and a drumhead's modes from Bessel zeros, with Γ giving the volume of
+  a ball in n dimensions.
+
+### Changed
+
+- Help has new pages on complex numbers, curve fitting and special functions, and Typing math now covers typing
+  imaginary numbers (3+4i), strings inside math, names with digits (str2num), and a literal subscript after a digit
+  (J0.sc). The pages had fallen behind the functions added in 0.39 to 0.42.
+
 ## [0.42.0] - 2026-11-10
 
 Mathcad's special functions: Γ, the orthogonal polynomials, hypergeometric functions, and the Bessel family for real arguments.
