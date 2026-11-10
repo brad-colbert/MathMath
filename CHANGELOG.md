@@ -8,6 +8,34 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.39.0] - 2026-11-09
+
+The elementary functions take complex numbers, with Mathcad's branches, and the rest of its trigonometric and hyperbolic functions are here.
+
+### Added
+
+- The rest of Mathcad's trigonometric and hyperbolic functions: `acot`, `asec`, `acsc`, `coth`, `sech`, `csch`,
+  `asinh`, `acosh`, `atanh`, `acoth`, `asech` and `acsch`; and `csgn` and `signum`, the signs of a complex number.
+- `exp`, `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `sinh`, `cosh`, `tanh` and `atan` take complex numbers, so
+  phasors such as exp(j·ω·t) work.
+- `asin(2)`, `acos(2)`, `acosh(0.5)` and the like give a complex answer, as in Mathcad, where they were refused.
+  On a branch cut each takes the same side as Mathcad 14: `asin(2)` is π/2 − 1.317i, and `atanh(2)` is
+  0.549 − 1.571i. All 29 functions were checked against Mathcad 14 at 18 arguments each.
+- A number typed straight before `i` or `j`, as `3+4i` or `4j`, is an imaginary number, as in Mathcad. Before,
+  only the `i` on the keypad was; a typed `4i` meant 4 times a variable `i`, which is now written `4·i`.
+- LaTeX pasted with `\sinh`, `\coth`, `\arcsin` and the like reads as Mathcad's names (`arcsin` is `asin`).
+
+### Changed
+
+- `cot(0)`, `csc(0)`, `coth(0)` and `csch(0)` are errors, as in Mathcad ("a singularity"), where they gave an
+  infinite value.
+- Far from the usual range, as `asin(1e−10 + 1e−10i)`, the inverse functions keep all their digits, where
+  Mathcad 14's own lose some or all of them; across the range probed they agree with Mathcad's to 14 digits.
+
+### Known limits
+
+- Symbolic evaluation (→) doesn't know the new functions yet.
+
 ## [0.38.2] - 2026-11-09
 
 Typed plot axis limits show as numbers, and strings show straight quotes.

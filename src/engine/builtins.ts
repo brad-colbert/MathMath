@@ -14,6 +14,7 @@
 // see <https://www.gnu.org/licenses/>.
 
 import { eigenvalues } from './eigen.js';
+import { ELEMENTARY, csgn, signum } from './elementary.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
 import type { DecodedAudio } from './wav.js';
 import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, secondDerivatives, secondDerivatives2, spline2At, splineAt } from './splines.js';
@@ -64,12 +65,17 @@ const scalar = (f: (x: Num) => Value): Impl => {
   return g;
 };
 
-const real1 = (f: (x: number) => number): Impl =>
-  scalar((x) => {
+/** An elementary function of a dimensionless number, real or complex (elementary.ts). */
+const elementary = (fn: string): Impl => {
+  const e = ELEMENTARY[fn]!;
+  return scalar((x) => {
     if (!isNoDim(x.dim)) throw new EvalError('runtime', 'argument must be dimensionless');
-    if (x.im !== 0) throw new EvalError('unsupported', 'complex argument to real function');
-    return num(f(x.re));
+    const r = x.im === 0 ? e.real?.(x.re) : undefined;
+    if (r !== undefined) return num(r);
+    const [re, im] = e.complex([x.re, x.im], fn);
+    return num(re, NODIM, im);
   });
+};
 
 const realOf = (x: Num, fn: string): number => {
   if (x.im !== 0) throw new EvalError('runtime', `${fn} takes a real argument`);
@@ -83,13 +89,6 @@ function complexLog(x: Num): Num {
   if (x.re === 0 && x.im === 0) throw new EvalError('runtime', 'log of zero');
   if (x.im === 0 && x.re > 0) return num(Math.log(x.re));
   return num(Math.log(Math.hypot(x.re, x.im)), NODIM, Math.atan2(x.im, x.re));
-}
-
-/** Real inside [-1, 1]; outside it, the complex value. */
-function inverseTrig(x: Num, f: (v: number) => number, kind: 'asin' | 'acos'): Num {
-  if (!isNoDim(x.dim)) throw new EvalError('runtime', 'argument must be dimensionless');
-  if (x.im === 0 && Math.abs(x.re) <= 1) return num(f(x.re));
-  throw new EvalError('unsupported', `complex ${kind}`);
 }
 
 const flatten = (args: Value[]): Num[] =>
@@ -235,10 +234,12 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
   };
 
   const table: Record<string, Impl> = {
-    sin: real1(Math.sin), cos: real1(Math.cos), tan: real1(Math.tan),
-    cot: real1((x) => 1 / Math.tan(x)), sec: real1((x) => 1 / Math.cos(x)), csc: real1((x) => 1 / Math.sin(x)),
-    asin: scalar((x) => inverseTrig(x, Math.asin, 'asin')), acos: scalar((x) => inverseTrig(x, Math.acos, 'acos')),
-    atan: real1(Math.atan), sinh: real1(Math.sinh), cosh: real1(Math.cosh), tanh: real1(Math.tanh),
+    ...Object.fromEntries(Object.keys(ELEMENTARY).map((fn) => [fn, elementary(fn)])),
+    csgn: scalar((x) => num(csgn([x.re, x.im]))),
+    signum: scalar((x) => {
+      const [re, im] = signum([x.re, x.im]);
+      return num(re, NODIM, im);
+    }),
     atan2: (a, b) => {
       const [x, y] = [requireNum(a), requireNum(b)];
       // Mathcad has no negative zero here: a stored result shows atan2(-1, -0) as +180 degrees.
@@ -248,7 +249,6 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       const t = Math.atan2(requireReal(b), requireReal(a));
       return num(t < 0 ? t + 2 * Math.PI : t);
     },
-    exp: real1(Math.exp),
     ln: scalar(complexLog),
     log: (a, b) => {
       const base = b ? Math.log(requireReal(b)) : Math.LN10;

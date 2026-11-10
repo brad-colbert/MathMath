@@ -94,6 +94,13 @@ describe('typed forms', () => {
     ['2\\pi', op('mult', R(2), V('π'))],
     ['\\mathrm{\\Delta x}', V('Δx')],
     ['\\sin\\left(x\\right)', { k: 'call', fn: V('sin'), args: [V('x')] }],
+    ['\\sinh\\left(x\\right)', { k: 'call', fn: V('sinh'), args: [V('x')] }],
+    ['\\arcsin\\left(x\\right)', { k: 'call', fn: V('asin'), args: [V('x')] }],
+    // A number followed straight away by i or j is imaginary, as typed in Mathcad; not when a name or subscript follows.
+    ['3+4i', op('plus', R(3), { k: 'imag', v: 4 })],
+    ['4j', { k: 'imag', v: 4 }],
+    ['4\\cdot i', op('mult', R(4), V('i'))],
+    ['4in', op('mult', R(4), V('in'))],
     ['\\frac12', op('div', R(1), R(2))],
     ['x^2', op('pow', V('x'), R(2))],
     ['f(x)', { k: 'call', fn: V('f'), args: [V('x')] }],
