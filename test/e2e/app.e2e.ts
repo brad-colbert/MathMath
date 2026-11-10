@@ -2125,6 +2125,12 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const giac = await page.evaluate(() => [...document.querySelectorAll<HTMLAnchorElement>('#splash .legal a.giac, #splash .legal a.giac-source')].map((a) => a.href));
   check('it names Giac, its license and its source, in every build', s.text.includes('Giac, by Bernard Parisse') && s.text.includes('GNU General Public License')
     && giac[0] === 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html' && /\/giac_2\.0\.0-14\.tar\.gz$/.test(giac[1] ?? ''), giac);
+  const amos = await page.evaluate(async () => {
+    const a = document.querySelector<HTMLAnchorElement>('#splash .legal a.amos-license');
+    const text = a ? await (await fetch(a.href)).text() : '';
+    return { href: a?.href ?? '', scipy: text.includes('Copyright (C) 2024 SciPy developers'), sandia: text.includes('APPROVED FOR UNLIMITED RELEASE') };
+  });
+  check('About links the notices of the Amos port, and they are served', amos.scipy && amos.sandia, amos);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);

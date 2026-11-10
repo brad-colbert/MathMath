@@ -78,5 +78,10 @@
     "slug": "drum",
     "title": "A drumhead and Bessel functions",
     "summary": "A drumhead's modes from the zeros of Bessel functions, and Γ giving the volume of a ball in n dimensions."
+  },
+  {
+    "slug": "skin",
+    "title": "The skin effect in a wire",
+    "summary": "Alternating current crowds to the surface of a copper bar: Bessel functions of a complex argument give its spread and the resistance it costs."
   }
 ]

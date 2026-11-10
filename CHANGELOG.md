@@ -10,6 +10,22 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-10
+
+The Bessel, Hankel, Airy and spherical Bessel functions take complex arguments, from a port of Amos's library.
+
+### Added
+
+- The Bessel functions take complex arguments, as in Mathcad: J0, J1, Jn, Y0, Y1, Yn, I0, I1, In, K0, K1, Kn, the
+  Hankel functions H1 and H2, the Airy functions Ai, Bi, DAi and DBi, and the spherical js and ys, with every
+  scaled .sc form. They come from a port of Amos's library, the one Mathcad's scaled forms follow; orders stay
+  real, and negative ones work at any argument, in the scaled forms too, which Mathcad 14 calls undefined. On the imaginary axis, as js(0, 2i), MathMath gives the true value,
+  where Mathcad 14's is 1/√2 of it; beyond |z| of about 10⁹, where Mathcad 14 gives up on J, Y and the Hankel
+  functions, MathMath still gives their values. ber and bei still need a real argument, as in Mathcad.
+- About credits Amos's library and SciPy's translation of it, and links their license notices.
+- A new example in the gallery, the skin effect in a wire: alternating current crowding to the surface of a copper
+  bar, from J0 and J1 of a complex argument.
+
 ## [0.42.1] - 2026-11-10
 
 Help and the Examples gallery catch up with the functions added in 0.39 to 0.42.

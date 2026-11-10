@@ -23,6 +23,8 @@ const OFF_KEY = 'mathmath.splash';
 
 /** Giac, the algebra engine, and the published source of the build MathMath runs (README, "Third-party software"). */
 export const GIAC_HOME = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/giac.html';
+/** The notices that come with the port of Amos's Bessel functions (src/engine/amos.ts), served with the app. */
+const AMOS_NOTICES = `${import.meta.env.BASE_URL}licenses/amos.txt`;
 export const GIAC_SOURCE = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz';
 
 /** The viewer's choice, kept in this browser. Storage can be missing or refuse, so it never throws. */
@@ -82,6 +84,8 @@ export class Splash {
           Exact answers come from <a class="giac" href="${GIAC_HOME}" target="_blank" rel="noopener">Giac</a>, by
           Bernard Parisse, Renée De Graeve and others, free software under the GNU General Public License, version 3
           or later: <a class="giac-source" href="${GIAC_SOURCE}" target="_blank" rel="noopener">its source code</a>.
+          Bessel functions of a complex argument are a port of D. E. Amos's library by way of SciPy, under the BSD
+          license: <a class="amos-license" href="${AMOS_NOTICES}" target="_blank" rel="noopener">its notices</a>.
           Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;

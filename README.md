@@ -85,6 +85,13 @@ Worker. About shows Giac's name, license and source link.
   file itself aren't in it.
 - **License.** GPL-3.0-or-later, as the `package.json` and `LICENSE` published with `giacwasm.js` state.
 
+The Bessel and Airy functions of a complex argument, `src/engine/amos.ts`, are a TypeScript port of SciPy's C++
+translation of D. E. Amos's Algorithm 644 (ACM TOMS 12, 1986, with its 1990 and 1995 remarks), from
+[scipy/xsf](https://github.com/scipy/xsf) `include/xsf/cpu/amos/amos.h` at commit `3682d380`. That translation is
+copyright the SciPy developers under the BSD 3-Clause license; Amos's routines were issued by Sandia Laboratories
+and approved for unlimited release. Both notices are kept at the top of `amos.ts`, and, since the build drops
+comments, the app serves them as `licenses/amos.txt`, linked from About.
+
 The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
 `examples/assets/README.md`.
 

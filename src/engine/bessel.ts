@@ -19,6 +19,8 @@
  * bessik), which gives J, Y, I and K of order ν ≥ 0 at x > 0 to about 1e−15. Negative orders come by reflection,
  * negative x by DLMF 10.11.1 and 10.34.1–2: a fractional order gives a complex value there, as it should.
  */
+import { airy, besh, besi, besj, besk, besy, biry } from './amos.js';
+import { cdiv, csqrt } from './complex.js';
 import { EvalError, NODIM, type Num, type Value, isNoDim, num } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
@@ -426,12 +428,100 @@ const answer = (v: Cx, fn: string): Num => {
   return num(v[0] + 0, NODIM, v[1] + 0);
 };
 
-/** A real argument: complex ones aren't here yet. */
-function realX(v: Value | undefined, fn: string, what = 'argument'): number {
+/** A number without units, as [re, im]. */
+function plain(v: Value | undefined, fn: string, what: string): Cx {
   if (v?.t !== 'num') throw new EvalError('runtime', `${fn}'s ${what} must be a number`);
   if (!isNoDim(v.dim)) throw new EvalError('runtime', `${fn}'s ${what} must have no units`);
-  if (v.im !== 0) throw new EvalError('runtime', `${fn} takes a real ${what}: complex arguments to the Bessel functions aren't in MathMath yet`);
-  return v.re;
+  return [v.re, v.im];
+}
+/** A real argument or order, as Mathcad 14 asks for the orders and for ber and bei. */
+function realX(v: Value | undefined, fn: string, what = 'argument'): number {
+  const [re, im] = plain(v, fn, what);
+  if (im !== 0) throw new EvalError('runtime', `${fn}'s ${what} must be real, as in Mathcad`);
+  return re;
+}
+
+/**
+ * What an Amos routine's error code means here. 1 is a bad input, which the callers rule out first; 2 is an
+ * answer too large to hold; 3 is an argument or order so large that half the digits may be lost, which Amos still
+ * computes and Mathcad 14 shows (probed at |z| = 5e4 and 1e8), so it's kept; 4 is one so large that none are left; 5 is no convergence.
+ */
+function amosCheck(ierr: number, fn: string): void {
+  if (ierr === 2) throw tooBig(fn);
+  if (ierr === 4) throw new EvalError('runtime', `${fn} can't be calculated this far out: the argument or order is too large to give any digits`);
+  if (ierr === 5) throw new EvalError('runtime', `${fn} didn't converge here`);
+  if (ierr === 1) throw new EvalError('runtime', `${fn} is undefined here`);
+}
+const kode = (sc: boolean): number => (sc ? 2 : 1);
+/** cos(πν)·a − sin(πν)·b: J_−ν from J_ν and Y_ν, and, with −ν, Y_−ν from Y_ν and J_ν (DLMF 10.4.7–8). */
+function rotateJY(a: Cx, b: Cx, v: number): Cx {
+  const [c, s] = [cospi(v), sinpi(v)];
+  // At a half-whole order c is 0: c·a is 0 even if a overflowed.
+  if (c === 0) return scaleC(b, -s);
+  return [c * a[0] - s * b[0], c * a[1] - s * b[1]];
+}
+function amosJ(nu: number, z: Cx, sc: boolean, fn: string): Cx {
+  const v = Math.abs(nu);
+  const j = besj(z, v, kode(sc), 1);
+  amosCheck(j.ierr, fn);
+  if (nu >= 0) return j.cy[0]!;
+  if (Number.isInteger(v)) return v % 2 === 1 ? scaleC(j.cy[0]!, -1) : j.cy[0]!;
+  const y = besy(z, v, kode(sc), 1);
+  amosCheck(y.ierr, fn);
+  return rotateJY(j.cy[0]!, y.cy[0]!, v);
+}
+function amosY(nu: number, z: Cx, sc: boolean, fn: string): Cx {
+  const v = Math.abs(nu);
+  const y = besy(z, v, kode(sc), 1);
+  amosCheck(y.ierr, fn);
+  if (nu >= 0) return y.cy[0]!;
+  if (Number.isInteger(v)) return v % 2 === 1 ? scaleC(y.cy[0]!, -1) : y.cy[0]!;
+  const j = besj(z, v, kode(sc), 1);
+  amosCheck(j.ierr, fn);
+  return rotateJY(y.cy[0]!, j.cy[0]!, -v);
+}
+function amosI(nu: number, z: Cx, sc: boolean, fn: string): Cx {
+  const v = Math.abs(nu);
+  const i = besi(z, v, kode(sc), 1);
+  amosCheck(i.ierr, fn);
+  if (nu >= 0 || Number.isInteger(v)) return i.cy[0]!;
+  // DLMF 10.27.2: I_−ν = I_ν + (2/π) sin(νπ) K_ν.
+  const k = besk(z, v, kode(sc), 1);
+  amosCheck(k.ierr, fn);
+  let kv = k.cy[0]!;
+  // Scaled, K comes as K·e^z: turn it into I's scale, e^(−|Re z|), as SciPy does.
+  if (sc) kv = scaleC(mulC(kv, cexpi(-z[1])), z[0] > 0 ? Math.exp(-2 * z[0]) : 1);
+  const f = (2 / Math.PI) * Math.sin(v * Math.PI);
+  return [i.cy[0]![0] + f * kv[0], i.cy[0]![1] + f * kv[1]];
+}
+/** One Bessel function at order nu and complex z, by Amos's routines: DLMF 10.4.7–8, 10.27.2–3 and 10.4.6 for negative orders. */
+function complexBessel(kind: Kind, nu: number, z: Cx, sc: boolean, fn: string): Num {
+  if (kind === 'J') return answer(amosJ(nu, z, sc, fn), fn);
+  if (kind === 'Y') return answer(amosY(nu, z, sc, fn), fn);
+  if (kind === 'I') return answer(amosI(nu, z, sc, fn), fn);
+  if (kind === 'K') {
+    const k = besk(z, Math.abs(nu), kode(sc), 1);
+    amosCheck(k.ierr, fn);
+    return answer(k.cy[0]!, fn);
+  }
+  // H1_−ν = e^(iπν) H1_ν, H2_−ν = e^(−iπν) H2_ν.
+  const m = kind === 'H1' ? 1 : 2;
+  const h = besh(z, Math.abs(nu), kode(sc), m, 1);
+  amosCheck(h.ierr, fn);
+  const v = h.cy[0]!;
+  return answer(nu >= 0 ? v : mulC(v, eipi(m === 1 ? -nu : nu)), fn);
+}
+/** The Airy functions at complex z, by Amos's zairy and zbiry. Scaled, Ai and Ai′ by e^ζ, Bi and Bi′ by e^(−|Re ζ|), ζ = ⅔·z^(3/2). */
+function complexAiry(name: 'Ai' | 'Bi' | 'DAi' | 'DBi', z: Cx, sc: boolean, fn: string): Num {
+  const id = name.startsWith('D') ? 1 : 0;
+  if (name.endsWith('Ai')) {
+    const r = airy(z, id, kode(sc));
+    amosCheck(r.ierr, fn);
+    return answer(r.v, fn);
+  }
+  const r = biry(z, id, kode(sc));
+  amosCheck(r.ierr, fn);
+  return answer(r.v, fn);
 }
 
 type Kind = 'J' | 'Y' | 'I' | 'K' | 'H1' | 'H2';
@@ -459,7 +549,7 @@ function bessel(kind: Kind, nu: number, x: number, sc: boolean, fn: string): Num
 }
 
 /** Airy functions at real x, from Bessel functions of order ⅓ and ⅔ (NR airy). Scaled as Mathcad's Help gives it. */
-function airy(x: number, sc: boolean): { ai: number; bi: number; aip: number; bip: number } {
+function realAiry(x: number, sc: boolean): { ai: number; bi: number; aip: number; bip: number } {
   const ONOVRT = 1 / Math.sqrt(3);
   if (x === 0) {
     const ai = 0.35502805388781723926;
@@ -554,6 +644,12 @@ function spherical(kind: 'js' | 'ys', m: number, x: number): Num {
   return answer(mulC(root, kind === 'js' ? j : y), fn);
 }
 
+/** js and ys at complex z: √(π/2z)·J and Y of order m + ½, with the root on its principal branch, as mpmath and Mathcad take it. */
+function complexSpherical(kind: 'js' | 'ys', m: number, z: Cx): Num {
+  const f = kind === 'js' ? amosJ(m + 0.5, z, false, kind) : amosY(m + 0.5, z, false, kind);
+  return answer(mulC(csqrt(cdiv([Math.PI / 2, 0], z)), f), kind);
+}
+
 export const BESSEL_ARITY: Record<string, [number, number]> = {};
 const ORDER0: Record<string, [Kind, number]> = { J0: ['J', 0], J1: ['J', 1], Y0: ['Y', 0], Y1: ['Y', 1], I0: ['I', 0], I1: ['I', 1], K0: ['K', 0], K1: ['K', 1] };
 const ORDERN: Record<string, Kind> = { Jn: 'J', Yn: 'Y', In: 'I', Kn: 'K', H1: 'H1', H2: 'H2' };
@@ -563,14 +659,21 @@ export function besselFns(): Record<string, Impl> {
   for (const [name, [kind, nu]] of Object.entries(ORDER0)) {
     for (const sc of [false, true]) {
       const fn = sc ? `${name}.sc` : name;
-      out[fn] = (x) => bessel(kind, nu, realX(x, fn), sc, fn);
+      out[fn] = (x) => {
+        const z = plain(x, fn, 'argument');
+        return z[1] === 0 ? bessel(kind, nu, z[0], sc, fn) : complexBessel(kind, nu, z, sc, fn);
+      };
       BESSEL_ARITY[fn] = [1, 1];
     }
   }
   for (const [name, kind] of Object.entries(ORDERN)) {
     for (const sc of [false, true]) {
       const fn = sc ? `${name}.sc` : name;
-      out[fn] = (m, x) => bessel(kind, realX(m, fn, 'order'), realX(x, fn), sc, fn);
+      out[fn] = (m, x) => {
+        const nu = realX(m, fn, 'order');
+        const z = plain(x, fn, 'argument');
+        return z[1] === 0 ? bessel(kind, nu, z[0], sc, fn) : complexBessel(kind, nu, z, sc, fn);
+      };
       BESSEL_ARITY[fn] = [2, 2];
     }
   }
@@ -578,7 +681,9 @@ export function besselFns(): Record<string, Impl> {
     for (const sc of [false, true]) {
       const fn = sc ? `${name}.sc` : name;
       out[fn] = (x) => {
-        const a = airy(realX(x, fn), sc);
+        const z = plain(x, fn, 'argument');
+        if (z[1] !== 0) return complexAiry(name, z, sc, fn);
+        const a = realAiry(z[0], sc);
         return answer([{ Ai: a.ai, Bi: a.bi, DAi: a.aip, DBi: a.bip }[name], 0], fn);
       };
       BESSEL_ARITY[fn] = [1, 1];
@@ -593,7 +698,11 @@ export function besselFns(): Record<string, Impl> {
     BESSEL_ARITY[name] = [2, 2];
   }
   for (const name of ['js', 'ys'] as const) {
-    out[name] = (m, x) => spherical(name, realX(m, name, 'order'), realX(x, name));
+    out[name] = (m, x) => {
+      const order = realX(m, name, 'order');
+      const z = plain(x, name, 'argument');
+      return z[1] === 0 ? spherical(name, order, z[0]) : complexSpherical(name, order, z);
+    };
     BESSEL_ARITY[name] = [2, 2];
   }
   return out;
