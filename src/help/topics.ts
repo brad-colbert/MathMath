@@ -140,7 +140,8 @@ export const TOPICS: Topic[] = [
       { p: 'Type Γ as G then Ctrl+G: [[Γ]](z) and the incomplete Γ(a, x), with [[lnΓ]] for when Γ is too large. The polynomials [[Her]], [[Tcheb]], [[Ucheb]], [[Lag]], [[Leg]] and [[Jac]] take a whole-number degree; [[fhyper]] and [[mhyper]] are the hypergeometric functions.' },
       { p: 'The Bessel functions take any real order, fractional or negative: [[J0]], [[Jn]], [[Y0]], [[Yn]], [[I0]], [[In]], [[K0]], [[Kn]], the Hankel functions [[H1]] and [[H2]], the Airy functions [[Ai]] and [[Bi]], the Kelvin functions [[ber]] and [[bei]], and the spherical [[js]] and [[ys]]. Each Bessel and Airy function has a scaled form, typed with .sc, as J0.sc: it stays in range where the plain one would overflow, as I0.sc(1000).' },
       { id: 'special-1', example: ['J0\\left(2.4048\\right)=', '\\mathrm{Jn}\\left(0.5,3\\right)=', '\\Gamma\\left(0.5\\right)^{2}='] },
-      { p: 'For now the Bessel family takes real arguments; Mathcad also takes complex ones. At a negative argument a fractional order gives a complex answer, as it should: Mathcad 14 keeps only the real part there.' },
+      { p: 'The Bessel and Airy functions take complex arguments as well as real ones, as Mathcad\'s do, and the spherical js and ys too; the order stays real. At a negative real argument a fractional order gives a complex answer, as it should: Mathcad 14 keeps only the real part there. Only ber and bei need a real argument, as in Mathcad. Far out, beyond |z| of about 10⁹, Mathcad 14 gives up on J, Y and the Hankel functions; MathMath still gives their values.' },
+      { id: 'special-2', example: ['J0\\left(1+1\\mathrm{i}\\right)=', '\\mathrm{Kn}\\left(0.5,2+1\\mathrm{i}\\right)=', '\\mathrm{Ai}\\left(-2+1\\mathrm{i}\\right)='] },
     ],
   },
   {

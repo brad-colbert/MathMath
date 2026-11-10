@@ -368,6 +368,7 @@ export const RESULTS: Record<string, string[]> = {
   "topic:random-1": ["0.267","0.975","1.96"],
   "topic:solve-1": ["","","","","","\\begin{pmatrix}4\\\\3\\end{pmatrix}"],
   "topic:special-1": ["1.327\\times10^{-5}","0.065","3.142"],
+  "topic:special-2": ["0.938-0.497\\mathrm{i}","0.038-0.107\\mathrm{i}","0.556+0.79\\mathrm{i}"],
   "topic:typing-1": ["","","10"],
   "topic:typing-2": ["","8"],
   "topic:units-1": ["","","10.438\\ \\frac{\\mathrm{m}}{\\mathrm{s}}"],

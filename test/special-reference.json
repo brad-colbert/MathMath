@@ -1,5 +1,5 @@
 {
- "source": "Special functions: Mathcad 14, probed 2026-11-10, where MathMath matches it; mpmath at 40 digits where MathMath gives the true value and Mathcad 14 does not, and for large arguments beyond the probe. error: MathMath refuses it (why: complex arguments, only for now; or a value Mathcad gives that is really infinite).",
+ "source": "Special functions, real and complex arguments: Mathcad 14, probed 2026-11-10, where MathMath matches it; mpmath at 40 digits where MathMath gives the true value and Mathcad 14 does not (or calls it undefined), and for large arguments beyond the probe. error: MathMath refuses it, as Mathcad does, or (why) where the value Mathcad gives is really infinite.",
  "cases": [
   {
    "label": "\u0393(5)",
@@ -1124,20 +1124,29 @@
   {
    "label": "J0((1, 1))",
    "latex": "\\mathrm{J0}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.9376084768060292,
+    -0.4965299476091221
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "J0((-3, 2))",
    "latex": "\\mathrm{J0}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -1.249234879607422,
+    0.9479837920577349
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "J0((0, 30))",
    "latex": "\\mathrm{J0}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    781672297823.9773,
+    0.0
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "J1(0)",
@@ -1214,20 +1223,29 @@
   {
    "label": "J1((1, 1))",
    "latex": "\\mathrm{J1}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.6141603349229037,
+    0.36502802882708785
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "J1((-3, 2))",
    "latex": "\\mathrm{J1}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.780148848579254,
+    -1.2609820602388482
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "J1((0, 30))",
    "latex": "\\mathrm{J1}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    4.705746090003568e-05,
+    768532038938.9572
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y0(0)",
@@ -1300,20 +1318,29 @@
   {
    "label": "Y0((1, 1))",
    "latex": "\\mathrm{Y0}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.44547448893603253,
+    0.7101585820037346
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y0((-3, 2))",
    "latex": "\\mathrm{Y0}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.8951643875605795,
+    -1.2670281499114167
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y0((0, 30))",
    "latex": "\\mathrm{Y0}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -1.3575773383773003e-14,
+    781672297823.9773
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y1(0)",
@@ -1381,25 +1408,34 @@
     0.10703243154093754,
     -1.1534496155137468
    ],
-   "source": "mpmath; Mathcad 14 gives nan"
+   "source": "mpmath; Mathcad 14 gives None"
   },
   {
    "label": "Y1((1, 1))",
    "latex": "\\mathrm{Y1}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.6576945355913453,
+    0.6298010039928845
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y1((-3, 2))",
    "latex": "\\mathrm{Y1}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.2361147790140972,
+    -0.8352164439165688
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Y1((0, 30))",
    "latex": "\\mathrm{Y1}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -768532038938.9572,
+    4.705746091383589e-05
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I0(0)",
@@ -1472,20 +1508,29 @@
   {
    "label": "I0((1, 1))",
    "latex": "\\mathrm{I0}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.9376084768060292,
+    0.4965299476091221
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I0((-3, 2))",
    "latex": "\\mathrm{I0}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.4695171920440704,
+    -4.313788409468922
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I0((0, 30))",
    "latex": "\\mathrm{I0}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.08636798358104023,
+    6.938893903907228e-18
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I1(0)",
@@ -1558,20 +1603,29 @@
   {
    "label": "I1((1, 1))",
    "latex": "\\mathrm{I1}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.3650280288270879,
+    0.6141603349229037
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I1((-3, 2))",
    "latex": "\\mathrm{I1}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.8127809410735782,
+    3.780682961371299
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I1((0, 30))",
    "latex": "\\mathrm{I1}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -6.938893903907228e-18,
+    -0.11875106261662294
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K0(0)",
@@ -1644,20 +1698,29 @@
   {
    "label": "K0((1, 1))",
    "latex": "\\mathrm{K0}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.08019772694651774,
+    -0.35727745928533017
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K0((-3, 2))",
    "latex": "\\mathrm{K0}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -13.572953201915793,
+    1.4993444248269272
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K0((0, 30))",
    "latex": "\\mathrm{K0}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.18424770448213149,
+    0.1356665113617798
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K1(0)",
@@ -1730,20 +1793,29 @@
   {
    "label": "K1((1, 1))",
    "latex": "\\mathrm{K1}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.024568305523740397,
+    -0.4597194738011892
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K1((-3, 2))",
    "latex": "\\mathrm{K1}\\left(-3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -11.852556296926025,
+    2.5278558843982
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K1((0, 30))",
    "latex": "\\mathrm{K1}\\left(30\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.18653373296118195,
+    0.13261537628303546
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(2,0)",
@@ -1793,8 +1865,11 @@
   {
    "label": "Jn(2,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(2,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.4126719082931706,
+    0.2659739227983887
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(0.5,0)",
@@ -1844,8 +1919,11 @@
   {
    "label": "Jn(0.5,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.6686912967460069,
+    -0.4259785835635056
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(2.7,0)",
@@ -1895,8 +1973,11 @@
   {
    "label": "Jn(2.7,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(2.7,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.15031275505597155,
+    0.21917014225676007
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(-1,0)",
@@ -1946,8 +2027,11 @@
   {
    "label": "Jn(-1,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(-1,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.7906233925534284,
+    0.07993269416777597
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(-2.5,0)",
@@ -1993,8 +2077,11 @@
   {
    "label": "Jn(-2.5,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(-2.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.6155232892404673,
+    -0.3846680771920403
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(10,0)",
@@ -2044,8 +2131,11 @@
   {
    "label": "Jn(10,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(10,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -1.3086295784823137e-07,
+    -7.747020627022369e-07
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Jn(50,0)",
@@ -2095,8 +2185,11 @@
   {
    "label": "Jn(50,(2, 1))",
    "latex": "\\mathrm{Jn}\\left(50,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -3.333192407120423e-63,
+    -7.901847664592513e-63
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(2,0)",
@@ -2142,8 +2235,11 @@
   {
    "label": "Yn(2,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(2,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.5737407339596307,
+    0.41041309825527816
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(0.5,0)",
@@ -2189,8 +2285,11 @@
   {
    "label": "Yn(0.5,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.46447163413219045,
+    0.47621033866924833
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(2.7,0)",
@@ -2236,8 +2335,11 @@
   {
    "label": "Yn(2.7,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(2.7,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.6064519028485555,
+    0.4155576560810504
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(-1,0)",
@@ -2283,8 +2385,11 @@
   {
    "label": "Yn(-1,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(-1,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.016315437820472567,
+    -0.5994068417668538
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(-2.5,0)",
@@ -2334,8 +2439,11 @@
   {
    "label": "Yn(-2.5,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(-2.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.21066001413225027,
+    0.2444238969663438
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(10,0)",
@@ -2381,8 +2489,11 @@
   {
    "label": "Yn(10,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(10,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    7693.579666941816,
+    -40397.815703504195
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn(50,0)",
@@ -2428,8 +2539,11 @@
   {
    "label": "Yn(50,(2, 1))",
    "latex": "\\mathrm{Yn}\\left(50,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    2.892318851577218e+59,
+    -6.841375565063854e+59
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(2,0)",
@@ -2479,8 +2593,11 @@
   {
    "label": "In(2,(2, 1))",
    "latex": "\\mathrm{In}\\left(2,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.2611297504430098,
+    0.7623197829675602
+   ],
+   "source": "mpmath; Mathcad 14 gives uncalculated"
   },
   {
    "label": "In(0.5,0)",
@@ -2530,8 +2647,11 @@
   {
    "label": "In(0.5,(2, 1))",
    "latex": "\\mathrm{In}\\left(0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.4057242829303926,
+    1.403771433838613
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(2.7,0)",
@@ -2581,8 +2701,11 @@
   {
    "label": "In(2.7,(2, 1))",
    "latex": "\\mathrm{In}\\left(2.7,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.02384186672687541,
+    0.39718848020161635
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(-1,0)",
@@ -2632,8 +2755,11 @@
   {
    "label": "In(-1,(2, 1))",
    "latex": "\\mathrm{In}\\left(-1,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.0104883650794736,
+    1.2918475192394565
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(-2.5,0)",
@@ -2679,8 +2805,11 @@
   {
    "label": "In(-2.5,(2, 1))",
    "latex": "\\mathrm{In}\\left(-2.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.05642997706962357,
+    0.28914490751989463
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(10,0)",
@@ -2730,8 +2859,11 @@
   {
    "label": "In(10,(2, 1))",
    "latex": "\\mathrm{In}\\left(10,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.3039837568575558e-08,
+    -9.003583386180569e-07
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In(50,0)",
@@ -2781,8 +2913,11 @@
   {
    "label": "In(50,(2, 1))",
    "latex": "\\mathrm{In}\\left(50,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -3.111000241099546e-63,
+    -8.266030380191078e-63
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(2,0)",
@@ -2828,8 +2963,11 @@
   {
    "label": "Kn(2,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(2,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.017395463007194203,
+    -0.21548128007982942
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(0.5,0)",
@@ -2875,8 +3013,11 @@
   {
    "label": "Kn(0.5,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.03771759290947044,
+    -0.10697560550198204
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(2.7,0)",
@@ -2922,8 +3063,11 @@
   {
    "label": "Kn(2.7,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(2.7,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.045653516301585775,
+    -0.3714360567752393
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(-1,0)",
@@ -2969,8 +3113,11 @@
   {
    "label": "Kn(-1,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(-1,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.036291592400427036,
+    -0.12406383457283471
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(-2.5,0)",
@@ -3016,8 +3163,11 @@
   {
    "label": "Kn(-2.5,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(-2.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.018976616093896274,
+    -0.31459255042730205
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(10,0)",
@@ -3063,8 +3213,11 @@
   {
    "label": "Kn(10,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(10,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1861.7662090798394,
+    54651.96521854779
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Kn(50,0)",
@@ -3110,8 +3263,11 @@
   {
    "label": "Kn(50,(2, 1))",
    "latex": "\\mathrm{Kn}\\left(50,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -3.977315483719486e+59,
+    1.0593537730307022e+60
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H1(0,1)",
@@ -3134,8 +3290,11 @@
   {
    "label": "H1(0,(2, 1))",
    "latex": "\\mathrm{H1}\\left(0,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.11221517779606793,
+    0.15428168525601316
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H1(0,-1)",
@@ -3167,8 +3326,11 @@
   {
    "label": "H1(1.5,(2, 1))",
    "latex": "\\mathrm{H1}\\left(1.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.12318404391312521,
+    -0.21557992946463628
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H1(1.5,-1)",
@@ -3200,8 +3362,11 @@
   {
    "label": "H1(-0.5,(2, 1))",
    "latex": "\\mathrm{H1}\\left(-0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.038493050568684836,
+    0.19248095807675858
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H1(-0.5,-1)",
@@ -3233,8 +3398,11 @@
   {
    "label": "H2(0,(2, 1))",
    "latex": "\\mathrm{H2}\\left(0,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.2634922783688556,
+    -1.4466205555639748
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H2(0,-1)",
@@ -3266,8 +3434,11 @@
   {
    "label": "H2(1.5,(2, 1))",
    "latex": "\\mathrm{H2}\\left(1.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.1703208283226587,
+    0.5597412212539252
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H2(1.5,-1)",
@@ -3299,8 +3470,11 @@
   {
    "label": "H2(-0.5,(2, 1))",
    "latex": "\\mathrm{H2}\\left(-0.5,2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.890450217695696,
+    -1.1449016354152552
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H2(-0.5,-1)",
@@ -3314,8 +3488,11 @@
   {
    "label": "J0.sc((2, 3))",
    "latex": "\\mathrm{J0}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.023375884540185618,
+    -0.21477087846672827
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "I0.sc(10)",
@@ -3329,8 +3506,11 @@
   {
    "label": "I0.sc((3, 2))",
    "latex": "\\mathrm{I0}_{\\text{sc}}\\left(3+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.023375884540185618,
+    0.21477087846672827
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "K0.sc(10)",
@@ -3353,14 +3533,20 @@
   {
    "label": "Jn.sc(1.5,(2, 3))",
    "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(1.5,2+3\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.1482462664244151,
+    0.07145956699883652
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Yn.sc(1,(1, 4))",
    "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(1,1+4\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.10952107243360204,
+    0.1401110258829821
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "In.sc(2,20)",
@@ -3383,8 +3569,11 @@
   {
    "label": "H1.sc(0,(1, 2))",
    "latex": "\\mathrm{H1}_{\\text{sc}}\\left(0,1+2\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.1081478136497523,
+    -0.49916171508716406
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "H2.sc(1,10)",
@@ -3452,14 +3641,20 @@
   {
    "label": "Ai((1, 1))",
    "latex": "\\mathrm{Ai}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.06045830837183805,
+    -0.15188956587718158
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Ai((-2, 1))",
    "latex": "\\mathrm{Ai}\\left(-2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.5563045393711926,
+    0.789801438188276
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Ai.sc(5)",
@@ -3482,8 +3677,11 @@
   {
    "label": "Ai.sc((1, 1))",
    "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.24802117436254456,
+    -0.039041389113791125
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Ai.sc(-3)",
@@ -3551,14 +3749,20 @@
   {
    "label": "Bi((1, 1))",
    "latex": "\\mathrm{Bi}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.7166580733827683,
+    0.6198892904008446
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Bi((-2, 1))",
    "latex": "\\mathrm{Bi}\\left(-2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.8669433867252544,
+    0.48009810364065103
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Bi.sc(5)",
@@ -3581,8 +3785,11 @@
   {
    "label": "Bi.sc((1, 1))",
    "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.4666296985864472,
+    0.4036217039617708
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "Bi.sc(-3)",
@@ -3650,14 +3857,20 @@
   {
    "label": "DAi((1, 1))",
    "latex": "\\mathrm{DAi}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.1306279534996477,
+    0.16306759644932337
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DAi((-2, 1))",
    "latex": "\\mathrm{DAi}\\left(-2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.1349598127621299,
+    -0.8858793656453334
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DAi.sc(5)",
@@ -3680,8 +3893,11 @@
   {
    "label": "DAi.sc((1, 1))",
    "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.31772974693799416,
+    -0.04491888490196441
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DAi.sc(-3)",
@@ -3749,14 +3965,20 @@
   {
    "label": "DBi((1, 1))",
    "latex": "\\mathrm{DBi}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.07566284417496633,
+    0.7837009987854546
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DBi((-2, 1))",
    "latex": "\\mathrm{DBi}\\left(-2+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.9678264759011967,
+    0.9859861458879573
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DBi.sc(5)",
@@ -3779,8 +4001,11 @@
   {
    "label": "DBi.sc((1, 1))",
    "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.04926551654529476,
+    0.510282622114318
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "DBi.sc(-3)",
@@ -4209,8 +4434,11 @@
   {
    "label": "js(0,(1, 1))",
    "latex": "\\mathrm{js}\\left(0,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.9667107481003578,
+    -0.3317468333156211
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "js(1,0)",
@@ -4260,8 +4488,11 @@
   {
    "label": "js(1,(1, 1))",
    "latex": "\\mathrm{js}\\left(1,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.3950657977082266,
+    0.26208507473901876
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "js(2,0)",
@@ -4311,8 +4542,11 @@
   {
    "label": "js(2,(1, 1))",
    "latex": "\\mathrm{js}\\left(2,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.01901556057051008,
+    0.1322757488618092
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "js(-1,0)",
@@ -4359,8 +4593,11 @@
   {
    "label": "js(-1,(1, 1))",
    "latex": "\\mathrm{js}\\left(-1,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.07758384031585847,
+    -0.9113138654470082
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "js(0.5,0)",
@@ -4410,8 +4647,11 @@
   {
    "label": "js(0.5,(1, 1))",
    "latex": "\\mathrm{js}\\left(0.5,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.7452182585101821,
+    0.10772296990625596
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "js(10,0)",
@@ -4461,8 +4701,11 @@
   {
    "label": "js(10,(1, 1))",
    "latex": "\\mathrm{js}\\left(10,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    1.0116586045582939e-10,
+    2.3253658210734912e-09
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(0,0)",
@@ -4508,8 +4751,11 @@
   {
    "label": "ys(0,(1, 1))",
    "latex": "\\mathrm{ys}\\left(0,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.07758384031585847,
+    0.9113138654470082
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(1,0)",
@@ -4555,8 +4801,11 @@
   {
    "label": "ys(1,(1, 1))",
    "latex": "\\mathrm{ys}\\left(1,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.4722618952189244,
+    0.7486118458811957
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(2,0)",
@@ -4602,8 +4851,11 @@
   {
    "label": "ys(2,(1, 1))",
    "latex": "\\mathrm{ys}\\left(2,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.33694108567754844,
+    0.9199967462031715
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(-1,0)",
@@ -4649,8 +4901,11 @@
   {
    "label": "ys(-1,(1, 1))",
    "latex": "\\mathrm{ys}\\left(-1,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    0.9667107481003578,
+    -0.3317468333156211
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(0.5,0)",
@@ -4696,8 +4951,11 @@
   {
    "label": "ys(0.5,(1, 1))",
    "latex": "\\mathrm{ys}\\left(0.5,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    -0.3863794187214229,
+    0.8784834930791992
+   ],
+   "source": "Mathcad 14"
   },
   {
    "label": "ys(10,0)",
@@ -4743,8 +5001,2900 @@
   {
    "label": "ys(10,(1, 1))",
    "latex": "\\mathrm{ys}\\left(10,1+1\\mathrm{i}\\right)=",
-   "error": true,
-   "why": "complex argument, not yet"
+   "want": [
+    9676235.704800207,
+    10752389.153926026
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0.sc((-3, 2))",
+   "latex": "\\mathrm{J0}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.1690655562607262,
+    0.12829565500185167
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0.sc((-2, -5))",
+   "latex": "\\mathrm{J0}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    -0.0398144142146227,
+    -0.1713861905273503
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0.sc((0.5, -20))",
+   "latex": "\\mathrm{J0}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.07931559133345918,
+    0.04203516919356635
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J1.sc((2, 3))",
+   "latex": "\\mathrm{J1}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.1882291210750112,
+    -0.04046598028132703
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J1.sc((-3, 2))",
+   "latex": "\\mathrm{J1}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.1055816653891906,
+    -0.17065536427871192
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J1.sc((-2, -5))",
+   "latex": "\\mathrm{J1}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    -0.154509985783535,
+    0.042862900250930515
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J1.sc((0.5, -20))",
+   "latex": "\\mathrm{J1}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.041022006478048254,
+    -0.07728089139277862
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0.sc((2, 3))",
+   "latex": "\\mathrm{Y0}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.21542973856453052,
+    -0.024146484918207423
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0.sc((-3, 2))",
+   "latex": "\\mathrm{Y0}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.12114732593383992,
+    -0.1714736135370229
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0.sc((-2, -5))",
+   "latex": "\\mathrm{Y0}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    -0.17137740114556416,
+    0.03980189280775366
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0.sc((0.5, -20))",
+   "latex": "\\mathrm{Y0}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.04203516919356636,
+    -0.07931559133345918
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y1.sc((2, 3))",
+   "latex": "\\mathrm{Y1}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.03965550434006752,
+    0.1874427726154201
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y1.sc((-3, 2))",
+   "latex": "\\mathrm{Y1}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.16728994373083572,
+    -0.11303425400132525
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y1.sc((-2, -5))",
+   "latex": "\\mathrm{Y1}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    0.042876184015957816,
+    0.1545199096709417
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y1.sc((0.5, -20))",
+   "latex": "\\mathrm{Y1}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    -0.07728089139277862,
+    -0.04102200647804826
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0.sc((2, 3))",
+   "latex": "\\mathrm{I0}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.1690655562607262,
+    0.12829565500185167
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0.sc((-3, 2))",
+   "latex": "\\mathrm{I0}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.023375884540185618,
+    -0.21477087846672827
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0.sc((-2, -5))",
+   "latex": "\\mathrm{I0}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    -0.058158170586051626,
+    -0.16135206245113318
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0.sc((0.5, -20))",
+   "latex": "\\mathrm{I0}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.11396881618679208,
+    -0.021227035830218184
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I1.sc((2, 3))",
+   "latex": "\\mathrm{I1}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.17065536427871192,
+    0.10558166538919059
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I1.sc((-3, 2))",
+   "latex": "\\mathrm{I1}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.040465980281327016,
+    0.1882291210750112
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I1.sc((-2, -5))",
+   "latex": "\\mathrm{I1}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    0.03798921435860112,
+    0.166287623863441
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I1.sc((0.5, -20))",
+   "latex": "\\mathrm{I1}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.05167466463002285,
+    -0.04634209298491143
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0.sc((2, 3))",
+   "latex": "\\mathrm{K0}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.5777796343690123,
+    -0.2909693324458464
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0.sc((-3, 2))",
+   "latex": "\\mathrm{K0}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.21333716527200813,
+    -0.6455291142974341
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0.sc((-2, -5))",
+   "latex": "\\mathrm{K0}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    0.31499556022747727,
+    0.44319561174590405
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0.sc((0.5, -20))",
+   "latex": "\\mathrm{K0}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.2017483436653143,
+    0.19432983961923017
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K1.sc((2, 3))",
+   "latex": "\\mathrm{K1}_{\\text{sc}}\\left(2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.592025788654517,
+    -0.375935991953269
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K1.sc((-3, 2))",
+   "latex": "\\mathrm{K1}_{\\text{sc}}\\left(-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.13113072192024017,
+    -0.5889540427462651
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K1.sc((-2, -5))",
+   "latex": "\\mathrm{K1}_{\\text{sc}}\\left(-2-5\\mathrm{i}\\right)=",
+   "want": [
+    0.2660342395008279,
+    0.4574909714759814
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K1.sc((0.5, -20))",
+   "latex": "\\mathrm{K1}_{\\text{sc}}\\left(0.5-20\\mathrm{i}\\right)=",
+   "want": [
+    0.19708761049514115,
+    0.19954569559925253
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.1277016514522739,
+    -0.16726397369109117
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.20417494181341664,
+    -0.030273398931137244
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.01813402839682436,
+    -0.19565960855065045
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.07274897700526875,
+    0.14816601097150173
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Jn.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.16395437720333977,
+    0.07384384474393065
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Jn.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.025403292613638773,
+    0.14857292188077098
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Jn.sc(3,(2, 3))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.04313178330589245,
+    0.0537096309341246
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(3,(-3, 2))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.05747943840771558,
+    0.08467459434180408
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn.sc(3,(-1, -4))",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.05910090568600617,
+    0.025614196022483562
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.1671992370527786,
+    0.1266620979018368
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.03352080220464377,
+    -0.211152466658534
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.19561601089633296,
+    0.018009629802622173
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.14824626642441502,
+    -0.07145956699883654
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Yn.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.07598065047987262,
+    0.17275476816466903
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Yn.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.14851174839048453,
+    -0.025252188329878304
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Yn.sc(3,(2, 3))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.05284813845837041,
+    -0.04061653399827776
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(3,(-3, 2))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.06979196091703697,
+    -0.05152634464238899
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn.sc(3,(-1, -4))",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.025295562356066833,
+    -0.05901947248402629
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.1657800115784084,
+    0.12296696023086293
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.20857219375580266,
+    -0.027974786334555038
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.06472241091761029,
+    0.1914130276304629
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.1681487352930186,
+    0.06371776855837871
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "In.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.15621048606411903,
+    -0.05332789613449952
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "In.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.10969678438089099,
+    0.17726727046698895
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "In.sc(3,(2, 3))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.08467459434180408,
+    -0.057479438407715584
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(3,(-3, 2))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.0537096309341246,
+    0.04313178330589245
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In.sc(3,(-1, -4))",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.020931373008387114,
+    0.19714370237178752
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.5819456541226852,
+    -0.31144786240913425
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.19127082281663804,
+    -0.6317246138077457
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.3798514742599147,
+    0.4865048061700311
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.5996031711240675,
+    -0.49365806911577464
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Kn.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.04994300004237622,
+    -0.5153682910546717
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Kn.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.2430355507928546,
+    0.5472636938682492
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Kn.sc(3,(2, 3))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.3253215243890185,
+    -1.3356488296375102
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(3,(-3, 2))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.09745394487807564,
+    -0.1892743727071921
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn.sc(3,(-1, -4))",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.23497692457391636,
+    0.4875070169417852
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.19827386727127289,
+    -0.37047810985788715
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.4021683798412852,
+    -0.12176678768208818
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.309718578959702,
+    -0.24182095907683815
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.18703274281727633,
+    0.48647673017451837
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.4921404662050416,
+    0.04769205197749745
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.22261885690584038,
+    0.203140649821094
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(3,(2, 3))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.738301291735203,
+    0.7780537211019583
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(3,(-3, 2))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.2071061148028116,
+    -0.8503004538868583
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1.sc(3,(-1, -4))",
+   "latex": "\\mathrm{H1}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.02098162817615435,
+    0.126901530787739
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(0.5,(2, 3))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(0.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    0.19827386727127302,
+    0.37047810985788715
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(0.5,(-3, 2))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(0.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.4021683798412852,
+    0.12176678768208826
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(0.5,(-1, -4))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(0.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.3097185789597025,
+    0.24182095907683865
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(-1.5,(2, 3))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(-1.5,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.20951499172526955,
+    -0.25447948954125593
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(-1.5,(-3, 2))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(-1.5,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    -0.3121962934775286,
+    -0.19584152338667898
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(-1.5,(-1, -4))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(-1.5,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.39681830101356425,
+    -0.2805012683325828
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(3,(2, 3))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(3,2+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.062041108204603346,
+    -0.1204958080678694
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(3,(-3, 2))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(3,-3+2\\mathrm{i}\\right)=",
+   "want": [
+    0.12971322882876712,
+    -0.13753783369936784
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2.sc(3,(-1, -4))",
+   "latex": "\\mathrm{H2}_{\\text{sc}}\\left(3,-1-4\\mathrm{i}\\right)=",
+   "want": [
+    0.9304152114592672,
+    0.3089310683401174
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-0.5,(-2, 1))",
+   "latex": "\\mathrm{Jn}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.47621033866924845,
+    0.46447163413219034
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-0.5,(-2, -1))",
+   "latex": "\\mathrm{Jn}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.47621033866924845,
+    -0.46447163413219034
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{Jn}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.0003320462609678887,
+    -0.10121779249250391
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{Jn}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.0003320462609678887,
+    0.10121779249250391
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-0.5,(0, -3))",
+   "latex": "\\mathrm{Jn}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    3.2793899600843703,
+    3.279389960084371
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-2.5,(-2, 1))",
+   "latex": "\\mathrm{Jn}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.3846680771920403,
+    -0.6155232892404673
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-2.5,(-2, -1))",
+   "latex": "\\mathrm{Jn}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.3846680771920403,
+    0.6155232892404673
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{Jn}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.00017473827253965124,
+    0.2943725028252656
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{Jn}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.00017473827253965124,
+    -0.2943725028252656
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-2.5,(0, -3))",
+   "latex": "\\mathrm{Jn}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.109347377804677,
+    -1.1093473778046772
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-3,(-2, 1))",
+   "latex": "\\mathrm{Jn}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.0824307989543553,
+    -0.17535344401066139
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-3,(-2, -1))",
+   "latex": "\\mathrm{Jn}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.0824307989543553,
+    0.17535344401066139
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-3,(-5, 0.001))",
+   "latex": "\\mathrm{Jn}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.3648313301263058,
+    0.000172333637201728
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-3,(-5, -0.001))",
+   "latex": "\\mathrm{Jn}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.3648313301263058,
+    -0.000172333637201728
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(-3,(0, -3))",
+   "latex": "\\mathrm{Jn}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    5.876601963924495e-17,
+    -0.9597536294960078
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(1.3,(-2, 1))",
+   "latex": "\\mathrm{Jn}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.49874942137674855,
+    -0.5333672480216319
+   ],
+   "source": "mpmath; Mathcad 14 gives uncalculated"
+  },
+  {
+   "label": "Jn(1.3,(-2, -1))",
+   "latex": "\\mathrm{Jn}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.49874942137674805,
+    0.5333672480216314
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{Jn}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.14418210727686884,
+    0.19805301222034372
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{Jn}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.14418210727686884,
+    -0.19805301222034372
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(1.3,(0, -3))",
+   "latex": "\\mathrm{Jn}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.566576128568364,
+    -3.0745787676018597
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-0.5,(-2, 1))",
+   "latex": "\\mathrm{Yn}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.42597858356350554,
+    0.6686912967460069
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-0.5,(-2, -1))",
+   "latex": "\\mathrm{Yn}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.42597858356350554,
+    -0.6686912967460069
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{Yn}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.00013543453926889715,
+    -0.3421681406278747
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{Yn}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.00013543453926889715,
+    0.3421681406278747
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-0.5,(0, -3))",
+   "latex": "\\mathrm{Yn}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    3.26317256897449,
+    -3.2631725689744893
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-2.5,(-2, 1))",
+   "latex": "\\mathrm{Yn}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.2444238969663438,
+    0.21066001413225022
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-2.5,(-2, -1))",
+   "latex": "\\mathrm{Yn}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.2444238969663438,
+    -0.21066001413225022
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{Yn}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.00028983994106876465,
+    0.24037726226878225
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{Yn}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.00028983994106876465,
+    -0.24037726226878225
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-2.5,(0, -3))",
+   "latex": "\\mathrm{Yn}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.0715067985482893,
+    1.0715067985482891
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-3,(-2, 1))",
+   "latex": "\\mathrm{Yn}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.22263236988939114,
+    -0.35138510470058515
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-3,(-2, -1))",
+   "latex": "\\mathrm{Yn}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.22263236988939114,
+    0.35138510470058515
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-3,(-5, 0.001))",
+   "latex": "\\mathrm{Yn}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.14592257021454136,
+    0.729382757641108
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-3,(-5, -0.001))",
+   "latex": "\\mathrm{Yn}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.14592257021454136,
+    -0.729382757641108
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(-3,(0, -3))",
+   "latex": "\\mathrm{Yn}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.9597536294960078,
+    -0.07777607680460016
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(1.3,(-2, 1))",
+   "latex": "\\mathrm{Yn}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.5065390470125763,
+    -0.7293974181120892
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(1.3,(-2, -1))",
+   "latex": "\\mathrm{Yn}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.5065390470125763,
+    0.7293974181120892
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{Yn}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.15647678334289944,
+    0.5032829760096358
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{Yn}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.15647678334289944,
+    -0.5032829760096358
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(1.3,(0, -3))",
+   "latex": "\\mathrm{Yn}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -3.0617630410621146,
+    1.5414238490257794
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-0.5,(-2, 1))",
+   "latex": "\\mathrm{In}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -1.3356686482150573,
+    -1.429736048342673
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-0.5,(-2, -1))",
+   "latex": "\\mathrm{In}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -1.3356686482150573,
+    1.429736048342673
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{In}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.023829548901236914,
+    -26.47994077488655
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{In}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.023829548901236914,
+    26.47994077488655
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-0.5,(0, -3))",
+   "latex": "\\mathrm{In}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.32247521373601357,
+    -0.32247521373601373
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-2.5,(-2, 1))",
+   "latex": "\\mathrm{In}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.2891449075198948,
+    -0.056429977069623605
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-2.5,(-2, -1))",
+   "latex": "\\mathrm{In}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.2891449075198948,
+    0.056429977069623605
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{In}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.014296046040305627,
+    -13.771010300206834
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{In}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.014296046040305627,
+    13.771010300206834
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-2.5,(0, -3))",
+   "latex": "\\mathrm{In}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.2609512027692172,
+    -0.26095120276921635
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-3,(-2, 1))",
+   "latex": "\\mathrm{In}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.017175062003390203,
+    0.281039666845768
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-3,(-2, -1))",
+   "latex": "\\mathrm{In}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.017175062003390203,
+    -0.281039666845768
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-3,(-5, 0.001))",
+   "latex": "\\mathrm{In}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -10.331144274662012,
+    0.011306922867764753
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-3,(-5, -0.001))",
+   "latex": "\\mathrm{In}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -10.331144274662012,
+    -0.011306922867764753
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(-3,(0, -3))",
+   "latex": "\\mathrm{In}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -5.677202601051327e-17,
+    0.3090627222552516
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(1.3,(-2, 1))",
+   "latex": "\\mathrm{In}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -1.3800387088426862,
+    0.07636412854600494
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(1.3,(-2, -1))",
+   "latex": "\\mathrm{In}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -1.3800387088426862,
+    -0.07636412854600494
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{In}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -13.263489310280384,
+    -18.219724850202773
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{In}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -13.263489310280384,
+    18.219724850202773
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(1.3,(0, -3))",
+   "latex": "\\mathrm{In}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.19961399434020669,
+    -0.3917645223379354
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-0.5,(-2, 1))",
+   "latex": "\\mathrm{Kn}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -4.303102418364615,
+    -4.453930673136372
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-0.5,(-2, -1))",
+   "latex": "\\mathrm{Kn}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -4.303102418364615,
+    4.453930673136372
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{Kn}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.07486689004031745,
+    -83.18541079482438
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{Kn}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.07486689004031745,
+    83.18541079482438
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-0.5,(0, -3))",
+   "latex": "\\mathrm{Kn}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.5787488178555723,
+    -0.43433694458228655
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-2.5,(-2, 1))",
+   "latex": "\\mathrm{Kn}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -1.2229680677147035,
+    -0.19625661749806617
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-2.5,(-2, -1))",
+   "latex": "\\mathrm{Kn}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -1.2229680677147035,
+    0.19625661749806617
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{Kn}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.044920133037056574,
+    -43.25640902147262
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{Kn}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.044920133037056574,
+    43.25640902147262
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-2.5,(0, -3))",
+   "latex": "\\mathrm{Kn}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    0.048504399345238314,
+    -0.86830678091043
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-3,(-2, 1))",
+   "latex": "\\mathrm{Kn}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.7746514618780618,
+    -0.42879320449151725
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-3,(-2, -1))",
+   "latex": "\\mathrm{Kn}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.7746514618780618,
+    0.42879320449151725
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-3,(-5, 0.001))",
+   "latex": "\\mathrm{Kn}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.043813507564505236,
+    -32.45625724045615
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-3,(-5, -0.001))",
+   "latex": "\\mathrm{Kn}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.043813507564505236,
+    32.45625724045615
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(-3,(0, -3))",
+   "latex": "\\mathrm{Kn}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    0.4854745888677805,
+    -0.8459391924039708
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(1.3,(-2, 1))",
+   "latex": "\\mathrm{Kn}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -3.7831106433017028,
+    -2.4099854930926727
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(1.3,(-2, -1))",
+   "latex": "\\mathrm{Kn}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -3.7831106433017028,
+    2.4099854930926727
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{Kn}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.06883160522089801,
+    -70.79592303308186
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{Kn}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.06883160522089801,
+    70.79592303308186
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(1.3,(0, -3))",
+   "latex": "\\mathrm{Kn}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.481481605139517,
+    -0.5763477858503929
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-0.5,(-2, 1))",
+   "latex": "\\mathrm{H1}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.19248095807675847,
+    0.03849305056868481
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-0.5,(-2, -1))",
+   "latex": "\\mathrm{H1}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    1.1449016354152555,
+    -0.890450217695696
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{H1}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.3418360943669068,
+    -0.10108235795323504
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{H1}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3425001868888426,
+    0.10135322703177284
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-0.5,(0, -3))",
+   "latex": "\\mathrm{H1}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    6.542562529058859,
+    6.542562529058861
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-2.5,(-2, 1))",
+   "latex": "\\mathrm{H1}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.17400806305979,
+    -0.37109939227412353
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-2.5,(-2, -1))",
+   "latex": "\\mathrm{H1}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.5953280913242908,
+    0.8599471862068109
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{H1}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.2402025239962425,
+    0.2940826628841969
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{H1}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.24055200054132184,
+    -0.29466234276633446
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-2.5,(0, -3))",
+   "latex": "\\mathrm{H1}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -2.180854176352967,
+    -2.1808541763529656
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-3,(-2, 1))",
+   "latex": "\\mathrm{H1}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.43381590365494027,
+    -0.39798581390005267
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-3,(-2, -1))",
+   "latex": "\\mathrm{H1}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.26895430574622986,
+    -0.04727892587872966
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-3,(-5, 0.001))",
+   "latex": "\\mathrm{H1}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3645514275148022,
+    0.14609490385174323
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-3,(-5, -0.001))",
+   "latex": "\\mathrm{H1}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    1.0942140877674138,
+    0.14575023657733924
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(-3,(0, -3))",
+   "latex": "\\mathrm{H1}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    0.07777607680459951,
+    -1.9195072589920157
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(1.3,(-2, 1))",
+   "latex": "\\mathrm{H1}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.2306479967353412,
+    -0.02682820100905503
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(1.3,(-2, -1))",
+   "latex": "\\mathrm{H1}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -1.2281468394888373,
+    1.0399062950342077
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{H1}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3591008687327669,
+    0.04157622887744428
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{H1}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.6474650832865047,
+    -0.35452979556324316
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(1.3,(0, -3))",
+   "latex": "\\mathrm{H1}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -3.1079999775941434,
+    -6.136341808663975
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-0.5,(-2, 1))",
+   "latex": "\\mathrm{H2}\\left(-0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    1.1449016354152555,
+    0.890450217695696
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-0.5,(-2, -1))",
+   "latex": "\\mathrm{H2}\\left(-0.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.19248095807675847,
+    -0.03849305056868481
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-0.5,(-5, 0.001))",
+   "latex": "\\mathrm{H2}\\left(-0.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3425001868888426,
+    -0.10135322703177284
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-0.5,(-5, -0.001))",
+   "latex": "\\mathrm{H2}\\left(-0.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.3418360943669068,
+    0.10108235795323504
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-0.5,(0, -3))",
+   "latex": "\\mathrm{H2}\\left(-0.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    0.016217391109881074,
+    0.01621739110988063
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-2.5,(-2, 1))",
+   "latex": "\\mathrm{H2}\\left(-2.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.5953280913242908,
+    -0.8599471862068109
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-2.5,(-2, -1))",
+   "latex": "\\mathrm{H2}\\left(-2.5,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.17400806305979,
+    0.37109939227412353
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-2.5,(-5, 0.001))",
+   "latex": "\\mathrm{H2}\\left(-2.5,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.24055200054132184,
+    0.29466234276633446
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-2.5,(-5, -0.001))",
+   "latex": "\\mathrm{H2}\\left(-2.5,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.2402025239962425,
+    -0.2940826628841969
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-2.5,(0, -3))",
+   "latex": "\\mathrm{H2}\\left(-2.5,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.03784057925638783,
+    -0.037840579256387855
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-3,(-2, 1))",
+   "latex": "\\mathrm{H2}\\left(-3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.26895430574622986,
+    0.04727892587872966
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-3,(-2, -1))",
+   "latex": "\\mathrm{H2}\\left(-3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.43381590365494027,
+    0.39798581390005267
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-3,(-5, 0.001))",
+   "latex": "\\mathrm{H2}\\left(-3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    1.0942140877674138,
+    -0.14575023657733924
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-3,(-5, -0.001))",
+   "latex": "\\mathrm{H2}\\left(-3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3645514275148022,
+    -0.14609490385174323
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(-3,(0, -3))",
+   "latex": "\\mathrm{H2}\\left(-3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.07777607680460011,
+    -2.857352334908715e-17
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(1.3,(-2, 1))",
+   "latex": "\\mathrm{H2}\\left(1.3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -1.2281468394888373,
+    -1.0399062950342077
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(1.3,(-2, -1))",
+   "latex": "\\mathrm{H2}\\left(1.3,-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.2306479967353412,
+    0.02682820100905503
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(1.3,(-5, 0.001))",
+   "latex": "\\mathrm{H2}\\left(1.3,-5+0.001\\mathrm{i}\\right)=",
+   "want": [
+    0.6474650832865047,
+    0.35452979556324316
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(1.3,(-5, -0.001))",
+   "latex": "\\mathrm{H2}\\left(1.3,-5-0.001\\mathrm{i}\\right)=",
+   "want": [
+    -0.3591008687327669,
+    -0.04157622887744428
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H2(1.3,(0, -3))",
+   "latex": "\\mathrm{H2}\\left(1.3,-3\\mathrm{i}\\right)=",
+   "want": [
+    -0.025152279542584477,
+    -0.012815726539745054
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0((-4, 1e-12))",
+   "latex": "\\mathrm{J0}\\left(-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -0.39714980986384746,
+    -6.597574430220955e-14
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0((-4, -1e-12))",
+   "latex": "\\mathrm{J0}\\left(-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -0.39714980986384746,
+    6.597574430220955e-14
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0((-4, 1e-12))",
+   "latex": "\\mathrm{Y0}\\left(-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -0.016940739324932976,
+    -0.794299619727297
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Y0((-4, -1e-12))",
+   "latex": "\\mathrm{Y0}\\left(-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -0.016940739324932976,
+    0.794299619727297
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0((-4, 1e-12))",
+   "latex": "\\mathrm{I0}\\left(-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    11.301921952136329,
+    -9.759465153704448e-12
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0((-4, -1e-12))",
+   "latex": "\\mathrm{I0}\\left(-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    11.301921952136329,
+    9.759465153704448e-12
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0((-4, 1e-12))",
+   "latex": "\\mathrm{K0}\\left(-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    0.011159676055192762,
+    -35.50603497627669
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0((-4, -1e-12))",
+   "latex": "\\mathrm{K0}\\left(-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    0.011159676055192762,
+    35.50603497627669
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(0.5,(-4, 1e-12))",
+   "latex": "\\mathrm{Jn}\\left(0.5,-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -2.2346013928142838e-13,
+    -0.3019205132916374
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(0.5,(-4, -1e-12))",
+   "latex": "\\mathrm{Jn}\\left(0.5,-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -2.2346013928142838e-13,
+    0.3019205132916374
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(0.5,(-4, 1e-12))",
+   "latex": "\\mathrm{Yn}\\left(0.5,-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    3.324285291483875e-13,
+    -0.26076607667717927
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(0.5,(-4, -1e-12))",
+   "latex": "\\mathrm{Yn}\\left(0.5,-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    3.324285291483875e-13,
+    0.26076607667717927
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(0.5,(-4, 1e-12))",
+   "latex": "\\mathrm{Kn}\\left(0.5,-4+1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -2.9937526369389673e-11,
+    -34.21431665390661
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Kn(0.5,(-4, -1e-12))",
+   "latex": "\\mathrm{Kn}\\left(0.5,-4-1\\cdot 10^{-12}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    -2.9937526369389673e-11,
+    34.21431665390661
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(0,(-2, 1))",
+   "latex": "\\mathrm{js}\\left(0,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.46343644844055804,
+    0.47624635374092605
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(0,(-1, -3))",
+   "latex": "\\mathrm{js}\\left(0,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    2.4709688223834765,
+    -2.000225543972228
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(0,(0, 2))",
+   "latex": "\\mathrm{js}\\left(0,2\\mathrm{i}\\right)=",
+   "want": [
+    1.8134302039235093,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives [1.2822887944028185, -1.1102230246251565e-16]"
+  },
+  {
+   "label": "js(1,(-2, 1))",
+   "latex": "\\mathrm{js}\\left(1,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.5607060427908019,
+    0.015827512425525714
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(1,(-1, -3))",
+   "latex": "\\mathrm{js}\\left(1,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.631996444199689,
+    -1.5335362042786618
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(1,(0, 2))",
+   "latex": "\\mathrm{js}\\left(1,2\\mathrm{i}\\right)=",
+   "want": [
+    0.0,
+    0.974382743580061
+   ],
+   "source": "mpmath; Mathcad 14 gives [5.551115123125783e-17, 0.6889926454566144]"
+  },
+  {
+   "label": "js(-1,(-2, 1))",
+   "latex": "\\mathrm{js}\\left(-1,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.47058073416276414,
+    -0.2990133436100079
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(-1,(-1, -3))",
+   "latex": "\\mathrm{js}\\left(-1,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    1.9849672251530097,
+    2.4748494053909282
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(-1,(0, 2))",
+   "latex": "\\mathrm{js}\\left(-1,2\\mathrm{i}\\right)=",
+   "want": [
+    0.0,
+    -1.8810978455418157
+   ],
+   "source": "mpmath; Mathcad 14 gives [0.0, -1.3301370426580237]"
+  },
+  {
+   "label": "js(0.5,(-2, 1))",
+   "latex": "\\mathrm{js}\\left(0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.21744952824709213,
+    0.6295354628430891
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(0.5,(-1, -3))",
+   "latex": "\\mathrm{js}\\left(0.5,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    0.1367670790782245,
+    -2.7792756962194076
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(0.5,(0, 2))",
+   "latex": "\\mathrm{js}\\left(0.5,2\\mathrm{i}\\right)=",
+   "want": [
+    0.9967838286260124,
+    0.9967838286260124
+   ],
+   "source": "mpmath; Mathcad 14 gives [0.7048326045985427, 0.7048326045985427]"
+  },
+  {
+   "label": "js(3,(-2, 1))",
+   "latex": "\\mathrm{js}\\left(3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.03592432091371326,
+    0.08289666316490557
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(3,(-1, -3))",
+   "latex": "\\mathrm{js}\\left(3,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    0.4453556886219156,
+    0.13601044363144693
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "js(3,(0, 2))",
+   "latex": "\\mathrm{js}\\left(3,2\\mathrm{i}\\right)=",
+   "want": [
+    0.0,
+    -0.09474252219651647
+   ],
+   "source": "mpmath; Mathcad 14 gives [-6.938893903907228e-18, -0.06699307991187384]"
+  },
+  {
+   "label": "ys(0,(-2, 1))",
+   "latex": "\\mathrm{ys}\\left(0,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.47058073416276414,
+    0.2990133436100079
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(0,(-1, -3))",
+   "latex": "\\mathrm{ys}\\left(0,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.9849672251530097,
+    -2.4748494053909282
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(0,(0, 2))",
+   "latex": "\\mathrm{ys}\\left(0,2\\mathrm{i}\\right)=",
+   "want": [
+    0.0,
+    1.8810978455418157
+   ],
+   "source": "mpmath; Mathcad 14 gives [0.0, 1.3301370426580237]"
+  },
+  {
+   "label": "ys(1,(-2, 1))",
+   "latex": "\\mathrm{ys}\\left(1,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.21540148605345066,
+    -0.5017355443523763
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(1,(-1, -3))",
+   "latex": "\\mathrm{ys}\\left(1,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    -1.5300172782508972,
+    1.6522203169654186
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(1,(0, 2))",
+   "latex": "\\mathrm{ys}\\left(1,2\\mathrm{i}\\right)=",
+   "want": [
+    -0.8728812811526016,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives [-0.6172202730738062, 0.0]"
+  },
+  {
+   "label": "ys(-1,(-2, 1))",
+   "latex": "\\mathrm{ys}\\left(-1,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    0.46343644844055804,
+    0.47624635374092605
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(-1,(-1, -3))",
+   "latex": "\\mathrm{ys}\\left(-1,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    2.4709688223834765,
+    -2.000225543972228
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(-1,(0, 2))",
+   "latex": "\\mathrm{ys}\\left(-1,2\\mathrm{i}\\right)=",
+   "want": [
+    1.8134302039235093,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives [1.2822887944028185, -1.1102230246251565e-16]"
+  },
+  {
+   "label": "ys(0.5,(-2, 1))",
+   "latex": "\\mathrm{ys}\\left(0.5,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.766980661693413,
+    -0.3327828170099685
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(0.5,(-1, -3))",
+   "latex": "\\mathrm{ys}\\left(0.5,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    -2.7645863037836227,
+    -0.12744346935100692
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(0.5,(0, 2))",
+   "latex": "\\mathrm{ys}\\left(0.5,2\\mathrm{i}\\right)=",
+   "want": [
+    -0.9409854147837717,
+    1.0525822424682532
+   ],
+   "source": "mpmath; Mathcad 14 gives [-0.6653771677912409, 0.7442880414058445]"
+  },
+  {
+   "label": "ys(3,(-2, 1))",
+   "latex": "\\mathrm{ys}\\left(3,-2+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.20833069433259327,
+    -0.7909060489529309
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(3,(-1, -3))",
+   "latex": "\\mathrm{ys}\\left(3,-1-3\\mathrm{i}\\right)=",
+   "want": [
+    0.14827857675795406,
+    -0.5178430118640611
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "ys(3,(0, 2))",
+   "latex": "\\mathrm{ys}\\left(3,2\\mathrm{i}\\right)=",
+   "want": [
+    -0.5565585283796821,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives [-0.3935463095444788, -5.551115123125783e-17]"
+  },
+  {
+   "label": "Ai((-5, 3))",
+   "latex": "\\mathrm{Ai}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    146.4269165132748,
+    -74.5808813288304
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai((3, -4))",
+   "latex": "\\mathrm{Ai}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    0.014554546690944654,
+    0.04743525151549284
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai((-8, 0.5))",
+   "latex": "\\mathrm{Ai}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.10887597956893727,
+    0.6416334408770448
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai((0, 6))",
+   "latex": "\\mathrm{Ai}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    94.81418008203589,
+    -158.72123921734305
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai((20, 10))",
+   "latex": "\\mathrm{Ai}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    1.0858004534795135e-25,
+    -3.9139827039503555e-25
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai((-2, -1))",
+   "latex": "\\mathrm{Ai}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.5563045393711926,
+    -0.789801438188276
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((-5, 3))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    0.14464689264164926,
+    -0.1112943657013305
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((3, -4))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    0.18357553003565633,
+    0.04161764873938033
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((-8, 0.5))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    0.11491942978153047,
+    -0.10870188343169289
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((0, 6))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    0.16772525926755044,
+    -0.06841554144887584
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((20, 10))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    0.1287666330149812,
+    -0.014911299556692494
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Ai.sc((-2, -1))",
+   "latex": "\\mathrm{Ai}_{\\text{sc}}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.16876574433891256,
+    0.15857349852473082
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((-5, 3))",
+   "latex": "\\mathrm{Bi}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    74.58115193901534,
+    146.42662045121403
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((3, -4))",
+   "latex": "\\mathrm{Bi}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    1.0363977946545875,
+    -1.0513762825317094
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((-8, 0.5))",
+   "latex": "\\mathrm{Bi}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.7224990849000342,
+    -0.09911288557859028
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((0, 6))",
+   "latex": "\\mathrm{Bi}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    158.7215799268825,
+    94.81426622446253
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((20, 10))",
+   "latex": "\\mathrm{Bi}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    3.990450776149952e+22,
+    7.262155603232398e+22
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi((-2, -1))",
+   "latex": "\\mathrm{Bi}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.8669433867252544,
+    -0.48009810364065103
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((-5, 3))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    0.08283306108261432,
+    0.16262775353582584
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((3, -4))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    0.2731914926204,
+    -0.2771397791581104
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((-8, 0.5))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.17561122123180495,
+    -0.024090459406841454
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((0, 6))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    0.1555090060045351,
+    0.09289519611893847
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((20, 10))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    0.1250387555410022,
+    0.22755597051854792
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Bi.sc((-2, -1))",
+   "latex": "\\mathrm{Bi}_{\\text{sc}}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.20781776176620798,
+    -0.11508584626693781
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((-5, 3))",
+   "latex": "\\mathrm{DAi}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    -260.67308556060976,
+    -292.4274114730355
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((3, -4))",
+   "latex": "\\mathrm{DAi}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.07520996119590304,
+    -0.08236407715553774
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((-8, 0.5))",
+   "latex": "\\mathrm{DAi}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    2.049262212721684,
+    0.23654742418590202
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((0, 6))",
+   "latex": "\\mathrm{DAi}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    -432.4659196304075,
+    114.98760529336744
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((20, 10))",
+   "latex": "\\mathrm{DAi}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    -9.240860518360693e-25,
+    1.6877720130593263e-24
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi((-2, -1))",
+   "latex": "\\mathrm{DAi}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    1.1349598127621299,
+    0.8858793656453334
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((-5, 3))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    -0.34424398782705196,
+    -0.26608011431217554
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((3, -4))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    -0.41299090580142256,
+    0.09208370774312624
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((-8, 0.5))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.3634236324038901,
+    -0.345438808814728
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((0, 6))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    -0.4063168967822416,
+    -0.16471592538821556
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((20, 10))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    -0.6100218410572099,
+    -0.07048670973387561
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DAi.sc((-2, -1))",
+   "latex": "\\mathrm{DAi}_{\\text{sc}}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    -0.2483939485546895,
+    0.23961469212024714
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((-5, 3))",
+   "latex": "\\mathrm{DBi}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    292.42829096200035,
+    -260.67265097770473
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((3, -4))",
+   "latex": "\\mathrm{DBi}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    0.7878892378963551,
+    -2.9998668872583654
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((-8, 0.5))",
+   "latex": "\\mathrm{DBi}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.27384846203640006,
+    1.8213682993218592
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((0, 6))",
+   "latex": "\\mathrm{DBi}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    -114.98716748099338,
+    -432.4651664325954
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((20, 10))",
+   "latex": "\\mathrm{DBi}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    1.0398271357628846e+23,
+    3.770471684388516e+23
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi((-2, -1))",
+   "latex": "\\mathrm{DBi}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.9678264759011967,
+    -0.9859861458879573
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((-5, 3))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(-5+3\\mathrm{i}\\right)=",
+   "want": [
+    0.3247835392425507,
+    -0.289514348593853
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((3, -4))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(3-4\\mathrm{i}\\right)=",
+   "want": [
+    0.20768534826166035,
+    -0.7907563262094388
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((-8, 0.5))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(-8+0.5\\mathrm{i}\\right)=",
+   "want": [
+    -0.0665618321957013,
+    0.44270327539731424
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((0, 6))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(6\\mathrm{i}\\right)=",
+   "want": [
+    -0.11265979160794473,
+    -0.4237119375607241
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((20, 10))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(20+10\\mathrm{i}\\right)=",
+   "want": [
+    0.32582457052383373,
+    1.1814582203000974
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "DBi.sc((-2, -1))",
+   "latex": "\\mathrm{DBi}_{\\text{sc}}\\left(-2-1\\mathrm{i}\\right)=",
+   "want": [
+    0.23200076853877052,
+    -0.2363538808974873
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0((100, 50))",
+   "latex": "\\mathrm{J0}\\left(100+50\\mathrm{i}\\right)=",
+   "want": [
+    9.128743972068767e+19,
+    1.7312041196273766e+20
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "K0((200, 1))",
+   "latex": "\\mathrm{K0}\\left(200+1\\mathrm{i}\\right)=",
+   "want": [
+    6.596574146135973e-89,
+    -1.0330196896182159e-88
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(100,(50, 50))",
+   "latex": "\\mathrm{Jn}\\left(100,50+50\\mathrm{i}\\right)=",
+   "want": [
+    -0.0014803384321328283,
+    -0.0004642314976622319
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(0.5,(1e-10, 1e-10))",
+   "latex": "\\mathrm{Jn}\\left(0.5,1\\cdot 10^{-10}\\cdot 1+1\\cdot 10^{-10}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    8.766230913353499e-06,
+    3.631091735205303e-06
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "In(200,(100, 10))",
+   "latex": "\\mathrm{In}\\left(200,100+10\\mathrm{i}\\right)=",
+   "want": [
+    -3.2510352880612726e-30,
+    -9.855955692758523e-31
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Yn(150,(10, 10))",
+   "latex": "\\mathrm{Yn}\\left(150,10+10\\mathrm{i}\\right)=",
+   "want": [
+    1.507778027855813e+132,
+    -4.3232595050390757e+132
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(0,(1e-10, 1e-10))",
+   "latex": "\\mathrm{H1}\\left(0,1\\cdot 10^{-10}\\cdot 1+1\\cdot 10^{-10}\\cdot 1\\mathrm{i}\\right)=",
+   "want": [
+    0.5,
+    -14.511880672544592
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "I0((800, 0.1))",
+   "latex": "\\mathrm{I0}\\left(800+0.1\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "K0((-800, 0.1))",
+   "latex": "\\mathrm{K0}\\left(-800+0.1\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "Jn(10,(0, 800))",
+   "latex": "\\mathrm{Jn}\\left(10,800\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "ber(0,(1, 1))",
+   "latex": "\\mathrm{ber}\\left(0,1+1\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "bei(0,(1, 1))",
+   "latex": "\\mathrm{bei}\\left(0,1+1\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "Jn((0.5, 1),2)",
+   "latex": "\\mathrm{Jn}\\left(0.5+1\\mathrm{i},2\\right)=",
+   "error": true
+  },
+  {
+   "label": "Jn((0.5, 1),(2, 1))",
+   "latex": "\\mathrm{Jn}\\left(0.5+1\\mathrm{i},2+1\\mathrm{i}\\right)=",
+   "error": true
+  },
+  {
+   "label": "Jn.sc(-1.5,2)",
+   "latex": "\\mathrm{Jn}_{\\text{sc}}\\left(-1.5,2\\right)=",
+   "want": [
+    -0.3956232813587035,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Yn.sc(-1.5,2)",
+   "latex": "\\mathrm{Yn}_{\\text{sc}}\\left(-1.5,2\\right)=",
+   "want": [
+    -0.49129377868716234,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "In.sc(-1.5,2)",
+   "latex": "\\mathrm{In}_{\\text{sc}}\\left(-1.5,2\\right)=",
+   "want": [
+    0.13329727637915456,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "Kn.sc(-1.5,2)",
+   "latex": "\\mathrm{Kn}_{\\text{sc}}\\left(-1.5,2\\right)=",
+   "want": [
+    1.329340388179137,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'This function is undefined at one or more of the "
+  },
+  {
+   "label": "J0((50000, 1))",
+   "latex": "\\mathrm{J0}\\left(50000+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.00396235842045774,
+    0.0029117371302376754
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0(50000)",
+   "latex": "\\mathrm{J0}\\left(50000\\right)=",
+   "want": [
+    -0.002567842177830064,
+    0.0
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "J0((2000000000.0, 1))",
+   "latex": "\\mathrm{J0}\\left(2000000000+1\\mathrm{i}\\right)=",
+   "want": [
+    2.5673454872197617e-05,
+    -7.5701347810928725e-06
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'Cannot evaluate this accurately at one or more of"
+  },
+  {
+   "label": "J0(2000000000.0)",
+   "latex": "\\mathrm{J0}\\left(2000000000\\right)=",
+   "want": [
+    1.6637792150871032e-05,
+    0.0
+   ],
+   "source": "mpmath; Mathcad 14 gives [1.663779267558646e-05, 0.0]"
+  },
+  {
+   "label": "J0((100000000.0, 1))",
+   "latex": "\\mathrm{J0}\\left(100000000+1\\mathrm{i}\\right)=",
+   "want": [
+    4.947162045690878e-05,
+    -8.586479643685931e-05
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(0,(50000, 1))",
+   "latex": "\\mathrm{H1}\\left(0,50000+1\\mathrm{i}\\right)=",
+   "want": [
+    -0.0009446654598494184,
+    -0.0009114546135229546
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "H1(0,(2000000000.0, 1))",
+   "latex": "\\mathrm{H1}\\left(0,2000000000+1\\mathrm{i}\\right)=",
+   "want": [
+    6.1207016793814735e-06,
+    2.3697192989284754e-06
+   ],
+   "source": "mpmath; Mathcad 14 gives {'error': 'Cannot evaluate this accurately at one or more of"
+  },
+  {
+   "label": "Jn(40000,(1, 1))",
+   "latex": "\\mathrm{Jn}\\left(40000,1+1\\mathrm{i}\\right)=",
+   "want": [
+    0.0,
+    0.0
+   ],
+   "source": "Mathcad 14"
+  },
+  {
+   "label": "Jn(40000,(50000, 1))",
+   "latex": "\\mathrm{Jn}\\left(40000,50000+1\\mathrm{i}\\right)=",
+   "want": [
+    0.0036878787149771243,
+    0.0021629459827335515
+   ],
+   "source": "Mathcad 14, to 2e-11: a large order",
+   "abs": 8.550739088664682e-14
   }
  ],
  "extra": [
