@@ -19,10 +19,10 @@
  * levels. Both color height on one blue ramp, light to dark (the dataviz palette's sequential hue), with a
  * color bar to read it by.
  */
-import { convertLatexToMarkup } from 'mathlive';
 import type { PlotData, SurfaceData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content } from '../model/ast.js';
+import { mathMarkup } from './markup.js';
 import { label, ticks } from './plot.js';
 import { pointsPerPixel } from './zoom.js';
 
@@ -51,7 +51,7 @@ export function rampColor(t: number, from = 0): string {
 const esc = (s: string): string => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`);
 function markup(latex: string): string {
   try {
-    return convertLatexToMarkup(latex);
+    return mathMarkup(latex);
   } catch {
     return esc(latex);
   }

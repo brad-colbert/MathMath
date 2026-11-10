@@ -18,15 +18,15 @@
  * entries by name or by what they do; each example can be put on the sheet with Insert. F1 opens the entry
  * for the name being typed.
  */
-import { convertLatexToMarkup } from 'mathlive';
 import { MATHCAD_FILE_FUNCTIONS, MATHCAD_WRITES } from '../xmcd/names.js';
 import { BY_NAME, ENTRIES, type Entry, GROUPS, RESULTS, TOPICS, TOPIC_BY_ID, type Topic } from '../help/index.js';
+import { mathMarkup } from './markup.js';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
 function markup(latex: string): string {
   try {
-    return convertLatexToMarkup(latex);
+    return mathMarkup(latex);
   } catch {
     return esc(latex);
   }

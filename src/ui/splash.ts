@@ -17,7 +17,7 @@
  * The splash screen: what MathMath is, in a few lines, with a worked example and the copyright. It shows when
  * the app opens, unless the viewer has turned it off, and again from the version on the toolbar or from Help.
  */
-import { convertLatexToMarkup } from 'mathlive';
+import { mathMarkup } from './markup.js';
 
 const OFF_KEY = 'mathmath.splash';
 
@@ -42,7 +42,7 @@ const remember = (show: boolean): void => {
   }
 };
 
-const math = (latex: string): string => convertLatexToMarkup(latex);
+const math = (latex: string): string => mathMarkup(latex);
 
 export class Splash {
   readonly el = document.createElement('div');
