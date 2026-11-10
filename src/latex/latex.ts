@@ -252,7 +252,11 @@ const TEXT_SYMBOLS: Record<string, string> = {
   '\\textbackslash': '\\', '\\textquotedbl': '"', '\\textunderscore': '_', '\\textasciitilde': '~', '\\textasciicircum': '^',
 };
 
-const TYPED_FUNCTIONS = new Set(['\\sin', '\\cos', '\\tan', '\\ln', '\\log', '\\exp', '\\max', '\\min', '\\arcsin', '\\arccos', '\\arctan']);
+/** Function names LaTeX writes as commands, as pasted or as MathLive writes them: each reads as Mathcad's name. */
+const TYPED_FUNCTIONS = new Map([
+  ...['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'coth', 'ln', 'log', 'exp', 'max', 'min'].map((f) => [`\\${f}`, f] as const),
+  ['\\arcsin', 'asin'], ['\\arccos', 'acos'], ['\\arctan', 'atan'],
+]);
 const SPACING = new Set(['\\,', '\;', '\\:', '\\!', '\\ ', '\\quad', '\\qquad']);
 const REL: Record<string, string> = {
   '=': 'equal', '\\ne': 'notEqual', '\\neq': 'notEqual', '<': 'lessThan', '>': 'greaterThan', '\\le': 'lessOrEqual', '\\leq': 'lessOrEqual',
@@ -531,11 +535,21 @@ export function readTex(src: string): Expr {
     const word = rawBetween();
     return word === 'd' ? (atom() as { name: string }).name : word.slice(1);
   }
-  /** A number followed by an upright i is an imaginary number. */
+  /**
+   * A number followed by an upright i is an imaginary number, and so, as typed in Mathcad, is a number followed
+   * straight away by i or j on its own: 4i and 4j are imaginary, where 4·i, 4in and 4i₁ are not.
+   */
   function imaginary(v: number, text?: string): Expr {
-    if (!(is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}')) return text === undefined ? { k: 'real', v } : realFrom(text);
-    p += 4;
-    return { k: 'imag', v };
+    if (is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}') {
+      p += 4;
+      return { k: 'imag', v };
+    }
+    const next = toks[p];
+    if (next?.t === 'ch' && (next.v === 'i' || next.v === 'j') && !/^[A-Za-z0-9_'.]$/.test(toks[p + 1]?.v ?? '')) {
+      p++;
+      return { k: 'imag', v };
+    }
+    return text === undefined ? { k: 'real', v } : realFrom(text);
   }
   function atom(): Expr {
     const t = peek();
@@ -565,7 +579,7 @@ export function readTex(src: string): Expr {
       throw new Error(`unexpected ${t.v}`);
     }
     if (UNGREEK[t.v]) return callOrId(t.v === '\\infty' ? '∞' : word(UNGREEK[t.v]!));
-    if (TYPED_FUNCTIONS.has(t.v)) return callOrId(t.v.slice(1));
+    if (TYPED_FUNCTIONS.has(t.v)) return callOrId(TYPED_FUNCTIONS.get(t.v)!);
     switch (t.v) {
       case '\\mathrm': {
         const base = rawBetween();

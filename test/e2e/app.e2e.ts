@@ -2301,6 +2301,18 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// The elementary functions on complex numbers, typed as a user would.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'acosh(0.5', R, '=');
+  await type(page, 72, 108, 'signum(3+4i', R, '=');
+  await type(page, 72, 144, 'asin(2', R, '=');
+  const s = await shown(page);
+  check('typed acosh(0.5), signum(3+4i) and asin(2) give complex answers', s[0]?.replace(/\s/g, '') === 'acosh(0.5)=1.047i'
+    && s[1]?.replace(/\s/g, '') === 'signum(3+4i)=0.6+0.8i' && s[2]?.replace(/\s/g, '') === 'asin(2)=1.571−1.317i', s);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);
