@@ -90,6 +90,15 @@ export const SOLVING: Entry[] = [
     example: [XS, YS, 'S\\coloneq \\mathrm{cspline}\\left(x,y\\right)', '\\mathrm{interp}\\left(S,x,y,1.5\\right)='],
   },
   {
+    name: 'predict', group: 'Interpolation and fitting', usage: 'predict(v, m, n)', mathcad: true,
+    summary: 'n values past the end of the data v, by linear prediction from the m values before each.',
+    details: [
+      'The coefficients come from Burg\'s method over the whole of v, as Mathcad\'s do; each new value then comes from the m before it, so once n is more than m, predictions build on predictions. Suited to smooth, oscillating data sampled evenly. Reverse v to predict backwards.',
+    ],
+    errors: ['An m not less than the number of values less 1.', 'An m or n that isn\'t a whole number of 1 or more.'],
+    example: ['v\\coloneq \\begin{pmatrix}0\\\\0.59\\\\0.95\\\\0.95\\\\0.59\\\\0\\\\-0.59\\\\-0.95\\\\-0.95\\\\-0.59\\end{pmatrix}', '\\mathrm{predict}\\left(v,2,3\\right)='],
+  },
+  {
     name: 'slope', group: 'Interpolation and fitting', usage: 'slope(vx, vy)', mathcad: true,
     summary: 'The slope of the least-squares straight line through the points (vx, vy).',
     details: [
@@ -161,7 +170,7 @@ export const SOLVING: Entry[] = [
     name: 'genfit', group: 'Interpolation and fitting', usage: 'genfit(vx, vy, vg, F)', mathcad: true,
     summary: 'The parameters u that make F(x, u) best fit the points (vx, vy), starting from the guess vg.',
     details: [
-      'As in Mathcad 14, F(x, u) gives a vector: the model\'s value, then its partial derivative in each parameter. MathMath also takes an F that gives the value alone, and works out the derivatives itself; Mathcad 14 says that doesn\'t converge. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+      'F(x, u) takes x and the vector of parameters u, or takes the parameters one by one, as F(x, A, c). It gives the model\'s value alone, and genfit works out the derivatives, or a vector of the value and then its partial derivative in each parameter, as the example does. With one parameter, the guess can be a plain number. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
     ],
     errors: ['x and y of different lengths.', 'An F that gives neither one value nor one more than the parameters.', 'A guess it can\'t improve from.'],
     example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}3\\\\3.70\\\\4.64\\\\5.92\\\\7.64\\end{pmatrix}', 'F\\left(x,u\\right)\\coloneq \\begin{pmatrix}u_{0}\\cdot e^{u_{1}\\cdot x}\\\\e^{u_{1}\\cdot x}\\\\u_{0}\\cdot x\\cdot e^{u_{1}\\cdot x}\\end{pmatrix}', '\\mathrm{genfit}\\left(x,y,\\begin{pmatrix}1\\\\0.1\\end{pmatrix},F\\right)='],

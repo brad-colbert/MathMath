@@ -1,0 +1,3496 @@
+{
+ "source": "Mathcad 14, probed 2026-11-10: strings, type tests, lookup, number theory and rounding to a step. stored is Mathcad's answer as the importer reads it; mathcadError its message.",
+ "sheets": [
+  {
+   "defs": [
+    "S\\coloneq \\text{\"Hello, world\"}",
+    "A\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\2\\end{pmatrix}",
+    "B\\coloneq \\begin{pmatrix}10\\\\20\\\\30\\\\40\\end{pmatrix}",
+    "M\\coloneq \\begin{pmatrix}1&2&3&2\\\\10&20&30&40\\\\100&200&300&400\\end{pmatrix}",
+    "\\mathrm{Nv}\\coloneq \\begin{pmatrix}1&10\\\\2&20\\\\3&30\\\\2&40\\end{pmatrix}",
+    "\\mathrm{Sa}\\coloneq \\begin{pmatrix}\\text{\"a\"}\\\\\\text{\"b\"}\\\\\\text{\"a\"}\\end{pmatrix}"
+   ],
+   "cases": [
+    {
+     "label": "substr(S,0,5)",
+     "latex": "\\mathrm{substr}\\left(S,0,5\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "Hello"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "substr(S,7,100)",
+     "latex": "\\mathrm{substr}\\left(S,7,100\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "world"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "substr(S,20,2)",
+     "latex": "\\mathrm{substr}\\left(S,20,2\\right)=",
+     "mathcadError": "This array index is invalid for this array."
+    },
+    {
+     "label": "substr(S,3,0)",
+     "latex": "\\mathrm{substr}\\left(S,3,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": ""
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "substr(S,-1,2)",
+     "latex": "\\mathrm{substr}\\left(S,-1,2\\right)=",
+     "mathcadError": "This array index is invalid for this array."
+    },
+    {
+     "label": "substr(S,1.5,2)",
+     "latex": "\\mathrm{substr}\\left(S,1.5,2\\right)=",
+     "mathcadError": "This value must be an integer."
+    },
+    {
+     "label": "substr(S,2,-1)",
+     "latex": "\\mathrm{substr}\\left(S,2,-1\\right)=",
+     "mathcadError": "This value must be greater than or equal to 0."
+    },
+    {
+     "label": "search(S,\"o\",0)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 4,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"o\",5)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 8,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"xyz\",0)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"xyz\"},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"\",0)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"\"},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"o\",20)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},20\\right)=",
+     "mathcadError": "This array index is invalid for this array."
+    },
+    {
+     "label": "search(S,\"o\",-1)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},-1\\right)=",
+     "mathcadError": "This array index is invalid for this array."
+    },
+    {
+     "label": "search(S,\"world\",0)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"world\"},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"O\",0)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"O\"},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"3.25\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"3.25\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3.25,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"1e3\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"1e3\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1000,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\" 42 \")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\" 42 \"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 42,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"abc\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"abc\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"3+4i\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"3+4i\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 4
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"12abc\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"12abc\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"-7\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"-7\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"0x1F\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"0x1F\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"1,5\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"1,5\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "num2str(3.25)",
+     "latex": "\\mathrm{num2str}\\left(3.25\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "3.25"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(0.3333333333333333)",
+     "latex": "\\mathrm{num2str}\\left(0.333333333333333\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "0.333333333333333"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(123456789)",
+     "latex": "\\mathrm{num2str}\\left(123456789\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "123456789"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(1e-05)",
+     "latex": "\\mathrm{num2str}\\left(0.00001\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1e-05"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(1e+20)",
+     "latex": "\\mathrm{num2str}\\left(100000000000000000000\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1e+20"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(-0.5)",
+     "latex": "\\mathrm{num2str}\\left(-0.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "-0.5"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(2+3i)",
+     "latex": "\\mathrm{num2str}\\left(2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "2 + 3i"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(3m)",
+     "latex": "\\mathrm{num2str}\\left(3\\cdot m\\right)=",
+     "mathcadError": "This value has units: Length, \nbut must have units: Unitless."
+    },
+    {
+     "label": "str2vec(\"AB z\")",
+     "latex": "\\mathrm{str2vec}\\left(\\text{\"AB z\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 4,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 65,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 66,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 32,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 122,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2vec(\"\")",
+     "latex": "\\mathrm{str2vec}\\left(\\text{\"\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((72;105))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}72\\\\105\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "Hi"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((72.5))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}72.5\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "H"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((300))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}300\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "Ĭ"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((0))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}0\\end{pmatrix}\\right)=",
+     "mathcadError": "This string cannot be computed because \nit contains an invalid character."
+    },
+    {
+     "label": "vec2str(row)",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}72&105\\end{pmatrix}\\right)=",
+     "mathcadError": "This value must be a vector of real numbers."
+    },
+    {
+     "label": "error(\"custom\")",
+     "latex": "\\mathrm{error}\\left(\\text{\"custom message\"}\\right)=",
+     "mathcadError": "custom message"
+    },
+    {
+     "label": "IsString(\"a\")",
+     "latex": "\\mathrm{IsString}\\left(\\text{\"a\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsArray(\"a\")",
+     "latex": "\\mathrm{IsArray}\\left(\\text{\"a\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsScalar(\"a\")",
+     "latex": "\\mathrm{IsScalar}\\left(\\text{\"a\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(\"a\")",
+     "latex": "\\mathrm{IsNaN}\\left(\\text{\"a\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsString(3)",
+     "latex": "\\mathrm{IsString}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsArray(3)",
+     "latex": "\\mathrm{IsArray}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsScalar(3)",
+     "latex": "\\mathrm{IsScalar}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(3)",
+     "latex": "\\mathrm{IsNaN}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsString((1;2))",
+     "latex": "\\mathrm{IsString}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsArray((1;2))",
+     "latex": "\\mathrm{IsArray}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsScalar((1;2))",
+     "latex": "\\mathrm{IsScalar}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN((1;2))",
+     "latex": "\\mathrm{IsNaN}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsString(2+3i)",
+     "latex": "\\mathrm{IsString}\\left(2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsArray(2+3i)",
+     "latex": "\\mathrm{IsArray}\\left(2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsScalar(2+3i)",
+     "latex": "\\mathrm{IsScalar}\\left(2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(2+3i)",
+     "latex": "\\mathrm{IsNaN}\\left(2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsString(3m)",
+     "latex": "\\mathrm{IsString}\\left(3\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsArray(3m)",
+     "latex": "\\mathrm{IsArray}\\left(3\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsScalar(3m)",
+     "latex": "\\mathrm{IsScalar}\\left(3\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(3m)",
+     "latex": "\\mathrm{IsNaN}\\left(3\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(NaN)",
+     "latex": "\\mathrm{IsNaN}\\left(\\mathrm{NaN}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "NaN",
+     "latex": "\\mathrm{NaN}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": null,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(2,A,B)",
+     "latex": "\\mathrm{lookup}\\left(2,A,B\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 20,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 40,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(3,A,B)",
+     "latex": "\\mathrm{lookup}\\left(3,A,B\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 30,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(5,A,B)",
+     "latex": "\\mathrm{lookup}\\left(5,A,B\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "lookup(2.0000001,A,B)",
+     "latex": "\\mathrm{lookup}\\left(2.0000001,A,B\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 20,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 40,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "hlookup(2,M,1)",
+     "latex": "\\mathrm{hlookup}\\left(2,M,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 20,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 40,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "hlookup(2,M,2)",
+     "latex": "\\mathrm{hlookup}\\left(2,M,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 200,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 400,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "hlookup(3,M,0)",
+     "latex": "\\mathrm{hlookup}\\left(3,M,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 3,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "hlookup(5,M,1)",
+     "latex": "\\mathrm{hlookup}\\left(5,M,1\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "vlookup(2,N,1)",
+     "latex": "\\mathrm{vlookup}\\left(2,\\mathrm{Nv},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 20,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 40,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vlookup(3,N,0)",
+     "latex": "\\mathrm{vlookup}\\left(3,\\mathrm{Nv},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 3,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vlookup(5,N,1)",
+     "latex": "\\mathrm{vlookup}\\left(5,\\mathrm{Nv},1\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "match(2,A)",
+     "latex": "\\mathrm{match}\\left(2,A\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 1,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 3,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "match(5,A)",
+     "latex": "\\mathrm{match}\\left(5,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "match(2,M)",
+     "latex": "\\mathrm{match}\\left(2,M\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "mat",
+         "rows": 2,
+         "cols": 1,
+         "items": [
+          {
+           "k": "num",
+           "re": 0,
+           "im": 0
+          },
+          {
+           "k": "num",
+           "re": 1,
+           "im": 0
+          }
+         ]
+        },
+        {
+         "k": "mat",
+         "rows": 2,
+         "cols": 1,
+         "items": [
+          {
+           "k": "num",
+           "re": 0,
+           "im": 0
+          },
+          {
+           "k": "num",
+           "re": 3,
+           "im": 0
+          }
+         ]
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(\"b\",Sa,B3)",
+     "latex": "\\mathrm{lookup}\\left(\\text{\"b\"},\\mathrm{Sa},\\begin{pmatrix}1\\\\2\\\\3\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 2,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "match(\"a\",Sa)",
+     "latex": "\\mathrm{match}\\left(\\text{\"a\"},\\mathrm{Sa}\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 0,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 2,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd(12, 18)",
+     "latex": "\\mathrm{gcd}\\left(12,18\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 6,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd(12, 18, 8)",
+     "latex": "\\mathrm{gcd}\\left(12,18,8\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd(-12, 18)",
+     "latex": "\\mathrm{gcd}\\left(-12,18\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "gcd(0, 5)",
+     "latex": "\\mathrm{gcd}\\left(0,5\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "gcd(0, 0)",
+     "latex": "\\mathrm{gcd}\\left(0,0\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "gcd(12.5, 5)",
+     "latex": "\\mathrm{gcd}\\left(12.5,5\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "gcd(7,)",
+     "latex": "\\mathrm{gcd}\\left(7\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd((12;18;8))",
+     "latex": "\\mathrm{gcd}\\left(\\begin{pmatrix}12\\\\18\\\\8\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd((12;18),27)",
+     "latex": "\\mathrm{gcd}\\left(\\begin{pmatrix}12\\\\18\\end{pmatrix},27\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lcm(4, 6)",
+     "latex": "\\mathrm{lcm}\\left(4,6\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 12,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lcm(4, 6, 10)",
+     "latex": "\\mathrm{lcm}\\left(4,6,10\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 60,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lcm(-4, 6)",
+     "latex": "\\mathrm{lcm}\\left(-4,6\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "lcm(0, 5)",
+     "latex": "\\mathrm{lcm}\\left(0,5\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "lcm(2.5, 4)",
+     "latex": "\\mathrm{lcm}\\left(2.5,4\\right)=",
+     "mathcadError": "This value must be a positive integer."
+    },
+    {
+     "label": "lcm((4;6;10))",
+     "latex": "\\mathrm{lcm}\\left(\\begin{pmatrix}4\\\\6\\\\10\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 60,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "gcd(12m,18m)",
+     "latex": "\\mathrm{gcd}\\left(12\\cdot m,18\\cdot m\\right)=",
+     "mathcadError": "This value has the form: Length,\nbut must have the form: Unitless."
+    },
+    {
+     "label": "UnitsOf(3ft)",
+     "latex": "\\mathrm{UnitsOf}\\left(3\\cdot \\mathrm{ft}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       }
+      ]
+     }
+    },
+    {
+     "label": "x/UnitsOf(3ft)",
+     "latex": "\\frac{3\\cdot \\mathrm{ft}}{\\mathrm{UnitsOf}\\left(3\\cdot \\mathrm{ft}\\right)}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.9144000000000001,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "SIUnitsOf(3ft)",
+     "latex": "\\mathrm{SIUnitsOf}\\left(3\\cdot \\mathrm{ft}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       }
+      ]
+     }
+    },
+    {
+     "label": "UnitsOf(5)",
+     "latex": "\\mathrm{UnitsOf}\\left(5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "x/UnitsOf(5)",
+     "latex": "\\frac{5}{\\mathrm{UnitsOf}\\left(5\\right)}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "SIUnitsOf(5)",
+     "latex": "\\mathrm{SIUnitsOf}\\left(5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "UnitsOf(2 m/s)",
+     "latex": "\\mathrm{UnitsOf}\\left(2\\cdot \\frac{m}{s}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       },
+       {
+        "unit": "second",
+        "power": -1
+       }
+      ]
+     }
+    },
+    {
+     "label": "x/UnitsOf(2 m/s)",
+     "latex": "\\frac{2\\cdot \\frac{m}{s}}{\\mathrm{UnitsOf}\\left(2\\cdot \\frac{m}{s}\\right)}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "SIUnitsOf(2 m/s)",
+     "latex": "\\mathrm{SIUnitsOf}\\left(2\\cdot \\frac{m}{s}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       },
+       {
+        "unit": "second",
+        "power": -1
+       }
+      ]
+     }
+    },
+    {
+     "label": "UnitsOf((1;2)m)",
+     "latex": "\\mathrm{UnitsOf}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       }
+      ]
+     }
+    },
+    {
+     "label": "x/UnitsOf((1;2)m)",
+     "latex": "\\frac{\\begin{pmatrix}1\\\\2\\end{pmatrix}\\cdot m}{\\mathrm{UnitsOf}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\cdot m\\right)}=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 1,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": 2,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "SIUnitsOf((1;2)m)",
+     "latex": "\\mathrm{SIUnitsOf}\\left(\\begin{pmatrix}1\\\\2\\end{pmatrix}\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": [
+       {
+        "unit": "meter",
+        "power": 1
+       }
+      ]
+     }
+    },
+    {
+     "label": "UnitsOf(3ft)/m",
+     "latex": "\\frac{\\mathrm{UnitsOf}\\left(3\\cdot \\mathrm{ft}\\right)}{m}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    }
+   ]
+  },
+  {
+   "defs": [
+    "S\\coloneq \\text{\"Hello, world\"}",
+    "A\\coloneq \\begin{pmatrix}1\\\\2\\\\1000\\\\0\\end{pmatrix}"
+   ],
+   "cases": [
+    {
+     "label": "substr(S,12,1)",
+     "latex": "\\mathrm{substr}\\left(S,12,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": ""
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "substr(S,11,5)",
+     "latex": "\\mathrm{substr}\\left(S,11,5\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "d"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "substr(\"\",0,0)",
+     "latex": "\\mathrm{substr}\\left(\\text{\"\"},0,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": ""
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"o\",12)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},12\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"o\",11)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},11\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "search(S,\"o\",4)",
+     "latex": "\\mathrm{search}\\left(S,\\text{\"o\"},4\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 4,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"0FFh\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"0FFh\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 255,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"0FFH\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"0FFH\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 255,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"17o\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"17o\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 15,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"101b\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"101b\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"3e-2\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"3e-2\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.03,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"1+2j\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"1+2j\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 2
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"2i\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"2i\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 2
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"-3-4i\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"-3-4i\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": -4
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\" 1 2 \")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\" 1 2 \"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"1.5E3\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"1.5E3\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1500,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\".5\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\".5\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"5.\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"5.\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"+4\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"+4\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 4,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "str2num(\"1e400\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"1e400\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"FFh\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"FFh\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "str2num(\"2*3\")",
+     "latex": "\\mathrm{str2num}\\left(\\text{\"2*3\"}\\right)=",
+     "mathcadError": "This value is not valid."
+    },
+    {
+     "label": "num2str(1000000000000000.0)",
+     "latex": "\\mathrm{num2str}\\left(1000000000000000\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1e+15"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(1e+16)",
+     "latex": "\\mathrm{num2str}\\left(10000000000000000\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1e+16"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(123456789012345678)",
+     "latex": "\\mathrm{num2str}\\left(123456789012345678\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1.23456789012346e+17"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(0.30000000000000004)",
+     "latex": "\\mathrm{num2str}\\left(0.3\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "0.3"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(-1e-300)",
+     "latex": "\\mathrm{num2str}\\left(-1\\times10^{-300}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "-1e-300"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(100000)",
+     "latex": "\\mathrm{num2str}\\left(100000\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "100000"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(100000.5)",
+     "latex": "\\mathrm{num2str}\\left(100000.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "100000.5"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(0.0001)",
+     "latex": "\\mathrm{num2str}\\left(0.0001\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "0.0001"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(0.00015)",
+     "latex": "\\mathrm{num2str}\\left(0.00015\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "0.00015"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(666.6666666666666)",
+     "latex": "\\mathrm{num2str}\\left(666.666666666667\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "666.666666666667"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(-2-3i)",
+     "latex": "\\mathrm{num2str}\\left(-2-3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "-2 - 3i"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "num2str(0.5i)",
+     "latex": "\\mathrm{num2str}\\left(0.5\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "0.5i"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((9))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}9\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "\t"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((10))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}10\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "\n"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((31))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}31\\end{pmatrix}\\right)=",
+     "mathcadError": "This string cannot be computed because \nit contains an invalid character."
+    },
+    {
+     "label": "vec2str((127))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}127\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": ""
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((255))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}255\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "ÿ"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((65.9))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}65.9\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "A"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((256))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}256\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "Ā"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "vec2str((1000))",
+     "latex": "\\mathrm{vec2str}\\left(\\begin{pmatrix}1000\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "Ϩ"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "IsNaN(NaN vector)",
+     "latex": "\\mathrm{IsNaN}\\left(\\begin{pmatrix}\\mathrm{NaN}\\\\1\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(2.0019,A,A)",
+     "latex": "\\mathrm{lookup}\\left(2.0019,A,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "lookup(2.0021,A,A)",
+     "latex": "\\mathrm{lookup}\\left(2.0021,A,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "lookup(1000.5,A,A)",
+     "latex": "\\mathrm{lookup}\\left(1000.5,A,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "lookup(1001.5,A,A)",
+     "latex": "\\mathrm{lookup}\\left(1001.5,A,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "lookup(0.0005,A,A)",
+     "latex": "\\mathrm{lookup}\\left(0.0005,A,A\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 0,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "lookup(1e-09,A,A)",
+     "latex": "\\mathrm{lookup}\\left(1\\times10^{-9},A,A\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 1,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 0,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "match(2.0019,A)",
+     "latex": "\\mathrm{match}\\left(2.0019,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "match(2.0021,A)",
+     "latex": "\\mathrm{match}\\left(2.0021,A\\right)=",
+     "mathcadError": "No matching values found."
+    },
+    {
+     "label": "combin(5,2)",
+     "latex": "\\mathrm{combin}\\left(5,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 10,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "permut(5,2)",
+     "latex": "\\mathrm{permut}\\left(5,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 20,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin(5,0)",
+     "latex": "\\mathrm{combin}\\left(5,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "permut(5,0)",
+     "latex": "\\mathrm{permut}\\left(5,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin(5,5)",
+     "latex": "\\mathrm{combin}\\left(5,5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "permut(5,5)",
+     "latex": "\\mathrm{permut}\\left(5,5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 120,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin(5,6)",
+     "latex": "\\mathrm{combin}\\left(5,6\\right)=",
+     "mathcadError": "This function is undefined at one or more of the specified points."
+    },
+    {
+     "label": "permut(5,6)",
+     "latex": "\\mathrm{permut}\\left(5,6\\right)=",
+     "mathcadError": "This function is undefined at one or more of the specified points."
+    },
+    {
+     "label": "combin(0,0)",
+     "latex": "\\mathrm{combin}\\left(0,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "permut(0,0)",
+     "latex": "\\mathrm{permut}\\left(0,0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin(5.5,2)",
+     "latex": "\\mathrm{combin}\\left(5.5,2\\right)=",
+     "mathcadError": "This value must be a nonnegative integer."
+    },
+    {
+     "label": "permut(5.5,2)",
+     "latex": "\\mathrm{permut}\\left(5.5,2\\right)=",
+     "mathcadError": "This value must be a nonnegative integer."
+    },
+    {
+     "label": "combin(-5,2)",
+     "latex": "\\mathrm{combin}\\left(-5,2\\right)=",
+     "mathcadError": "This value must be a nonnegative integer."
+    },
+    {
+     "label": "permut(-5,2)",
+     "latex": "\\mathrm{permut}\\left(-5,2\\right)=",
+     "mathcadError": "This value must be a nonnegative integer."
+    },
+    {
+     "label": "combin(100,50)",
+     "latex": "\\mathrm{combin}\\left(100,50\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.0089134454556422e+29,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin(60,30)",
+     "latex": "\\mathrm{combin}\\left(60,30\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 118264581564861420,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "combin((5;6),2)",
+     "latex": "\\mathrm{combin}\\left(\\begin{pmatrix}5\\\\6\\end{pmatrix},2\\right)=",
+     "mathcadError": "This value must be a nonnegative integer."
+    },
+    {
+     "label": "Ceil(3.23m,ft)/ft",
+     "latex": "\\frac{\\mathrm{Ceil}\\left(3.23\\cdot m,\\mathrm{ft}\\right)}{\\mathrm{ft}}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(2.6,1)",
+     "latex": "\\mathrm{Ceil}\\left(2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(-2.6,1)",
+     "latex": "\\mathrm{Ceil}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(2.5,1)",
+     "latex": "\\mathrm{Ceil}\\left(2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(-2.5,1)",
+     "latex": "\\mathrm{Ceil}\\left(-2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(7,2)",
+     "latex": "\\mathrm{Ceil}\\left(7,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 8,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(7,-2)",
+     "latex": "\\mathrm{Ceil}\\left(7,-2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 8,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(1.234,0.01)",
+     "latex": "\\mathrm{Ceil}\\left(1.234,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.24,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(0.15,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(2.6,0)",
+     "latex": "\\mathrm{Ceil}\\left(2.6,0\\right)=",
+     "mathcadError": "This value cannot be 0."
+    },
+    {
+     "label": "Ceil((2.6;-1.2),1)",
+     "latex": "\\mathrm{Ceil}\\left(\\begin{pmatrix}2.6\\\\-1.2\\end{pmatrix},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 3,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": -1,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(2.6+1.4i,1)",
+     "latex": "\\mathrm{Ceil}\\left(2.6+1.4\\mathrm{i},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 2
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(3m,2)",
+     "latex": "\\mathrm{Ceil}\\left(3\\cdot m,2\\right)=",
+     "mathcadError": "This value has units: Unitless, \nbut must have units: Length."
+    },
+    {
+     "label": "Floor(3.23m,ft)/ft",
+     "latex": "\\frac{\\mathrm{Floor}\\left(3.23\\cdot m,\\mathrm{ft}\\right)}{\\mathrm{ft}}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 10.000000000000002,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(2.6,1)",
+     "latex": "\\mathrm{Floor}\\left(2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(-2.6,1)",
+     "latex": "\\mathrm{Floor}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(2.5,1)",
+     "latex": "\\mathrm{Floor}\\left(2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(-2.5,1)",
+     "latex": "\\mathrm{Floor}\\left(-2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(7,2)",
+     "latex": "\\mathrm{Floor}\\left(7,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 6,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(7,-2)",
+     "latex": "\\mathrm{Floor}\\left(7,-2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 6,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(1.234,0.01)",
+     "latex": "\\mathrm{Floor}\\left(1.234,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.23,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(0.15,0.1)",
+     "latex": "\\mathrm{Floor}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(2.6,0)",
+     "latex": "\\mathrm{Floor}\\left(2.6,0\\right)=",
+     "mathcadError": "This value cannot be 0."
+    },
+    {
+     "label": "Floor((2.6;-1.2),1)",
+     "latex": "\\mathrm{Floor}\\left(\\begin{pmatrix}2.6\\\\-1.2\\end{pmatrix},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 2,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": -2,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(2.6+1.4i,1)",
+     "latex": "\\mathrm{Floor}\\left(2.6+1.4\\mathrm{i},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 1
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(3m,2)",
+     "latex": "\\mathrm{Floor}\\left(3\\cdot m,2\\right)=",
+     "mathcadError": "This value has units: Unitless, \nbut must have units: Length."
+    },
+    {
+     "label": "Round(3.23m,ft)/ft",
+     "latex": "\\frac{\\mathrm{Round}\\left(3.23\\cdot m,\\mathrm{ft}\\right)}{\\mathrm{ft}}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(2.6,1)",
+     "latex": "\\mathrm{Round}\\left(2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(2.5,1)",
+     "latex": "\\mathrm{Round}\\left(2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(-2.5,1)",
+     "latex": "\\mathrm{Round}\\left(-2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(7,2)",
+     "latex": "\\mathrm{Round}\\left(7,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 8,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(7,-2)",
+     "latex": "\\mathrm{Round}\\left(7,-2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 8,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(1.234,0.01)",
+     "latex": "\\mathrm{Round}\\left(1.234,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.23,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(0.15,0.1)",
+     "latex": "\\mathrm{Round}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(2.6,0)",
+     "latex": "\\mathrm{Round}\\left(2.6,0\\right)=",
+     "mathcadError": "This value cannot be 0."
+    },
+    {
+     "label": "Round((2.6;-1.2),1)",
+     "latex": "\\mathrm{Round}\\left(\\begin{pmatrix}2.6\\\\-1.2\\end{pmatrix},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 3,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": -1,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(2.6+1.4i,1)",
+     "latex": "\\mathrm{Round}\\left(2.6+1.4\\mathrm{i},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 1
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(3m,2)",
+     "latex": "\\mathrm{Round}\\left(3\\cdot m,2\\right)=",
+     "mathcadError": "This value has units: Unitless, \nbut must have units: Length."
+    },
+    {
+     "label": "Trunc(3.23m,ft)/ft",
+     "latex": "\\frac{\\mathrm{Trunc}\\left(3.23\\cdot m,\\mathrm{ft}\\right)}{\\mathrm{ft}}=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 10.000000000000002,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(2.6,1)",
+     "latex": "\\mathrm{Trunc}\\left(2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(-2.6,1)",
+     "latex": "\\mathrm{Trunc}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(2.5,1)",
+     "latex": "\\mathrm{Trunc}\\left(2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(-2.5,1)",
+     "latex": "\\mathrm{Trunc}\\left(-2.5,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(7,2)",
+     "latex": "\\mathrm{Trunc}\\left(7,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 6,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(7,-2)",
+     "latex": "\\mathrm{Trunc}\\left(7,-2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 6,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(1.234,0.01)",
+     "latex": "\\mathrm{Trunc}\\left(1.234,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.23,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(0.15,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(2.6,0)",
+     "latex": "\\mathrm{Trunc}\\left(2.6,0\\right)=",
+     "mathcadError": "This value cannot be 0."
+    },
+    {
+     "label": "Trunc((2.6;-1.2),1)",
+     "latex": "\\mathrm{Trunc}\\left(\\begin{pmatrix}2.6\\\\-1.2\\end{pmatrix},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "mat",
+       "rows": 2,
+       "cols": 1,
+       "items": [
+        {
+         "k": "num",
+         "re": 2,
+         "im": 0
+        },
+        {
+         "k": "num",
+         "re": -1,
+         "im": 0
+        }
+       ]
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(2.6+1.4i,1)",
+     "latex": "\\mathrm{Trunc}\\left(2.6+1.4\\mathrm{i},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 1
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(3m,2)",
+     "latex": "\\mathrm{Trunc}\\left(3\\cdot m,2\\right)=",
+     "mathcadError": "This value has units: Unitless, \nbut must have units: Length."
+    },
+    {
+     "label": "round(2.5)",
+     "latex": "\\mathrm{round}\\left(2.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(-2.5)",
+     "latex": "\\mathrm{round}\\left(-2.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(0.125,2)",
+     "latex": "\\mathrm{round}\\left(0.125,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.13,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0} and {1}\",3,4.5)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\} and \\{1\\}\"},3,4.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "3 and 4.5"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"x={0}\",1/3)",
+     "latex": "\\mathrm{format}\\left(\\text{\"x=\\{0\\}\"},\\frac{1}{3}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "x=0.333333333333333"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",\"str\")",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},\\text{\"str\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "\"str\""
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",(1;2))",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},\\begin{pmatrix}1\\\\2\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "vector{2} [1, 2]"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(3.25)",
+     "latex": "\\mathrm{format}\\left(3.25\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "3.25"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{1}{0}\",1,2)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{1\\}\\{0\\}\"},1,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "21"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",2+3i)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},2+3\\mathrm{i}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "2 + 3i"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",3m)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},3\\cdot m\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "3"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0} {0}\",7)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\} \\{0\\}\"},7\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "7 7"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{2}\",1,2)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{2\\}\"},1,2\\right)=",
+     "mathcadError": "Index (zero based) must be greater than or equal to zero and less than the size of the argument list."
+    },
+    {
+     "label": "format(\"no codes\",1)",
+     "latex": "\\mathrm{format}\\left(\\text{\"no codes\"},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "no codes"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",1e20)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},100000000000000000000\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "1e+20"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",123456.789)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},123456.789\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "123456.789"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{{0}}\",1)",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{\\{0\\}\\}\"},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "{0}"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"a\")",
+     "latex": "\\mathrm{format}\\left(\\text{\"a\"}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "a"
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "format(\"{0}\",(1,2;3,4))",
+     "latex": "\\mathrm{format}\\left(\\text{\"\\{0\\}\"},\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}\\right)=",
+     "stored": {
+      "value": {
+       "k": "str",
+       "v": "matrix{2,2} [[1, 2], [3, 4]]"
+      },
+      "units": []
+     }
+    }
+   ]
+  },
+  {
+   "defs": [],
+   "cases": [
+    {
+     "label": "Floor(0.3,0.1)",
+     "latex": "\\mathrm{Floor}\\left(0.3,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(1.1,0.1)",
+     "latex": "\\mathrm{Floor}\\left(1.1,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(0.15,0.1)",
+     "latex": "\\mathrm{Floor}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(0.45,0.1)",
+     "latex": "\\mathrm{Floor}\\left(0.45,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.4,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(2.675,0.01)",
+     "latex": "\\mathrm{Floor}\\left(2.675,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2.67,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(-2.6,1)",
+     "latex": "\\mathrm{Floor}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(0.7,0.1)",
+     "latex": "\\mathrm{Floor}\\left(0.7,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Floor(1e-17,1)",
+     "latex": "\\mathrm{Floor}\\left(1\\times10^{-17},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(0.3,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(0.3,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(1.1,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(1.1,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(0.15,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(0.45,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(0.45,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(2.675,0.01)",
+     "latex": "\\mathrm{Ceil}\\left(2.675,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2.68,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(-2.6,1)",
+     "latex": "\\mathrm{Ceil}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(0.7,0.1)",
+     "latex": "\\mathrm{Ceil}\\left(0.7,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Ceil(1e-17,1)",
+     "latex": "\\mathrm{Ceil}\\left(1\\times10^{-17},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(0.3,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(0.3,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(1.1,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(1.1,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(0.15,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(0.45,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(0.45,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.4,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(2.675,0.01)",
+     "latex": "\\mathrm{Trunc}\\left(2.675,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2.67,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(-2.6,1)",
+     "latex": "\\mathrm{Trunc}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(0.7,0.1)",
+     "latex": "\\mathrm{Trunc}\\left(0.7,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Trunc(1e-17,1)",
+     "latex": "\\mathrm{Trunc}\\left(1\\times10^{-17},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(0.3,0.1)",
+     "latex": "\\mathrm{Round}\\left(0.3,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(1.1,0.1)",
+     "latex": "\\mathrm{Round}\\left(1.1,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1.1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(0.15,0.1)",
+     "latex": "\\mathrm{Round}\\left(0.15,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(0.45,0.1)",
+     "latex": "\\mathrm{Round}\\left(0.45,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.5,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(2.675,0.01)",
+     "latex": "\\mathrm{Round}\\left(2.675,0.01\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2.68,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(-2.6,1)",
+     "latex": "\\mathrm{Round}\\left(-2.6,1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": -3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(0.7,0.1)",
+     "latex": "\\mathrm{Round}\\left(0.7,0.1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0.7,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "Round(1e-17,1)",
+     "latex": "\\mathrm{Round}\\left(1\\times10^{-17},1\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 0,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "floor(0.3/0.1)",
+     "latex": "\\mathrm{floor}\\left(\\frac{0.3}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "floor(1.1/0.1)",
+     "latex": "\\mathrm{floor}\\left(\\frac{1.1}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "floor(0.15/0.1)",
+     "latex": "\\mathrm{floor}\\left(\\frac{0.15}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "floor(2.9999999999999996)",
+     "latex": "\\mathrm{floor}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "floor(2.999999999999)",
+     "latex": "\\mathrm{floor}\\left(2.999999999999\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "ceil(0.3/0.1)",
+     "latex": "\\mathrm{ceil}\\left(\\frac{0.3}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "ceil(1.1/0.1)",
+     "latex": "\\mathrm{ceil}\\left(\\frac{1.1}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "ceil(0.15/0.1)",
+     "latex": "\\mathrm{ceil}\\left(\\frac{0.15}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "ceil(2.9999999999999996)",
+     "latex": "\\mathrm{ceil}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "ceil(2.999999999999)",
+     "latex": "\\mathrm{ceil}\\left(2.999999999999\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "trunc(0.3/0.1)",
+     "latex": "\\mathrm{trunc}\\left(\\frac{0.3}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "trunc(1.1/0.1)",
+     "latex": "\\mathrm{trunc}\\left(\\frac{1.1}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "trunc(0.15/0.1)",
+     "latex": "\\mathrm{trunc}\\left(\\frac{0.15}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "trunc(2.9999999999999996)",
+     "latex": "\\mathrm{trunc}\\left(3\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "trunc(2.999999999999)",
+     "latex": "\\mathrm{trunc}\\left(2.999999999999\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(0.3/0.1)",
+     "latex": "\\mathrm{round}\\left(\\frac{0.3}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(1.1/0.1)",
+     "latex": "\\mathrm{round}\\left(\\frac{1.1}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 11,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(0.15/0.1)",
+     "latex": "\\mathrm{round}\\left(\\frac{0.15}{0.1}\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(2.999999999999)",
+     "latex": "\\mathrm{round}\\left(2.999999999999\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 3,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(2.675,2)",
+     "latex": "\\mathrm{round}\\left(2.675,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2.68,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(1.005,2)",
+     "latex": "\\mathrm{round}\\left(1.005,2\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(1.4999999999999998)",
+     "latex": "\\mathrm{round}\\left(1.5\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 2,
+       "im": 0
+      },
+      "units": []
+     }
+    },
+    {
+     "label": "round(0.15/0.1,0)",
+     "latex": "\\mathrm{round}\\left(\\frac{0.15}{0.1},0\\right)=",
+     "stored": {
+      "value": {
+       "k": "num",
+       "re": 1,
+       "im": 0
+      },
+      "units": []
+     }
+    }
+   ]
+  }
+ ]
+}

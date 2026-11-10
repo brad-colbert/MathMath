@@ -250,6 +250,8 @@ function adaptive(f: (x: number) => number, a: number, b: number, tol: number, d
 
 const CONSTANTS: Record<string, Num> = {
   'π': num(Math.PI), e: num(Math.E), '∞': num(1e307), '%': num(0.01),
+  // Mathcad's marker for a missing value, which IsNaN finds.
+  NaN: num(NaN),
 };
 
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
@@ -338,6 +340,7 @@ export class Evaluator implements Host {
       },
       random: () => this.random(),
       wrote: (file) => this.writes.at(-1)?.set(file.name, file),
+      tol: () => this.ws.tol,
     });
   }
 

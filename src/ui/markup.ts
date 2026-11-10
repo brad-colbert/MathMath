@@ -24,9 +24,44 @@
  *   straight, and \char34{} draws one.
  */
 import { convertLatexToMarkup } from 'mathlive';
+import { escapeText } from '../latex/latex.js';
 
 /** Each string, \text{"…"}, in braces, with its quotes straight. */
 export const drawnStrings = (latex: string): string =>
   latex.replace(/\\text\{"(?:[^{}\\]|\\.)*"\}/g, (s) => `{${s.replace(/"/g, '\\char34{}')}}`);
 
 export const mathMarkup = (latex: string): string => convertLatexToMarkup(drawnStrings(latex));
+
+/**
+ * MathLive writes a {, }, ~, ^ or \\ typed in a string as a command, \\textbraceright and the like, and a space typed
+ * after it is lost: "{0} and" and "{0}and" both come out as \\textbraceright and. Its plain text keeps them apart, so
+ * when a string holds such a command and a space, the string is rebuilt from the plain text: each ”…” there is a
+ * string, in the same order as the \\text{''…''} in the LaTeX. If the two don't line up, the LaTeX stands.
+ */
+export function exactStrings(latex: string, plain: () => string): string {
+  if (!/\\text(?:braceleft|braceright|asciitilde|asciicircum|backslash) /.test(latex)) return latex;
+  const strings: [number, number][] = [];
+  for (let at = latex.indexOf("\\text{''"); at >= 0; at = latex.indexOf("\\text{''", at + 1)) {
+    let depth = 0;
+    let end = -1;
+    for (let k = at + 5; k < latex.length; k++) {
+      const c = latex[k];
+      if (c === '\\') k++;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) {
+        end = k;
+        break;
+      }
+    }
+    if (end < 0) return latex;
+    strings.push([at, end + 1]);
+  }
+  const texts = [...plain().matchAll(/”([^”]*)”/g)].map((m) => m[1]!);
+  if (texts.length !== strings.length) return latex;
+  let out = latex;
+  for (let s = strings.length - 1; s >= 0; s--) {
+    const [a, b] = strings[s]!;
+    out = `${out.slice(0, a)}\\text{''${escapeText(texts[s]!)}''}${out.slice(b)}`;
+  }
+  return out;
+}

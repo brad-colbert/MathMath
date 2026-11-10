@@ -18,6 +18,7 @@
  * demand loses keystrokes while it starts. Keys that behave as in Mathcad are handled here.
  */
 import * as mathlive from 'mathlive';
+import { exactStrings } from './markup.js';
 
 // MathLive's types export this class ambiguously, though it's there at runtime.
 interface Field extends HTMLElement {
@@ -180,7 +181,7 @@ export class Editor {
 
   /** The math as parsed by the editor, not an echo of what was set. */
   value(): string {
-    return this.field.getValue('latex-unstyled');
+    return exactStrings(this.field.getValue('latex-unstyled'), () => this.field.getValue('plain-text'));
   }
 
   /** True once something has been edited. Opening a region must not change it. */
@@ -376,8 +377,13 @@ export class Editor {
         if (!this.slotMode && this.value() === '') return this.consume(e, () => this.events.startText());
         // Inside math, quotes make a string, as in "photo.jpg". A second quote ends it.
         return this.consume(e, () => {
-          if (f.mode === 'text') f.executeCommand('moveAfterParent');
-          else {
+          // A string's characters sit in the same group as the math around it, so leaving it means stepping over
+          // the closing quote and going back to math: moving after the parent would leave a call's parentheses too,
+          // and concat("a","b") would come out as concat("a"),"b".
+          if (f.mode === 'text') {
+            f.executeCommand('moveToNextChar');
+            f.mode = 'math';
+          } else {
             f.insert('\\text{""}', { format: 'latex' });
             f.executeCommand('moveToPreviousChar');
           }

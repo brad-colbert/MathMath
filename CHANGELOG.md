@@ -8,6 +8,51 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.41.0] - 2026-11-10
+
+Strings, lookup, whole numbers and rounding to a step, as Mathcad's, with `predict`; and `regress` keeps its digits far from 0.
+
+### Added
+
+- Mathcad's string functions: `substr`, `search`, `str2num` (which reads Mathcad's number syntax, complex numbers
+  and 0FFh, 17o, 101b included), `str2vec`, `vec2str`, `format` (`format("{0} and {1}", 3, 4.5)`) and `error`, for a
+  program to stop with a message of its own.
+- `IsString`, `IsArray`, `IsScalar` and `IsNaN`, and `NaN` itself; `SIUnitsOf`, and `UnitsOf`, its older name.
+- `lookup`, `hlookup`, `vlookup` and `match`, which compare numbers within the worksheet's TOL and strings exactly.
+- `gcd`, `lcm`, `combin` and `permut`. `permut` gives the number where Mathcad 14 overflows to 0, as `permut(60, 30)`.
+- `Ceil`, `Floor`, `Round` and `Trunc` with a step, as `Ceil(x, ft)`: rounding to a multiple of a unit. As in
+  Mathcad, they read z/y to 15 digits first, so `Floor(0.3, 0.1)` is 0.3, not 0.2.
+- `predict`, linear prediction by Burg's method, matching Mathcad 14 to 15 digits.
+- `genfit` takes its parameters one by one as well as in a vector, as F(x, A, c), and a plain number as the guess
+  when there's one parameter, as Mathcad's Help describes. (0.40.0 said Mathcad 14 can't fit an F that gives the
+  value alone; it can, with its optimized method, the default in new worksheets.) Worksheets from Mathcad that use
+  `genfit` or `polyroots` now open with them as calls; before, they couldn't be read.
+
+All of these were checked against Mathcad 14 at about 300 cases, errors included.
+
+### Changed
+
+- `num2str` writes numbers to 15 significant digits, as Mathcad does (`num2str(1/3)` is "0.333333333333333", not
+  "0.3333333333333333"), writes complex numbers as "2 + 3i", and refuses units, as Mathcad does.
+
+### Fixed
+
+- Typing a string that isn't a function's last argument works: `concat("a","b")` used to come out as
+  `concat("a"),"b"`, because the closing quote stepped out of the parentheses too.
+- Typed names with digits in the middle, as `str2num` or `num2str`, read as one name, not `str2·num`.
+- A space typed after `{`, `}`, `~` or `^` in a string is kept, so `format("{0} and {1}", …)` keeps its space, and
+  `~` and `^` in a string show as themselves instead of as accents on the next letter.
+- `regress` far from 0 lost digits: a quadratic at x around 1 000 000 was out by 1 part in 7000. It now fits in
+  centred variables and matches Mathcad 14 to 13 digits.
+- A string answer drops no characters: braces and backslashes in it used to vanish from the display.
+- A worksheet's stored answer that is purely imaginary, such as 2i, now shows as 2i, not 2.
+
+### Known limits
+
+- `loess` isn't here yet. Mathcad's returns the internal state of Cleveland's loess program for interp to use,
+  and matching it means porting that program. (0.40.0 said `loess` and `predict` couldn't be checked against
+  Mathcad; that was a mistake in the probe sheets, not Mathcad, and both have now been checked.)
+
 ## [0.40.0] - 2026-11-10
 
 Curve fitting: straight lines, polynomials in one variable or several, any combination of functions, and the nonlinear fits.

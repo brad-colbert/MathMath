@@ -41,7 +41,10 @@ function name(whole: string): string {
 }
 
 /** Inside text, a backslash is written as a command: `\\\\` there would be a line break. */
-const escapeText = (t: string): string => t.replace(/[\\{}_%&#$^~]/g, (c) => (c === '\\' ? '\\textbackslash ' : `\\${c}`));
+/** Text as LaTeX writes it inside \text{…}: special characters escaped. */
+export const escapeText = (t: string): string =>
+  // ~ and ^ by name: in text, \~ and \^ are accents, which would put a mark on the next letter instead.
+  t.replace(/[\\{}_%&#$^~]/g, (c) => (c === '\\' ? '\\textbackslash ' : c === '~' ? '\\textasciitilde ' : c === '^' ? '\\textasciicircum ' : `\\${c}`));
 
 function numberText(v: number, digits?: string): string {
   const s = digits ?? String(v);
@@ -250,6 +253,7 @@ const op = (o: string, ...args: Expr[]): Expr => ({ k: 'op', op: o, args });
 /** How the editor spells some characters in text. */
 const TEXT_SYMBOLS: Record<string, string> = {
   '\\textbackslash': '\\', '\\textquotedbl': '"', '\\textunderscore': '_', '\\textasciitilde': '~', '\\textasciicircum': '^',
+  '\\textbraceleft': '{', '\\textbraceright': '}',
 };
 
 /** Function names LaTeX writes as commands, as pasted or as MathLive writes them: each reads as Mathcad's name. */
@@ -380,15 +384,16 @@ export function readTex(src: string): Expr {
    * always written. A whole name spelled as a Greek letter (alpha) is that letter.
    */
   const word = (first: string): string => {
+    // A name runs on through letters and digits alike once it has begun with a letter, as Mathcad's do: str2num.
     let w = first;
     for (;;) {
       const t = toks[p];
       if (t?.t === 'ch' && /^[A-Za-z]$/.test(t.v)) w += t.v;
       else if (t && t.v !== '\\infty' && UNGREEK[t.v]) w += UNGREEK[t.v];
+      else if (t?.t === 'num' && /^\d+$/.test(t.v)) w += t.v;
       else break;
       p++;
     }
-    while (toks[p]?.t === 'num' && /^\d+$/.test(toks[p]!.v)) w += toks[p++]!.v;
     return GREEK_WORDS[w] ?? w;
   };
   const callOrId = (base: string): Expr => {

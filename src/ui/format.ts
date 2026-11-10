@@ -17,6 +17,7 @@
 import { chooseUnits, unitNameLatex, unitsLatex } from '../engine/display-units.js';
 import { shortUnit } from '../engine/units.js';
 import { type Dim, type Mat, NODIM, type Num, type Value, dimDiv, getEl, isNoDim } from '../engine/values.js';
+import { escapeText } from '../latex/latex.js';
 import type { Expr, NumberFormat, StoredResult, StoredValue } from '../model/ast.js';
 
 const trim = (s: string): string => (s.includes('.') ? s.replace(/\.?0+$/, '') : s);
@@ -178,7 +179,9 @@ export function formatValue(v: Value, f: NumberFormat, unit?: DisplayUnit): stri
       const u = unitFor(v.dim, unit);
       return withUnit(complex(scaled(v as Num, u), f), u.latex);
     }
-    case 'str': return `\\text{"${v.v.replace(/[\\{}]/g, '')}"}`;
+    // Escaped, not dropped: format writes braces, as vector{2} [1, 2].
+    // Escaped, not dropped: format writes braces, as vector{2} [1, 2].
+    case 'str': return `\\text{"${escapeText(v.v)}"}`;
     case 'mat': {
       const m = v as Mat;
       const u = unitFor(m.dim, unit);
@@ -197,7 +200,7 @@ export function formatValue(v: Value, f: NumberFormat, unit?: DisplayUnit): stri
 export function formatStored(s: StoredResult, f: NumberFormat): string {
   const one = (v: StoredValue): string => {
     if (v.k === 'num') return complex(v, f);
-    if (v.k === 'str') return `\\text{"${v.v.replace(/[\\{}]/g, '')}"}`;
+    if (v.k === 'str') return `\\text{"${escapeText(v.v)}"}`;
     if (v.k === 'fn') return `\\text{${v.type.replace(/[\\{}]/g, '')}}`;
     return grid(v.rows, v.cols, (i, j) => one(v.items[i + j * v.rows]!));
   };

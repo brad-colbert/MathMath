@@ -16,6 +16,8 @@
 import { eigenvalues } from './eigen.js';
 import { ELEMENTARY, csgn, signum } from './elementary.js';
 import { FIT_ARITY, fitFns, interpRegress } from './fitting.js';
+import { LOOKUP_ARITY, lookupFns } from './lookup.js';
+import { STRING_ARITY, stringFns } from './strings.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
 import type { DecodedAudio } from './wav.js';
 import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, secondDerivatives, secondDerivatives2, spline2At, splineAt } from './splines.js';
@@ -52,7 +54,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -196,6 +198,8 @@ export interface Hooks {
   random?(): number;
   /** A file the region being calculated wrote, to offer for saving. */
   wrote?(file: Written): void;
+  /** The worksheet's TOL, which lookup and match compare within. */
+  tol?(): number;
 }
 
 /** Why a Mathcad file function is refused, and what to use instead: readImage, readTable, writeImage or nothing. */
@@ -477,6 +481,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     // Differential equations (see ode.ts).
     ...withArity(odeFns),
     ...withArity(fitFns),
+    ...withArity(stringFns),
+    ...withArity(lookupFns(() => origin, () => hooks.tol?.() ?? 0.001)),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // Electrical engineering (see electrical.ts).
@@ -543,7 +549,6 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     },
     concat: (...a) => str(a.map((s) => (s.t === 'str' ? s.v : '')).join('')),
     strlen: (s) => num(s.t === 'str' ? s.v.length : 0),
-    num2str: (a) => str(String(requireReal(a))),
     // A uniform number in [0, x), in x's units. On a vector, one for each element.
     rnd: (x) => scalar((v) => num(next() * requireReal(v, "rnd's argument"), v.dim))(x!),
     // m uniform numbers in [a, b), and m normal numbers with mean mu and standard deviation sigma.
