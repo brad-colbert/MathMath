@@ -1,0 +1,453 @@
+{
+ "source": "Mathcad 14, probed 2026-11-09 with invented data. want is Mathcad's answer; tol the relative tolerance (noisy nonlinear fits sit on a flat minimum, where Mathcad's and MathMath's answers agree in squared error to 15 digits but in the parameters to about 1e-9).",
+ "defs": [
+  "X\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\end{pmatrix}",
+  "Y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\\\12.2\\\\13.8\\\\16.1\\end{pmatrix}",
+  "X_{\\text{o}}\\coloneq \\begin{pmatrix}1000001\\\\1000002\\\\1000003\\\\1000004\\\\1000005\\\\1000006\\\\1000007\\\\1000008\\end{pmatrix}",
+  "X_{\\text{u}}\\coloneq \\begin{pmatrix}3\\\\1\\\\2\\\\5\\\\4\\\\4\\end{pmatrix}",
+  "Y_{\\text{u}}\\coloneq \\begin{pmatrix}7.2\\\\2.9\\\\5.1\\\\11.2\\\\8.8\\\\9.1\\end{pmatrix}",
+  "X_{\\text{m6}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}",
+  "Y_{\\text{m6}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\end{pmatrix}",
+  "X_{\\text{m7}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\end{pmatrix}",
+  "Y_{\\text{m7}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\\\10.5\\end{pmatrix}",
+  "X_{\\text{m8}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\end{pmatrix}",
+  "Y_{\\text{m8}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\\\10.5\\\\12.7\\end{pmatrix}",
+  "X_{\\text{m9}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\end{pmatrix}",
+  "Y_{\\text{m9}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\\\10.5\\\\12.7\\\\13.9\\end{pmatrix}",
+  "X_{\\text{m10}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\\\9\\end{pmatrix}",
+  "Y_{\\text{m10}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\\\10.5\\\\12.7\\\\13.9\\\\15.9\\end{pmatrix}",
+  "X_{\\text{m11}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\\\9\\\\10\\end{pmatrix}",
+  "Y_{\\text{m11}}\\coloneq \\begin{pmatrix}2.3\\\\3.3\\\\5.5\\\\6.1\\\\8.1\\\\10.1\\\\10.5\\\\12.7\\\\13.9\\\\15.9\\\\16.7\\end{pmatrix}",
+  "F\\left(x\\right)\\coloneq \\begin{pmatrix}1\\\\x\\\\x^{2}\\end{pmatrix}",
+  "X_{\\text{n}}\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\\\9\\end{pmatrix}",
+  "X_{\\text{p}}\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\\\9\\\\10\\end{pmatrix}",
+  "Y_{\\text{eexp}}\\coloneq \\begin{pmatrix}3\\\\3.6997176151520064\\\\4.644237600781018\\\\5.919206222313899\\\\7.6402338454730945\\\\9.963378140676129\\\\13.09929492882589\\\\17.3323398251353\\\\23.046352761283202\\\\30.75946344974566\\end{pmatrix}",
+  "Y_{\\text{nexp}}\\coloneq \\begin{pmatrix}3.1495\\\\3.4508705801929103\\\\4.742814551184142\\\\6.139519475203567\\\\7.474392442400256\\\\9.888469695324439\\\\13.463387173042975\\\\16.996348766709083\\\\23.13244546680577\\\\30.531045864221806\\end{pmatrix}",
+  "G_{\\text{exp}}\\coloneq \\begin{pmatrix}1\\\\0.1\\\\0\\end{pmatrix}",
+  "Y_{\\text{elgs}}\\coloneq \\begin{pmatrix}1.25\\\\2.129483778758308\\\\3.113926965268112\\\\3.9303421997382237\\\\4.455189919247783\\\\4.739574969137578\\\\4.879528152752817\\\\4.945140631655883\\\\4.975200259470141\\\\4.988826239387648\\end{pmatrix}",
+  "Y_{\\text{nlgs}}\\coloneq \\begin{pmatrix}1.388125\\\\1.8971241990813459\\\\3.2063826731291845\\\\4.133750108435999\\\\4.3084587797322955\\\\4.677726031714735\\\\5.153202962433098\\\\4.720634365970979\\\\5.025150659989082\\\\4.876376521310403\\end{pmatrix}",
+  "G_{\\text{lgs}}\\coloneq \\begin{pmatrix}4\\\\2\\\\0.5\\end{pmatrix}",
+  "Y_{\\text{elog}}\\coloneq \\begin{pmatrix}1.3109302162163288\\\\2.33258146374831\\\\3.005525936990736\\\\3.5081547935525483\\\\3.9094961844768505\\\\4.243604353803183\\\\4.529806041084529\\\\4.7801323269925415\\\\5.002583597212991\\\\5.202750514326955\\end{pmatrix}",
+  "Y_{\\text{nlog}}\\coloneq \\begin{pmatrix}1.4494512626217348\\\\2.098089358378953\\\\3.0975480407386993\\\\3.707974109297745\\\\3.7660392073699893\\\\4.182995342918675\\\\4.799633907536459\\\\4.557111136049609\\\\5.0525887644074166\\\\5.089338137012484\\end{pmatrix}",
+  "G_{\\text{log}}\\coloneq \\begin{pmatrix}1\\\\1\\\\0\\end{pmatrix}",
+  "Y_{\\text{eln}}\\coloneq \\begin{pmatrix}2\\\\3.039720770839918\\\\3.6479184330021646\\\\4.079441541679836\\\\4.41415686865115\\\\4.687639203842083\\\\4.918865223582969\\\\5.119162312519753\\\\5.295836866004329\\\\5.453877639491068\\end{pmatrix}",
+  "Y_{\\text{nln}}\\coloneq \\begin{pmatrix}2.143\\\\2.797803702746099\\\\3.7425101067341733\\\\4.284116794784115\\\\4.267671927439244\\\\4.625920105832478\\\\5.192972741042382\\\\4.893089851707075\\\\5.346428539736338\\\\5.339335190113359\\end{pmatrix}",
+  "Y_{\\text{epwr}}\\coloneq \\begin{pmatrix}3\\\\6.65685424949238\\\\11.392304845413264\\\\17\\\\23.360679774997898\\\\30.393876913398138\\\\38.040518354904265\\\\46.25483399593904\\\\55\\\\64.24555320336759\\end{pmatrix}",
+  "Y_{\\text{npwr}}\\coloneq \\begin{pmatrix}3.1495\\\\6.37695727987271\\\\11.517874064794917\\\\17.3145\\\\23.100515696347912\\\\30.267892221114643\\\\38.67896405680821\\\\45.658540489975586\\\\55.15\\\\63.86644821395244\\end{pmatrix}",
+  "G_{\\text{pwr}}\\coloneq \\begin{pmatrix}1\\\\1\\\\0\\end{pmatrix}",
+  "Y_{\\text{esin}}\\coloneq \\begin{pmatrix}2.438276615812609\\\\3.9924849598121632\\\\2.7954164323118693\\\\-0.052349683068859454\\\\-1.932590352995291\\\\-1.1166209767111757\\\\1.6453599642634464\\\\3.8139999303242167\\\\3.3954613378704708\\\\0.7745466386145721\\end{pmatrix}",
+  "Y_{\\text{nsin}}\\coloneq \\begin{pmatrix}2.584125413815391\\\\3.7405638677341355\\\\2.8865980980411168\\\\0.11809528923722587\\\\-2.064185895113263\\\\-1.1694125291529536\\\\1.8834589238703443\\\\3.599673930951299\\\\3.4422522605462116\\\\0.6810611787408065\\end{pmatrix}",
+  "G_{\\text{sin}}\\coloneq \\begin{pmatrix}2\\\\0\\\\0\\end{pmatrix}",
+  "Y_{\\text{ge}}\\coloneq \\begin{pmatrix}2\\\\2.6997176151520064\\\\3.6442376007810178\\\\4.919206222313899\\\\6.6402338454730945\\\\8.963378140676129\\\\12.09929492882589\\\\16.3323398251353\\\\22.046352761283202\\\\29.75946344974566\\end{pmatrix}",
+  "Y_{\\text{gn}}\\coloneq \\begin{pmatrix}2.078\\\\2.52963540539743\\\\3.731699303199762\\\\5.170085739651907\\\\6.401185427036063\\\\8.828927468565986\\\\12.897848394128399\\\\15.450393474577993\\\\22.3109089944186\\\\28.955957936602527\\end{pmatrix}",
+  "G_{\\text{g}}\\coloneq \\begin{pmatrix}1\\\\0.1\\end{pmatrix}",
+  "F_{\\text{1}}\\left(x,u\\right)\\coloneq u_{0}\\cdot e^{u_{1}\\cdot x}",
+  "F_{\\text{2}}\\left(x,u\\right)\\coloneq \\begin{pmatrix}u_{0}\\cdot e^{u_{1}\\cdot x}\\\\e^{u_{1}\\cdot x}\\\\u_{0}\\cdot x\\cdot e^{u_{1}\\cdot x}\\end{pmatrix}",
+  "X_{\\text{tleft}}\\coloneq \\begin{pmatrix}1\\\\2\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}",
+  "Y_{\\text{tleft}}\\coloneq \\begin{pmatrix}2.9\\\\5.1\\\\4.8\\\\7.2\\\\8.8\\\\11.2\\end{pmatrix}",
+  "X_{\\text{tboth}}\\coloneq \\begin{pmatrix}1\\\\2\\\\2\\\\3\\\\4\\\\4\\\\5\\end{pmatrix}",
+  "Y_{\\text{tboth}}\\coloneq \\begin{pmatrix}2.9\\\\5.1\\\\4.8\\\\7.2\\\\8.8\\\\9.3\\\\11.2\\end{pmatrix}",
+  "X_{\\text{tmiddle}}\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\3\\\\3\\\\4\\\\5\\end{pmatrix}",
+  "Y_{\\text{tmiddle}}\\coloneq \\begin{pmatrix}2.9\\\\5.1\\\\7\\\\7.2\\\\6.9\\\\8.8\\\\11.2\\end{pmatrix}",
+  "X_{\\text{b7}}\\coloneq \\begin{pmatrix}0.0\\\\0.1\\\\0.2\\\\0.3\\\\0.4\\\\0.5\\\\0.6\\end{pmatrix}",
+  "Y_{\\text{b7}}\\coloneq \\begin{pmatrix}2.13\\\\1.94\\\\2.38\\\\2.62\\\\2.48\\\\2.7\\\\3.12\\end{pmatrix}",
+  "X_{\\text{b10}}\\coloneq \\begin{pmatrix}0.0\\\\0.1\\\\0.2\\\\0.3\\\\0.4\\\\0.5\\\\0.6\\\\0.7\\\\0.8\\\\0.9\\end{pmatrix}",
+  "Y_{\\text{b10}}\\coloneq \\begin{pmatrix}2.13\\\\1.94\\\\2.38\\\\2.62\\\\2.48\\\\2.7\\\\3.12\\\\2.8699999999999997\\\\3.24\\\\3.2600000000000002\\end{pmatrix}",
+  "X_{\\text{b13}}\\coloneq \\begin{pmatrix}0.0\\\\0.1\\\\0.2\\\\0.3\\\\0.4\\\\0.5\\\\0.6\\\\0.7\\\\0.8\\\\0.9\\\\1.0\\\\1.1\\\\1.2\\end{pmatrix}",
+  "Y_{\\text{b13}}\\coloneq \\begin{pmatrix}2.13\\\\1.94\\\\2.38\\\\2.62\\\\2.48\\\\2.7\\\\3.12\\\\2.8699999999999997\\\\3.24\\\\3.2600000000000002\\\\3.61\\\\3.5000000000000004\\\\3.9299999999999997\\end{pmatrix}"
+ ],
+ "cases": [
+  {
+   "label": "slope(X,Y)",
+   "latex": "\\mathrm{slope}\\left(X,Y\\right)=",
+   "want": [
+    1.9976190476190478
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "intercept(X,Y)",
+   "latex": "\\mathrm{intercept}\\left(X,Y\\right)=",
+   "want": [
+    0.03571428571428292
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "line(X,Y)",
+   "latex": "\\mathrm{line}\\left(X,Y\\right)=",
+   "want": [
+    0.035714285714281147,
+    1.9976190476190485
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "stderr(X,Y)",
+   "latex": "\\mathrm{stderr}\\left(X,Y\\right)=",
+   "want": [
+    0.1801674705942217
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit(X,Y)",
+   "latex": "\\mathrm{medfit}\\left(X,Y\\right)=",
+   "want": [
+    -0.026666666666667282,
+    1.98
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "slope(X+1e6,Y)",
+   "latex": "\\mathrm{slope}\\left(X_{\\text{o}},Y\\right)=",
+   "want": [
+    1.9976190476190478
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "intercept(X+1e6,Y)",
+   "latex": "\\mathrm{intercept}\\left(X_{\\text{o}},Y\\right)=",
+   "want": [
+    -1997619.0119047621
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "line(X+1e6,Y)",
+   "latex": "\\mathrm{line}\\left(X_{\\text{o}},Y\\right)=",
+   "want": [
+    -1997619.0119047621,
+    1.9976190476190478
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "stderr(X+1e6,Y)",
+   "latex": "\\mathrm{stderr}\\left(X_{\\text{o}},Y\\right)=",
+   "want": [
+    0.1801674705942217
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "slope(unsorted)",
+   "latex": "\\mathrm{slope}\\left(X_{\\text{u}},Y_{\\text{u}}\\right)=",
+   "want": [
+    2.032307692307693
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "intercept(unsorted)",
+   "latex": "\\mathrm{intercept}\\left(X_{\\text{u}},Y_{\\text{u}}\\right)=",
+   "want": [
+    0.9476923076923072
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit(unsorted)",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{u}},Y_{\\text{u}}\\right)=",
+   "want": [
+    0.9866666666666655,
+    2.04
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "slope(units)/(m/s)",
+   "latex": "\\frac{\\mathrm{slope}\\left(X\\cdot \\mathrm{s},Y\\cdot \\mathrm{m}\\right)}{\\frac{\\mathrm{m}}{\\mathrm{s}}}=",
+   "want": [
+    1.9976190476190478
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=6",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m6}},Y_{\\text{m6}}\\right)=",
+   "want": [
+    1.9624999999999995,
+    1.575
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=7",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m7}},Y_{\\text{m7}}\\right)=",
+   "want": [
+    1.4000000000000004,
+    1.7
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=8",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m8}},Y_{\\text{m8}}\\right)=",
+   "want": [
+    1.9266666666666659,
+    1.44
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=9",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m9}},Y_{\\text{m9}}\\right)=",
+   "want": [
+    1.7666666666666675,
+    1.5666666666666664
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=10",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m10}},Y_{\\text{m10}}\\right)=",
+   "want": [
+    2.258333333333333,
+    1.4833333333333334
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit n=11",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{m11}},Y_{\\text{m11}}\\right)=",
+   "want": [
+    2.299999999999999,
+    1.5
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "linfit(X,Y,F)",
+   "latex": "\\mathrm{linfit}\\left(X,Y,F\\right)=",
+   "want": [
+    0.0714285714285654,
+    1.9761904761904805,
+    0.002380952380951873
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "expfit exact",
+   "latex": "\\mathrm{expfit}\\left(X_{\\text{n}},Y_{\\text{eexp}},G_{\\text{exp}}\\right)=",
+   "want": [
+    1.9999999999999913,
+    0.3000000000000005,
+    1.0000000000000135
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "expfit noisy",
+   "latex": "\\mathrm{expfit}\\left(X_{\\text{n}},Y_{\\text{nexp}},G_{\\text{exp}}\\right)=",
+   "want": [
+    2.050085562416149,
+    0.2967121872607999,
+    0.9553312032115262
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "expfit exact, no guess",
+   "latex": "\\mathrm{expfit}\\left(X_{\\text{n}},Y_{\\text{eexp}}\\right)=",
+   "want": [
+    1.9999999999999918,
+    0.3000000000000005,
+    1.0000000000000133
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "expfit noisy, no guess",
+   "latex": "\\mathrm{expfit}\\left(X_{\\text{n}},Y_{\\text{nexp}}\\right)=",
+   "want": [
+    2.0500855624118763,
+    0.2967121872610135,
+    0.9553312032188309
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "lgsfit exact",
+   "latex": "\\mathrm{lgsfit}\\left(X_{\\text{n}},Y_{\\text{elgs}},G_{\\text{lgs}}\\right)=",
+   "want": [
+    5.000000000000001,
+    2.999999999999997,
+    0.7999999999999988
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "lgsfit noisy",
+   "latex": "\\mathrm{lgsfit}\\left(X_{\\text{n}},Y_{\\text{nlgs}},G_{\\text{lgs}}\\right)=",
+   "want": [
+    4.960084958315402,
+    3.0603188400980734,
+    0.8356024698081138
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "logfit exact",
+   "latex": "\\mathrm{logfit}\\left(X_{\\text{n}},Y_{\\text{elog}},G_{\\text{log}}\\right)=",
+   "want": [
+    2.000000000000001,
+    1.5000000000000024,
+    0.49999999999999806
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "logfit noisy",
+   "latex": "\\mathrm{logfit}\\left(X_{\\text{n}},Y_{\\text{nlog}},G_{\\text{log}}\\right)=",
+   "want": [
+    1.9975879930920897,
+    1.5738777775795336,
+    0.467074477968511
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "lnfit exact",
+   "latex": "\\mathrm{lnfit}\\left(X_{\\text{p}},Y_{\\text{eln}}\\right)=",
+   "want": [
+    1.5000000000000002,
+    1.9999999999999991
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "lnfit noisy",
+   "latex": "\\mathrm{lnfit}\\left(X_{\\text{p}},Y_{\\text{nln}}\\right)=",
+   "want": [
+    1.4628273306205115,
+    2.0537701435272324
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "pwrfit exact",
+   "latex": "\\mathrm{pwrfit}\\left(X_{\\text{p}},Y_{\\text{epwr}},G_{\\text{pwr}}\\right)=",
+   "want": [
+    1.9999999999999944,
+    1.500000000000001,
+    1.0000000000000189
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "pwrfit noisy",
+   "latex": "\\mathrm{pwrfit}\\left(X_{\\text{p}},Y_{\\text{npwr}},G_{\\text{pwr}}\\right)=",
+   "want": [
+    2.0562432559135706,
+    1.4867662744206978,
+    0.9184886045833355
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "sinfit exact",
+   "latex": "\\mathrm{sinfit}\\left(X_{\\text{n}},Y_{\\text{esin}},G_{\\text{sin}}\\right)=",
+   "want": [
+    3.0000000000000004,
+    0.5000000000000002,
+    1
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "sinfit noisy",
+   "latex": "\\mathrm{sinfit}\\left(X_{\\text{n}},Y_{\\text{nsin}},G_{\\text{sin}}\\right)=",
+   "want": [
+    2.9722120278718647,
+    0.5061723578548168,
+    1.00120600644329
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "genfit exact F1",
+   "latex": "\\mathrm{genfit}\\left(X_{\\text{n}},Y_{\\text{ge}},G_{\\text{g}},F_{\\text{1}}\\right)=",
+   "mathcadError": "This regression does not converge. Check your derivatives, \nlet genfit calculate the derivatives numerically, \ncheck your model for singularities, \nor try different initial guesses."
+  },
+  {
+   "label": "genfit noisy F1",
+   "latex": "\\mathrm{genfit}\\left(X_{\\text{n}},Y_{\\text{gn}},G_{\\text{g}},F_{\\text{1}}\\right)=",
+   "mathcadError": "This regression does not converge. Check your derivatives, \nlet genfit calculate the derivatives numerically, \ncheck your model for singularities, \nor try different initial guesses."
+  },
+  {
+   "label": "genfit exact F2",
+   "latex": "\\mathrm{genfit}\\left(X_{\\text{n}},Y_{\\text{ge}},G_{\\text{g}},F_{\\text{2}}\\right)=",
+   "want": [
+    1.9999999999999982,
+    0.30000000000000016
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "genfit noisy F2",
+   "latex": "\\mathrm{genfit}\\left(X_{\\text{n}},Y_{\\text{gn}},G_{\\text{g}},F_{\\text{2}}\\right)=",
+   "want": [
+    2.072389512610363,
+    0.29383707999409353
+   ],
+   "tol": 1e-08
+  },
+  {
+   "label": "medfit tie left",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{tleft}},Y_{\\text{tleft}}\\right)=",
+   "want": [
+    0.7466666666666661,
+    2.08
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit tie both",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{tboth}},Y_{\\text{tboth}}\\right)=",
+   "want": [
+    0.34999999999999964,
+    2.2500000000000004
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit tie middle",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{tmiddle}},Y_{\\text{tmiddle}}\\right)=",
+   "want": [
+    1,
+    2
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit tenths n=7",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{b7}},Y_{\\text{b7}}\\right)=",
+   "want": [
+    2.055833333333333,
+    1.4250000000000007
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit tenths n=10",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{b10}},Y_{\\text{b10}}\\right)=",
+   "want": [
+    1.9812500000000002,
+    1.5416666666666672
+   ],
+   "tol": 1e-12
+  },
+  {
+   "label": "medfit tenths n=13",
+   "latex": "\\mathrm{medfit}\\left(X_{\\text{b13}},Y_{\\text{b13}}\\right)=",
+   "want": [
+    2.076666666666666,
+    1.4000000000000001
+   ],
+   "tol": 1e-12
+  }
+ ]
+}
