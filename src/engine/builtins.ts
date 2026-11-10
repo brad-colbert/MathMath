@@ -15,6 +15,7 @@
 
 import { eigenvalues } from './eigen.js';
 import { ELEMENTARY, csgn, signum } from './elementary.js';
+import { FIT_ARITY, fitFns, interpRegress } from './fitting.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
 import type { DecodedAudio } from './wav.js';
 import { SPLINE_KINDS, type SplineKind, bsplineAt, bsplineFit, medianSmooth, secondDerivatives, secondDerivatives2, spline2At, splineAt } from './splines.js';
@@ -51,7 +52,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -407,6 +408,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     bspline: (vx, vy, u, n) => bsplineValue(vx!, vy!, u!, n!),
     interp: (vs, vx, vy, x) => {
       const s = requireMat(vs!, 'the spline');
+      // A regress vector: 3, 3, the degree, then the coefficients.
+      if (!s.cells && s.rows > 3 && s.re[0] === 3 && s.re[1] === 3) return interpRegress(s, vx!, x!);
       const xs = requireMat(vx!, 'the x values');
       const ys = requireMat(vy!, 'the y values');
       // A bspline: its coefficients and interval ends are the second and third elements.
@@ -419,7 +422,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
         })(x!);
       }
       const kind = s.re[2] as SplineKind;
-      if (s.rows < 4 || ![0, 1, 2].includes(kind)) throw new EvalError('runtime', 'interp needs a spline from lspline, pspline, cspline or bspline');
+      if (s.rows < 4 || ![0, 1, 2].includes(kind)) throw new EvalError('runtime', 'interp needs a vector from lspline, pspline, cspline, bspline or regress');
       const M = s.re.subarray(3);
       if (xs.cols === 2) {
         const n = xs.rows;
@@ -473,6 +476,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity({ ...iirFns, ...systemFns }),
     // Differential equations (see ode.ts).
     ...withArity(odeFns),
+    ...withArity(fitFns),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // Electrical engineering (see electrical.ts).

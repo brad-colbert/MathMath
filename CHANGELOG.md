@@ -8,6 +8,28 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.40.0] - 2026-11-10
+
+Curve fitting: straight lines, polynomials in one variable or several, any combination of functions, and the nonlinear fits.
+
+### Added
+
+- Curve fitting, as Mathcad's: `slope`, `intercept`, `line`, `stderr` and `medfit` for straight lines; `linfit` for
+  any combination of functions; `regress` for polynomials, in one variable or several, with `interp` to evaluate
+  them; `genfit` for any model; and `expfit`, `lgsfit`, `logfit`, `lnfit`, `pwrfit` and `sinfit` for exponential,
+  logistic, logarithmic, power and sine curves. Each was checked against Mathcad 14 on exact and noisy data, and
+  `regress` against the answers in Mathcad's own example sheets, including its order for several variables (xy, y², y, 1, x, x² for two
+  of degree 2). `slope`, `intercept` and `stderr` keep units, as Mathcad's do.
+- `genfit` takes Mathcad 14's form of F(x, u), which gives the value and then its partial derivatives, and also an F
+  that gives the value alone, where Mathcad 14 says it doesn't converge.
+
+- `slope`, `intercept` and `line` of points that all share one x are an error, where Mathcad gives NaN.
+
+### Known limits
+
+- `loess` and `predict` are not here yet: they couldn't be checked against Mathcad, so they wait rather than
+  guess at Mathcad's method.
+
 ## [0.39.0] - 2026-11-09
 
 The elementary functions take complex numbers, with Mathcad's branches, and the rest of its trigonometric and hyperbolic functions are here.

@@ -80,14 +80,145 @@ export const SOLVING: Entry[] = [
   },
   {
     name: 'interp', group: 'Interpolation and fitting', usage: 'interp(vs, vx, vy, x)', mathcad: true,
-    summary: 'The value at x of the spline vs, made from the points (vx, vy).',
+    summary: 'The value at x of the spline or regression vs, made from the points (vx, vy).',
     details: [
-      'vs comes from [[lspline]], [[pspline]], [[cspline]] or [[bspline]], and vx and vy must be the same two vectors given to it. x can be a number or a vector. For a 2-D spline, x is a point with two coordinates, as a two-element vector.',
+      'vs comes from [[lspline]], [[pspline]], [[cspline]], [[bspline]] or [[regress]], and vx and vy must be the same two vectors given to it. x can be a number or a vector. For a 2-D spline, x is a point with two coordinates, as a two-element vector.',
       'Beyond the ends of the data the end behaviour of the spline carries on. For straight segments between points use [[linterp]].',
     ],
     units: 'x is in vx\'s units and the result in vy\'s.',
-    errors: ['A vs that didn\'t come from one of the spline functions.', 'A vs that doesn\'t match vx and vy.', 'A 2-D point without two coordinates.'],
+    errors: ['A vs that didn\'t come from one of the spline functions or regress.', 'A vs that doesn\'t match vx and vy.', 'A 2-D point without two coordinates.'],
     example: [XS, YS, 'S\\coloneq \\mathrm{cspline}\\left(x,y\\right)', '\\mathrm{interp}\\left(S,x,y,1.5\\right)='],
+  },
+  {
+    name: 'slope', group: 'Interpolation and fitting', usage: 'slope(vx, vy)', mathcad: true,
+    summary: 'The slope of the least-squares straight line through the points (vx, vy).',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. [[intercept]] gives where it crosses x = 0, and [[line]] gives both.',
+    ],
+    units: 'The answer is in vy\'s units per vx\'s.',
+    errors: ['x and y of different lengths.', 'All the x values the same, so no line fits.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{slope}\\left(x,y\\right)='],
+  },
+  {
+    name: 'intercept', group: 'Interpolation and fitting', usage: 'intercept(vx, vy)', mathcad: true,
+    summary: 'Where the least-squares straight line through the points (vx, vy) crosses x = 0.',
+    details: [
+      'See [[slope]] and [[line]].',
+    ],
+    units: 'The answer is in vy\'s units.',
+    errors: ['x and y of different lengths.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{intercept}\\left(x,y\\right)='],
+  },
+  {
+    name: 'line', group: 'Interpolation and fitting', usage: 'line(vx, vy)', mathcad: true,
+    summary: 'The least-squares straight line through the points (vx, vy): a vector of its intercept and slope.',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. The same as [[intercept]] and [[slope]] together. For a line that a few wild points can\'t pull, see [[medfit]].',
+    ],
+    units: 'vx and vy have no units; [[slope]] and [[intercept]] take them.',
+    errors: ['x and y of different lengths.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{line}\\left(x,y\\right)='],
+  },
+  {
+    name: 'stderr', group: 'Interpolation and fitting', usage: 'stderr(vx, vy)', mathcad: true,
+    summary: 'The standard error of the least-squares line through (vx, vy): how far, typically, the points lie from it.',
+    details: [
+      'The square root of the sum of the squared residuals over n − 2.',
+    ],
+    units: 'The answer is in vy\'s units.',
+    errors: ['x and y of different lengths.', 'Fewer than 3 points: a line through 2 fits them exactly.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{stderr}\\left(x,y\\right)='],
+  },
+  {
+    name: 'medfit', group: 'Interpolation and fitting', usage: 'medfit(vx, vy)', mathcad: true,
+    summary: 'A straight line that resists outliers, the median-median line: a vector of its intercept and slope.',
+    details: [
+      'The points are split into thirds by x: x up to a third of the way across the range, the last third, and the middle. The slope joins the median points of the outer thirds, and the intercept is the mean of the three medians\' intercepts, as in Mathcad.',
+    ],
+    errors: ['x and y of different lengths.', 'No points in the first or last third of the x range.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{medfit}\\left(x,y\\right)='],
+  },
+  {
+    name: 'linfit', group: 'Interpolation and fitting', usage: 'linfit(vx, vy, F)', mathcad: true,
+    summary: 'The coefficients of the best combination of the functions in F to fit the points (vx, vy).',
+    details: [
+      'F(x) gives a vector of functions of x, such as (1, x, ln(x)); the answer has a coefficient for each, so the fit is the sum of each coefficient times its function. The least-squares fit: it makes the sum of the squared differences in y as small as it can.',
+    ],
+    errors: ['x and y of different lengths.', 'Functions that don\'t fit the points independently, or more of them than points.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', 'F\\left(x\\right)\\coloneq \\begin{pmatrix}1\\\\x\\\\x^{2}\\end{pmatrix}', '\\mathrm{linfit}\\left(x,y,F\\right)='],
+  },
+  {
+    name: 'regress', group: 'Interpolation and fitting', usage: 'regress(vx, vy, k)', mathcad: true,
+    summary: 'A polynomial of degree k fitted to the points (vx, vy), as a vector for [[interp]].',
+    details: [
+      'The vector is 3, 3, k, then the coefficients from the constant term up, as Mathcad\'s: take them out with submatrix(…, 3, k + 3, 0, 0). interp(v, vx, vy, x) gives the polynomial\'s value at x. The least-squares fit: it makes the sum of the squared differences in y as small as it can.',
+      'With several variables, vx is a matrix with a column for each, and the terms come in Mathcad\'s order (for two variables of degree 2: xy, y², y, 1, x, x²).',
+    ],
+    errors: ['x and y of different lengths.', 'A degree that isn\'t a whole number of 1 or more.', 'Fewer points than coefficients.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', 'R\\coloneq \\mathrm{regress}\\left(x,y,2\\right)', '\\mathrm{interp}\\left(R,x,y,2.5\\right)='],
+  },
+  {
+    name: 'genfit', group: 'Interpolation and fitting', usage: 'genfit(vx, vy, vg, F)', mathcad: true,
+    summary: 'The parameters u that make F(x, u) best fit the points (vx, vy), starting from the guess vg.',
+    details: [
+      'As in Mathcad 14, F(x, u) gives a vector: the model\'s value, then its partial derivative in each parameter. MathMath also takes an F that gives the value alone, and works out the derivatives itself; Mathcad 14 says that doesn\'t converge. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+    ],
+    errors: ['x and y of different lengths.', 'An F that gives neither one value nor one more than the parameters.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}3\\\\3.70\\\\4.64\\\\5.92\\\\7.64\\end{pmatrix}', 'F\\left(x,u\\right)\\coloneq \\begin{pmatrix}u_{0}\\cdot e^{u_{1}\\cdot x}\\\\e^{u_{1}\\cdot x}\\\\u_{0}\\cdot x\\cdot e^{u_{1}\\cdot x}\\end{pmatrix}', '\\mathrm{genfit}\\left(x,y,\\begin{pmatrix}1\\\\0.1\\end{pmatrix},F\\right)='],
+  },
+  {
+    name: 'expfit', group: 'Interpolation and fitting', usage: 'expfit(vx, vy, [vg])', mathcad: true,
+    summary: 'The exponential a·e^(b·x) + c fitted to the points (vx, vy): the vector (a, b, c).',
+    details: [
+      'The guess vg, of a, b and c, is optional: without one, it finds a start itself. The least-squares fit: it makes the sum of the squared differences in y as small as it can.',
+    ],
+    errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}3\\\\3.70\\\\4.64\\\\5.92\\\\7.64\\end{pmatrix}', '\\mathrm{expfit}\\left(x,y\\right)='],
+  },
+  {
+    name: 'lgsfit', group: 'Interpolation and fitting', usage: 'lgsfit(vx, vy, vg)', mathcad: true,
+    summary: 'The logistic curve a / (1 + b·e^(−c·x)) fitted to the points (vx, vy), from the guess vg: the vector (a, b, c).',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+    ],
+    errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}1.25\\\\2.13\\\\3.17\\\\4.04\\\\4.56\\end{pmatrix}', '\\mathrm{lgsfit}\\left(x,y,\\begin{pmatrix}5\\\\3\\\\1\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'logfit', group: 'Interpolation and fitting', usage: 'logfit(vx, vy, vg)', mathcad: true,
+    summary: 'The curve a·ln(x + b) + c fitted to the points (vx, vy), from the guess vg: the vector (a, b, c).',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail. See also [[lnfit]].',
+    ],
+    errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.3\\\\3.0\\\\3.5\\\\3.9\\\\4.2\\end{pmatrix}', '\\mathrm{logfit}\\left(x,y,\\begin{pmatrix}1\\\\1\\\\1\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'lnfit', group: 'Interpolation and fitting', usage: 'lnfit(vx, vy)', mathcad: true,
+    summary: 'The curve a·ln(x) + b fitted to the points (vx, vy): the vector (a, b).',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. It needs no guess: the fit is a straight line in ln(x).',
+    ],
+    errors: ['x and y of different lengths.', 'An x of 0 or less.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2\\\\3.0\\\\3.6\\\\4.1\\\\4.4\\end{pmatrix}', '\\mathrm{lnfit}\\left(x,y\\right)='],
+  },
+  {
+    name: 'pwrfit', group: 'Interpolation and fitting', usage: 'pwrfit(vx, vy, vg)', mathcad: true,
+    summary: 'The power curve a·x^b + c fitted to the points (vx, vy), from the guess vg: the vector (a, b, c).',
+    details: [
+      'The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+    ],
+    errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}3\\\\6.7\\\\11.4\\\\17\\\\23.4\\end{pmatrix}', '\\mathrm{pwrfit}\\left(x,y,\\begin{pmatrix}1\\\\1\\\\0\\end{pmatrix}\\right)='],
+  },
+  {
+    name: 'sinfit', group: 'Interpolation and fitting', usage: 'sinfit(vx, vy, vg)', mathcad: true,
+    summary: 'The sine wave a·sin(x + b) + c fitted to the points (vx, vy), from the guess vg: the vector (a, b, c).',
+    details: [
+      'x is in radians, and the wave has a period of 2π, as Mathcad\'s. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+    ],
+    errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
+    example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.44\\\\3.99\\\\2.80\\\\0.37\\\\-1.12\\end{pmatrix}', '\\mathrm{sinfit}\\left(x,y,\\begin{pmatrix}2\\\\0\\\\0\\end{pmatrix}\\right)='],
   },
 
   // ── Solving ───────────────────────────────────────────────────────────────────────────────────────
