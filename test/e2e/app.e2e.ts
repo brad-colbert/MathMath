@@ -2326,6 +2326,19 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Special functions, typed as a user would: a scaled Bessel function's .sc is a literal subscript, and Γ is G, Ctrl+G.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'J0.sc(1)=');
+  await type(page, 72, 108, 'G', G, '(5)=');
+  await type(page, 72, 144, 'Jn(0.5,-2)=');
+  await type(page, 72, 180, 'lnG', G, '(5)=');
+  const s = await shown(page);
+  check('typed J0.sc(1), Γ(5), Jn(0.5,−2) and lnΓ(5) calculate', s[0]?.replace(/[\s\u200b]/g, '') === 'J0sc(1)=0.765' && s[1]?.replace(/\s/g, '') === 'Γ(5)=24'
+    && s[2]?.replace(/\s/g, '') === 'Jn(0.5,−2)=0.513i' && s[3]?.replace(/\s/g, '') === 'lnΓ(5)=3.178', s);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);

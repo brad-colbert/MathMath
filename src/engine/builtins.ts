@@ -17,6 +17,8 @@ import { eigenvalues } from './eigen.js';
 import { ELEMENTARY, csgn, signum } from './elementary.js';
 import { FIT_ARITY, fitFns, interpRegress } from './fitting.js';
 import { LOOKUP_ARITY, lookupFns } from './lookup.js';
+import { BESSEL_ARITY } from './bessel.js';
+import { SPECIAL_ARITY, specialFns } from './special.js';
 import { STRING_ARITY, stringFns } from './strings.js';
 import { type DecodedImage, type Files, NO_FILES, fileKey, isWebAddress } from './files.js';
 import type { DecodedAudio } from './wav.js';
@@ -54,7 +56,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? SPECIAL_ARITY[name] ?? BESSEL_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -483,6 +485,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(fitFns),
     ...withArity(stringFns),
     ...withArity(lookupFns(() => origin, () => hooks.tol?.() ?? 0.001)),
+    ...withArity(specialFns(() => origin)),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // Electrical engineering (see electrical.ts).

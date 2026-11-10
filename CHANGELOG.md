@@ -8,6 +8,41 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.42.0] - 2026-11-10
+
+Mathcad's special functions: Γ, the orthogonal polynomials, hypergeometric functions, and the Bessel family for real arguments.
+
+### Added
+
+- Mathcad's special functions:
+  - Γ(z), real or complex, and the incomplete gamma Γ(a, x); and `lnΓ`, the analytic log-gamma, as Mathcad's:
+    `lnΓ(−0.5)` is 1.2655 − iπ.
+  - The orthogonal polynomials `Her` (physicists' Hermite), `Tcheb`, `Ucheb`, `Lag`, `Leg` and `Jac`.
+  - `fhyper` and `mhyper`, the Gauss and confluent hypergeometric functions; `ibeta`, the incomplete beta function;
+    `sinc`, `ε` (the antisymmetric tensor) and `ln0`.
+  - The Bessel functions `J0`, `J1`, `Jn`, `Y0`, `Y1`, `Yn`, `I0`, `I1`, `In`, `K0`, `K1`, `Kn`, of any real order,
+    fractional and negative included; the Hankel functions `H1` and `H2`; the Airy functions `Ai`, `Bi`, `DAi` and
+    `DBi`; the Kelvin functions `ber` and `bei`; and the spherical Bessel functions `js` and `ys`. Each Bessel and
+    Airy function has Mathcad's scaled form, typed with .sc, as `J0.sc` and `K0.sc`, which stays in range where the
+    plain one overflows.
+
+  All checked against Mathcad 14 at about 500 points, and against mpmath at 40 digits, including large arguments
+  beyond what was probed. Where `fhyper` or `mhyper` would lose digits to its series cancelling, it says so instead
+  of giving a wrong number.
+- Typing a period after a name that ends in a digit, as `J0` then `.sc`, starts its literal subscript, as after a
+  letter.
+
+### Known limits
+
+- The Bessel, Hankel, Airy and spherical functions take real arguments for now. Mathcad also takes complex ones, which
+  need a port of Amos's complex Bessel library.
+- Where Mathcad 14 is wrong, MathMath gives the true value:
+  - At a negative argument, a Bessel function of fractional order is complex: `Jn(0.5, −2)` is 0.513i, where Mathcad
+    14 gives 0, keeping only the real part; it gives NaN for `Y1(−2)`, which is 0.107 − 1.153i.
+  - `js` and `ys` of a whole order at a negative argument follow js(m, −x) = (−1)^m·js(m, x), where Mathcad 14
+    gives 0 for `js` and the opposite sign for `ys`.
+  - `mhyper(0.5, 1, 100)` is 1.52·10⁴², where Mathcad 14 gives 0; and `lnΓ(1e5)`, where Mathcad 14 overflows.
+
 ## [0.41.0] - 2026-11-10
 
 Strings, lookup, whole numbers and rounding to a step, as Mathcad's, with `predict`; and `regress` keeps its digits far from 0.
