@@ -60,6 +60,8 @@ export const UNITS: Record<string, Unit> = {
   kg: u(1, M), gm: u(1e-3, M), mg: u(1e-6, M), lb: u(0.45359237, M), oz: u(0.45359237 / 16, M), tonne: u(1000, M),
   A: u(1, I), mA: u(1e-3, I), K: u(1, K), R: u(5 / 9, K), mol: u(1, MOL), cd: u(1, CD), lm: u(1, CD), lx: u(1, LUX),
   rad: u(1, NODIM), deg: u(Math.PI / 180, NODIM), sr: u(1, NODIM),
+  // Percent, as Mathcad 14 has it: 8.25% is 0.0825, as finance rates are often written.
+  '%': u(0.01, NODIM),
   N: u(1, FORCE), kN: u(1e3, FORCE), lbf: u(4.4482216152605, FORCE), dyne: u(1e-5, FORCE),
   J: u(1, ENERGY), kJ: u(1e3, ENERGY), MJ: u(1e6, ENERGY), erg: u(1e-7, ENERGY), BTU: u(1055.05585262, ENERGY), cal: u(4.1868, ENERGY),
   W: u(1, POWER), mW: u(1e-3, POWER), kW: u(1e3, POWER), MW: u(1e6, POWER), GW: u(1e9, POWER), hp: u(745.69987158227022, POWER),

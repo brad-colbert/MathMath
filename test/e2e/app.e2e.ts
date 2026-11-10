@@ -52,7 +52,7 @@ let failed = 0;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SHIFTED: Record<string, string> = {
   ':': 'Semicolon', '^': 'Digit6', '(': 'Digit9', ')': 'Digit0', '*': 'Digit8', '+': 'Equal', '{': 'BracketLeft', '}': 'BracketRight', '"': 'Quote',
-  '&': 'Digit7', '?': 'Slash',
+  '&': 'Digit7', '?': 'Slash', '%': 'Digit5',
 };
 const PLAIN: Record<string, string> = {
   '/': 'Slash', '=': 'Equal', '-': 'Minus', '.': 'Period', ';': 'Semicolon', '[': 'BracketLeft', ']': 'BracketRight', ',': 'Comma', ' ': 'Space',
@@ -2342,6 +2342,35 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const s = await shown(page);
   check('typed J0.sc(1), Γ(5), Jn(0.5,−2) and lnΓ(5) calculate', s[0]?.replace(/[\s\u200b]/g, '') === 'J0sc(1)=0.765' && s[1]?.replace(/\s/g, '') === 'Γ(5)=24'
     && s[2]?.replace(/\s/g, '') === 'Jn(0.5,−2)=0.513i' && s[3]?.replace(/\s/g, '') === 'lnΓ(5)=3.178', s);
+  await page.close();
+}
+
+// Finance, typed as a user would: a rate as a percentage, with %.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'r:8.25%');
+  await type(page, 72, 108, 'pmt(r/12', R, ',360,200000)=');
+  await type(page, 72, 144, 'r=');
+  const s = await shown(page);
+  const tex = (await model(page)).regions.map((r: { content: { value?: unknown } }) => JSON.stringify(r.content)).join(' ');
+  check('typed 8.25% is a percentage, and pmt gives Mathcad\'s payment', s[1]?.replace(/[\s\u200b]/g, '') === 'pmt(12r,360,200000)=−1.503×103' && s[2]?.replace(/\s/g, '') === 'r=0.083'
+    && tex.includes('"%"'), { s, tex: tex.slice(0, 200) });
+  // % in the answer's unit blank shows it as a percentage.
+  const slot = await page.evaluate(() => {
+    const el = document.querySelectorAll<HTMLElement>('.region')[2]!.querySelector<HTMLElement>('[data-slot="unit"]');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  if (slot) {
+    await page.mouse.click(slot.x, slot.y);
+    await sleep(120);
+    await keys(page, '%');
+    await page.keyboard.press('Escape');
+    await sleep(60);
+  }
+  const pct = (await shown(page))[2]?.replace(/[\s\u200b]/g, '');
+  check('% typed in the unit blank shows the rate as a percentage', slot !== null && pct === 'r=8.25%', { slot, pct });
   await page.close();
 }
 

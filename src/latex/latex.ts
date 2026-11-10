@@ -23,10 +23,12 @@ const GREEK: Record<string, string> = {
   'ι': '\\iota', 'κ': '\\kappa', 'λ': '\\lambda', 'μ': '\\mu', 'ν': '\\nu', 'ξ': '\\xi', 'π': '\\pi', 'ρ': '\\rho', 'σ': '\\sigma',
   'τ': '\\tau', 'υ': '\\upsilon', 'ϕ': '\\phi', 'φ': '\\varphi', 'χ': '\\chi', 'ψ': '\\psi', 'ω': '\\omega', 'Δ': '\\Delta', 'Θ': '\\Theta',
   'Λ': '\\Lambda', 'Π': '\\Pi', 'Σ': '\\Sigma', 'Φ': '\\Phi', 'Ψ': '\\Psi', 'Ω': '\\Omega', 'Γ': '\\Gamma', '∞': '\\infty',
+  // Not Greek, but a name written as a command the same way: the percent unit.
+  '%': '\\%',
 };
 /** Greek letters by name, so `alpha` typed in a region is α. */
 const GREEK_WORDS = Object.fromEntries(
-  Object.entries(GREEK).filter(([k]) => k !== '∞').map(([k, v]) => [v.slice(1).replace('var', ''), k]),
+  Object.entries(GREEK).filter(([k]) => k !== '∞' && k !== '%').map(([k, v]) => [v.slice(1).replace('var', ''), k]),
 );
 const UNGREEK = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
 
@@ -389,7 +391,8 @@ export function readTex(src: string): Expr {
     for (;;) {
       const t = toks[p];
       if (t?.t === 'ch' && /^[A-Za-z]$/.test(t.v)) w += t.v;
-      else if (t && t.v !== '\\infty' && UNGREEK[t.v]) w += UNGREEK[t.v];
+      // ∞ and % stand alone: r% is r times percent, not a name.
+      else if (t && t.v !== '\\infty' && t.v !== '\\%' && UNGREEK[t.v]) w += UNGREEK[t.v];
       else if (t?.t === 'num' && /^\d+$/.test(t.v)) w += t.v;
       else break;
       p++;
@@ -583,6 +586,7 @@ export function readTex(src: string): Expr {
       }
       throw new Error(`unexpected ${t.v}`);
     }
+    if (t.v === '\\%') return { k: 'id', name: '%' };
     if (UNGREEK[t.v]) return callOrId(t.v === '\\infty' ? '∞' : word(UNGREEK[t.v]!));
     if (TYPED_FUNCTIONS.has(t.v)) return callOrId(TYPED_FUNCTIONS.get(t.v)!);
     switch (t.v) {

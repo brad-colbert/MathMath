@@ -83,5 +83,10 @@
     "slug": "skin",
     "title": "The skin effect in a wire",
     "summary": "Alternating current crowds to the surface of a copper bar: Bessel functions of a complex argument give its spread and the resistance it costs."
+  },
+  {
+    "slug": "mortgage",
+    "title": "A mortgage, month by month",
+    "summary": "A 30-year loan: its payment, where each payment goes, what paying a little extra saves, and whether solar panels pay their way."
   }
 ]

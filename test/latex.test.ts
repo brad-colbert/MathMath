@@ -92,6 +92,10 @@ describe('typed forms', () => {
     ['a\\alpha b', V('aαb')],
     ['\\alpha\\beta2', V('αβ2')],
     ['2\\pi', op('mult', R(2), V('π'))],
+    // Percent is a unit on its own, never part of a name.
+    ['8.25\\%', op('mult', R(8.25), V('%'))],
+    ['r\\%', op('mult', V('r'), V('%'))],
+    ['50\\%x', op('mult', op('mult', R(50), V('%')), V('x'))],
     ['\\mathrm{\\Delta x}', V('Δx')],
     ['\\sin\\left(x\\right)', { k: 'call', fn: V('sin'), args: [V('x')] }],
     ['\\sinh\\left(x\\right)', { k: 'call', fn: V('sinh'), args: [V('x')] }],
