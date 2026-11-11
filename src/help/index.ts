@@ -19,6 +19,7 @@ import { CORE } from './functions/core.js';
 import { DISTRIBUTIONS } from './functions/distributions.js';
 import { FILES } from './functions/files.js';
 import { FINANCE } from './functions/finance.js';
+import { GRAPHING } from './functions/graphing.js';
 import { IMAGES } from './functions/images.js';
 import { MATRICES } from './functions/matrices.js';
 import { SIGNAL } from './functions/signal.js';
@@ -32,7 +33,7 @@ import { type Entry, GROUPS, type Topic } from './types.js';
 export { GROUPS, RESULTS, TOPICS };
 export type { Entry, Topic };
 
-export const ENTRIES: Entry[] = [...CORE, ...SPECIAL, ...DISTRIBUTIONS, ...MATRICES, ...SOLVING, ...FINANCE, ...SIGNAL, ...IMAGES, ...FILES, ...ELECTRICAL, ...CIRCUITS, ...RF, ...SYMBOLIC];
+export const ENTRIES: Entry[] = [...CORE, ...SPECIAL, ...DISTRIBUTIONS, ...MATRICES, ...SOLVING, ...FINANCE, ...GRAPHING, ...SIGNAL, ...IMAGES, ...FILES, ...ELECTRICAL, ...CIRCUITS, ...RF, ...SYMBOLIC];
 
 /** Entries by every name they go by. */
 export const BY_NAME = new Map<string, Entry>();

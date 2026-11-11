@@ -2374,6 +2374,35 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Plots and coordinates, typed as a user would: log in a name isn't the log function, digits run on in a name, and
+// a function goes to CreateMesh by its name; then a CreateSpace value plots as a curve.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'logspace(1,1000,4)=');
+  await type(page, 72, 144, 'logpts(0,1,3)=');
+  await type(page, 72, 216, 'xy2pol(3,4)=');
+  await type(page, 72, 288, 'sph2xyz(1,0,0)=');
+  await type(page, 72, 360, 'G(s,t', R, ':s*t');
+  await type(page, 72, 396, 'rows(CreateMesh(G,0,1,0,1,2,3', R, R, R, ')=');
+  await type(page, 72, 432, 'c(t', R, ':t^2');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  check('typed logspace, logpts, xy2pol, sph2xyz and CreateMesh calculate', s[0]?.startsWith('logspace(1,1000,4)=') === true && s[0].includes('100')
+    && s[1]?.includes('4') === true && s[1].includes('7') && s[2]?.includes('0.927') === true && s[3]?.replace(/[()]/g, '').includes('sph2xyz1,0,0=') === true
+    && s[5]?.endsWith('=1') === true, s);
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const call = { k: 'call', fn: { k: 'id', name: 'CreateSpace' }, args: [{ k: 'id', name: 'c' }, { k: 'real', v: 0 }, { k: 'real', v: 6 }, { k: 'real', v: 50 }] };
+    const plot = { id: 'p3d', left: 60, top: 500, alignX: 60, alignY: 500, disabled: false,
+      content: { k: 'plot', x: null, ys: [call], xAxis: { min: null, max: null, log: false }, yAxis: { min: null, max: null, log: false }, markers: false, width: 260, height: 200, view: 'surface' } };
+    m.load('c.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...m.doc.ws, regions: [...m.doc.ws.regions, plot] } }));
+  });
+  await idle(page);
+  await sleep(120);
+  const curve = await page.evaluate(() => ({ segs: document.querySelectorAll('.region.plot path.curve3d').length, problem: document.querySelector('.region.plot .plot-problem')?.textContent ?? '' }));
+  check('a CreateSpace value plots as a curve in space', curve.segs === 49 && !curve.problem, curve);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);

@@ -1720,7 +1720,9 @@ const SURFACE_SAMPLES = 31;
 function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
   const e = c.ys[0];
   if (!e) return { traces: [], limits: {} };
-  const v = ev.eval(e, scope);
+  let v = ev.eval(e, scope);
+  // CreateMesh and CreateSpace give their three matrices inside a 1 × 1 array, as Mathcad's do.
+  if (v.t === 'mat' && v.cells && v.rows * v.cols === 1 && v.cells[0]?.t === 'mat') v = v.cells[0];
   const real = (x: Value, what: string): number => {
     const n = requireNum(x, what);
     if (n.im !== 0) throw new EvalError('runtime', `${what} must be real`);
@@ -1752,6 +1754,7 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     if (X!.rows !== Y!.rows || X!.rows !== Z!.rows || X!.cols !== Y!.cols || X!.cols !== Z!.cols) {
       throw new EvalError('runtime', 'X, Y and Z must be matrices of the same size');
     }
+    if (X!.rows * X!.cols < 2) throw new EvalError('runtime', 'X, Y and Z need at least two points');
     const flat = (m: Mat): Float64Array => Float64Array.from({ length: m.rows * m.cols }, (_, k) => real(getEl(m, k % m.rows, Math.floor(k / m.rows)), 'each value'));
     return { traces: [], limits: {}, surface: { rows: X!.rows, cols: X!.cols, x: flat(X!), y: flat(Y!), z: flat(Z!), regular: false, zDim: Z!.dim, sampled: false } };
   }
@@ -1767,7 +1770,7 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     const z = v.im ? Float64Array.from(v.re, (re, k) => (v.im![k] === 0 ? re : NaN)) : Float64Array.from(v.re);
     return { traces: [], limits: {}, surface: { rows: v.rows, cols: v.cols, x, y, z, regular: true, zDim: v.dim, sampled: false } };
   }
-  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector');
+  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector, as CreateMesh gives');
 }
 
 /** A Smith chart's data: each trace's x and y are the real and imaginary parts of Γ, with no units. */

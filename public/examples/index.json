@@ -88,5 +88,10 @@
     "slug": "mortgage",
     "title": "A mortgage, month by month",
     "summary": "A 30-year loan: its payment, where each payment goes, what paying a little extra saves, and whether solar panels pay their way."
+  },
+  {
+    "slug": "shapes",
+    "title": "Shapes in three dimensions",
+    "summary": "A torus, a helix and a sphere from CreateMesh and CreateSpace, coordinates converted between systems, and points spaced on a log scale."
   }
 ]

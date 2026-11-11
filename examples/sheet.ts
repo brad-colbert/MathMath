@@ -52,11 +52,14 @@ export interface MathItem {
 }
 
 export interface PlotOptions {
+  /** The x expression; empty for a surface, which plots its y alone. */
   x: string;
   ys: string[];
   width?: number;
   height?: number;
   view?: Plot['view'];
+  /** The angle a 3D plot is seen from. */
+  view3d?: Plot['view3d'];
   logX?: boolean;
   logY?: boolean;
   xUnit?: string;
@@ -229,9 +232,10 @@ export class Sheet {
       ...(title !== undefined ? { title } : {}),
     });
     const content: Plot = {
-      k: 'plot', x: readTex(o.x), ys: o.ys.map((e) => readTex(e)), markers: o.markers ?? false, width: o.width ?? 250, height: o.height ?? 170,
+      k: 'plot', x: o.x ? readTex(o.x) : null, ys: o.ys.map((e) => readTex(e)), markers: o.markers ?? false, width: o.width ?? 250, height: o.height ?? 170,
       xAxis: axis(o.xUnit, o.logX, o.xMin, o.xMax, o.xTitle), yAxis: axis(o.yUnit, o.logY, o.yMin, o.yMax, o.yTitle),
       ...(o.view ? { view: o.view } : {}),
+      ...(o.view3d ? { view3d: o.view3d } : {}),
       ...(o.title !== undefined ? { title: o.title } : {}),
       ...(o.traces ? { traces: o.traces } : {}),
     };

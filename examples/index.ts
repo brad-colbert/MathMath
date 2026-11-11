@@ -28,6 +28,7 @@ import { mortgage } from './sheets/mortgage.js';
 import { orbits } from './sheets/orbits.js';
 import { phasors } from './sheets/phasors.js';
 import { projectile } from './sheets/projectile.js';
+import { shapes } from './sheets/shapes.js';
 import { skin } from './sheets/skin.js';
 import { spectrum } from './sheets/spectrum.js';
 import { tolerance } from './sheets/tolerance.js';
@@ -35,7 +36,7 @@ import { wall } from './sheets/wall.js';
 import { washer } from './sheets/washer.js';
 import { tour } from './sheets/tour.js';
 
-export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace, phasors, cooling, hardware, drum, skin, mortgage];
+export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace, phasors, cooling, hardware, drum, skin, mortgage, shapes];
 
 export interface Built { slug: string; title: string; summary: string; text: string; sheet: Sheet; symbolic: boolean }
 

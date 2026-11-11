@@ -79,7 +79,7 @@ export const TOPICS: Topic[] = [
       { p: 'Select a plot and choose from Format: log axes, points instead of lines, axis and plot titles, and the kind of plot.' },
       { p: '**Polar plot**: x is the angle, in radians, and each trace a radius.' },
       { p: '**Smith chart**: each trace is complex reflection coefficients Γ, as [[zToGamma]] gives them. The x blank, if filled, is what Γ is swept over, as frequency.' },
-      { p: '**Surface** and **contour** plots draw a matrix of heights, a function of two variables, or three matrices X, Y and Z. Drag a surface to turn it.' },
+      { p: '**Surface** and **contour** plots draw a matrix of heights, a function of two variables, or three matrices X, Y and Z. Drag a surface to turn it. [[CreateMesh]] makes the three matrices from a function of two parameters, as a torus or a sphere, and [[CreateSpace]] makes three vectors from a function of one, which the surface plot draws as a curve in space. [[sph2xyz]], [[cyl2xyz]] and the other conversions change coordinates; [[logspace]] and [[logpts]] give points for a log axis.' },
       { p: 'Trace styles… in Format sets each trace\'s color, line, weight and points. Hover over a plot to read the point under the pointer.' },
     ],
   },
