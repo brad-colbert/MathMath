@@ -2476,6 +2476,58 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Mathcad's file functions: grayed with a note naming MathMath's, and Convert changes them once the files are attached.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = [
+    'P\\coloneq \\mathrm{READRGB}\\left(\\text{"C:\\\\pics\\\\two.bmp"}\\right)', 'P=',
+    'H\\coloneq \\mathrm{READ\\_HSV\\_HUE}\\left(\\text{"C:\\\\pics\\\\two.bmp"}\\right)', 'H=',
+    'S\\coloneq \\mathrm{READWAV}\\left(\\text{"beep.wav"}\\right)', 'S=',
+  ];
+  ws.regions = lines.map((l, i) => ({ id: `c${i}`, left: 60, top: 40 + i * 40 - 8, alignX: 60, alignY: 40 + i * 40, disabled: false, content: readRegion(l) }));
+  await page.evaluate((t) => (window as any).mathmath.load('convert.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(100);
+  const bar = () => page.evaluate(() => {
+    const b = document.getElementById('convert-bar')!;
+    return { shown: !b.hidden, text: b.textContent ?? '', button: !b.querySelector('button')!.hidden };
+  });
+  const before = await bar();
+  const note = await page.evaluate(() => document.querySelector<HTMLElement>('[data-id="c0"]')?.title ?? '');
+  check('a Mathcad file function is grayed, its note naming MathMath\'s, and the bar offers to convert', before.shown && /readImage\("name"\)/.test(note) && before.text.includes('Convert changes READRGB') && before.text.includes('READWAV (attach beep.wav first'), { before, note });
+  // A 2 × 1 bitmap, red then (10, 200, 90), and four 16-bit samples.
+  const bmp = Buffer.alloc(54 + 8);
+  bmp.write('BM', 0); bmp.writeUInt32LE(62, 2); bmp.writeUInt32LE(54, 10); bmp.writeUInt32LE(40, 14); bmp.writeInt32LE(2, 18); bmp.writeInt32LE(1, 22);
+  bmp.writeUInt16LE(1, 26); bmp.writeUInt16LE(24, 28); bmp.writeUInt32LE(8, 34);
+  Buffer.from([0, 0, 255, 90, 200, 10, 0, 0]).copy(bmp, 54);
+  const wav = Buffer.alloc(44 + 8);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + 8, 4); wav.write('WAVE', 8); wav.write('fmt ', 12); wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(8, 40);
+  [0, 1000, -32768, 32767].forEach((v, i) => wav.writeInt16LE(v, 44 + i * 2));
+  await page.evaluate((b, w) => (window as any).mathmath.doc.attach([{ name: 'two.bmp', mime: 'image/bmp', data: b }, { name: 'beep.wav', mime: 'audio/wav', data: w }]), bmp.toString('base64'), wav.toString('base64'));
+  await idle(page);
+  await sleep(150);
+  const ready = await bar();
+  await page.click('#convert-bar button');
+  await idle(page);
+  await sleep(150);
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  const after = await bar();
+  check('Convert changes them all to MathMath\'s, with Mathcad\'s numbers', ready.button && ready.text.includes('READ_HSV_HUE and READWAV to MathMath') && !after.shown
+    && s.some((x) => x.startsWith('P:=readImage("two.bmp")')) && has('P=', '25510') && has('H=', '0145.263') && has('S=', '01×103−3.277×1043.277×104'), s);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await idle(page);
+  await sleep(100);
+  const undone = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  check('Undo puts the Mathcad calls back', undone.some((x) => x.startsWith('P:=READRGB')) && (await bar()).shown, undone);
+  await page.close();
+}
+
 // Comparisons and Boolean operators, with Mathcad's keys and from the Boolean menu.
 {
   const page = await fresh();

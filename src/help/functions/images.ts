@@ -27,14 +27,14 @@ const SAME = 'A color image is three matrices (R; G; B), or one matrix with the 
 
 export const IMAGES: Entry[] = [
   {
-    name: 'imageChannels', group: 'Images', usage: 'imageChannels(M)', mathcad: false,
+    name: 'imageChannels', group: 'Images', usage: 'imageChannels(M, [k])', mathcad: false,
     summary: 'Splits a color image, with its red, green and blue blocks side by side, into a vector of three matrices (R; G; B).',
     details: [
       'Mathcad\'s file readers and [[readImage]] give color as one matrix three times as wide as the picture: the red block, then the green, then the blue. A matrix like that looks the same as a wide gray image, so only [[imageChannels]], [[toGray]] and [[rgbToHsv]] read it that way. Split it first with this function before blurring or sharpening, or the filter runs across the seams between the blocks.',
-      'Pick a channel out with an index: C₀, typed `C[0`, is red. [[joinChannels]] does the opposite.',
+      'Pick a channel out with an index: C₀, typed `C[0`, is red. Or give its number as k, counted from ORIGIN like an index: imageChannels(M, 0) is the red channel itself. [[joinChannels]] does the opposite.',
     ],
-    errors: ['A matrix whose number of columns isn\'t a multiple of 3.', 'Anything but a matrix of real numbers without units.'],
-    example: [`M\\coloneq ${COLOR}`, 'C\\coloneq \\mathrm{imageChannels}\\left(M\\right)', 'C_{0}='],
+    errors: ['A matrix whose number of columns isn\'t a multiple of 3.', 'Anything but a matrix of real numbers without units.', 'A channel k the image doesn\'t have.'],
+    example: [`M\\coloneq ${COLOR}`, 'C\\coloneq \\mathrm{imageChannels}\\left(M\\right)', 'C_{0}=', '\\mathrm{imageChannels}\\left(M,2\\right)='],
   },
   {
     name: 'joinChannels', group: 'Images', usage: 'joinChannels(R, G, B)', mathcad: false,
@@ -55,20 +55,36 @@ export const IMAGES: Entry[] = [
     example: ['M\\coloneq \\begin{pmatrix}100&100&100\\\\200&200&200\\end{pmatrix}', '\\mathrm{toGray}\\left(M\\right)='],
   },
   {
-    name: 'rgbToHsv', group: 'Images', usage: 'rgbToHsv(M)', mathcad: false,
-    summary: 'A color image in hue, saturation and value, each scaled 0 to 255 like the channels.',
+    name: 'rgbToHsv', group: 'Images', usage: 'rgbToHsv(M, [turn])', mathcad: false,
+    summary: 'A color image in hue, saturation and value, saturation and value 0 to 255 like the channels.',
     details: [
-      'The image is a vector of three matrices (R; G; B), or one matrix with the three blocks side by side; the answer is the same kind, with hue, saturation and value in place of red, green and blue. Hue 255 is a full turn round the color wheel, so red is 0, green is about 85 and blue about 170. [[hsvToRgb]] goes back.',
+      'The image is a vector of three matrices (R; G; B), or one matrix with the three blocks side by side; the answer is the same kind, with hue, saturation and value in place of red, green and blue. Hue is an angle round the color wheel, red 0: turn is a full turn, 255 if left out, so green is about 85 and blue about 170. With turn 360 the hue is in degrees and the answer is Mathcad\'s READ_HSV, number for number. [[hsvToRgb]] goes back; [[rgbToHls]] gives lightness instead of value.',
     ],
     errors: ['A gray image: it needs three channels.', 'Channels of different sizes.'],
     example: ['M\\coloneq \\begin{pmatrix}255&0&0\\\\0&255&0\\end{pmatrix}', '\\mathrm{rgbToHsv}\\left(M\\right)='],
   },
   {
-    name: 'hsvToRgb', group: 'Images', usage: 'hsvToRgb(M)', mathcad: false,
-    summary: 'A color image given as hue, saturation and value, each 0 to 255, in red, green and blue.',
-    details: ['The reverse of [[rgbToHsv]], in the same two forms: a vector of three matrices, or one matrix with the blocks side by side. Hue 255 is a full turn, so 0 and 255 are both red.'],
+    name: 'hsvToRgb', group: 'Images', usage: 'hsvToRgb(M, [turn])', mathcad: false,
+    summary: 'A color image given as hue, saturation and value in red, green and blue.',
+    details: ['The reverse of [[rgbToHsv]], in the same two forms: a vector of three matrices, or one matrix with the blocks side by side. Saturation and value are 0 to 255, and turn, 255 if left out, is a full turn of hue, so 0 and 255 are both red; 360 for degrees, as Mathcad\'s WRITE_HSV takes them.'],
     errors: ['A gray image: it needs three channels.', 'Channels of different sizes.'],
     example: ['M\\coloneq \\begin{pmatrix}0&255&255\\\\0&0&128\\end{pmatrix}', '\\mathrm{hsvToRgb}\\left(M\\right)='],
+  },
+  {
+    name: 'rgbToHls', group: 'Images', usage: 'rgbToHls(M, [turn])', mathcad: false,
+    summary: 'A color image in hue, lightness and saturation, the Ostwald model, lightness and saturation 0 to 255.',
+    details: [
+      'Lightness is halfway between the brightest and dimmest of red, green and blue, and saturation how far apart they are for that lightness. Hue is as for [[rgbToHsv]], turn a full turn, 255 if left out; with 360, hue in degrees, the answer is Mathcad\'s READ_HLS, number for number. Same forms as [[rgbToHsv]]; [[hlsToRgb]] goes back.',
+    ],
+    errors: ['A gray image: it needs three channels.', 'Channels of different sizes.'],
+    example: ['M\\coloneq \\begin{pmatrix}255&0&128&0&255&128&0&0&128\\end{pmatrix}', '\\mathrm{rgbToHls}\\left(M,360\\right)='],
+  },
+  {
+    name: 'hlsToRgb', group: 'Images', usage: 'hlsToRgb(M, [turn])', mathcad: false,
+    summary: 'A color image given as hue, lightness and saturation in red, green and blue.',
+    details: ['The reverse of [[rgbToHls]], in the same forms, with turn a full turn of hue, 255 if left out, or 360 for degrees, as Mathcad\'s WRITE_HLS takes them.'],
+    errors: ['A gray image: it needs three channels.', 'Channels of different sizes.'],
+    example: ['M\\coloneq \\begin{pmatrix}0&128&255\\end{pmatrix}', '\\mathrm{hlsToRgb}\\left(M,360\\right)='],
   },
   {
     name: 'resizeImage', group: 'Images', usage: 'resizeImage(M, rows, cols)', mathcad: false,

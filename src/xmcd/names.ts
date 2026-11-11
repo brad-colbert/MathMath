@@ -27,11 +27,12 @@ export const MATHCAD_FUNCTIONS: Record<string, string> = {};
  * Mathcad's file-writing functions that MathMath carries out, as `WRITEBMP("name") := M`: the region offers
  * the file to save (see mathcadWrite in src/engine/image.ts). The rest of MATHCAD_FILE_FUNCTIONS are refused.
  */
-export const MATHCAD_WRITES = new Set(['WRITEBMP', 'WRITERGB', 'WRITEPRN']);
+export const MATHCAD_WRITES = new Set(['WRITEBMP', 'WRITERGB', 'WRITEPRN', 'WRITE_HLS', 'WRITE_HSV', 'WRITEWAV']);
 
 export const MATHCAD_FILE_FUNCTIONS = new Set([
   'READRGB', 'READBMP', 'READ_IMAGE', 'READ_RED', 'READ_GREEN', 'READ_BLUE', 'READ_HLS', 'READ_HSV',
-  'READBIN', 'READPRN', 'READ', 'READFILE', 'WRITERGB', 'WRITEBMP', 'WRITEPRN', 'WRITEBIN', 'WRITE', 'APPENDPRN',
+  'READ_HLS_HUE', 'READ_HLS_LIGHT', 'READ_HLS_SAT', 'READ_HSV_HUE', 'READ_HSV_SAT', 'READ_HSV_VALUE', 'READWAV', 'GETWAVINFO',
+  'READBIN', 'READPRN', 'READ', 'READFILE', 'WRITERGB', 'WRITEBMP', 'WRITEPRN', 'WRITE_HLS', 'WRITE_HSV', 'WRITEWAV', 'WRITEBIN', 'WRITE', 'APPENDPRN',
 ]);
 
 export const translateFunction = (name: string): string => MATHCAD_FUNCTIONS[name] ?? name;

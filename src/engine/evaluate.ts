@@ -1403,12 +1403,14 @@ export class Evaluator implements Host {
     // Mathcad writes a file by defining one of its file functions at the file's name: WRITEBMP("a.bmp") := M.
     if (t.k === 'fn' && t.file && MATHCAD_WRITES.has(t.name)) {
       const value = this.eval(c.value, s);
-      this.writes.at(-1)?.set(t.params[0]!, mathcadWrite(t.name, t.params[0]!, value));
+      // WRITEWAV's rate and bits, numbers or names defined above.
+      const extra = t.params.slice(1).map((p) => (/^-?[\d.]/.test(p) ? Number(p) : requireReal(this.eval({ k: 'id', name: p }, s), p)));
+      this.writes.at(-1)?.set(t.params[0]!, mathcadWrite(t.name, t.params[0]!, value, extra));
       return undefined;
     }
     // Mathcad's other file writes, as APPENDPRN("name") := M, aren't carried out: say so, rather than define a function.
     if (t.k === 'fn' && t.file) {
-      throw new EvalError('mathcad', `${t.name}("${t.params[0]}") := … writes a file in Mathcad. MathMath writes WRITEBMP, WRITERGB and WRITEPRN files, offering them to save; not ${t.name}.`);
+      throw new EvalError('mathcad', `${t.name}("${t.params[0]}") := … writes a file in Mathcad. MathMath writes WRITEBMP, WRITERGB, WRITE_HLS, WRITE_HSV, WRITEPRN and WRITEWAV files, offering them to save; not ${t.name}.`);
     }
     if (t.k === 'fn') {
       this.assign(t, () => num(0), c.value, s, s);

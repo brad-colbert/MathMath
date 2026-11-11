@@ -168,6 +168,8 @@ export const TOPICS: Topic[] = [
       { p: 'A worksheet carries the files it reads. Use Files on the toolbar to attach one: an image adds a [[readImage]] line, and other files are read by name with [[readTable]] or [[readWav]]. The files are saved inside the worksheet.' },
       { p: 'Image on the toolbar shows a matrix as a picture: gray levels 0 to 255, or red, green and blue side by side. Picture… puts a picture from a file on the page, as it is.' },
       { p: 'Save writes a .mathmath file. Open reads those and Mathcad .xmcd worksheets.' },
+      { p: 'A Mathcad worksheet reads its files from folders on Mathcad\'s computer, with functions such as [[READRGB]], [[READ_HSV]], [[READWAV]] and [[READPRN]]. Those lines stay as they were, grayed, and their note names the MathMath expression that gives the same numbers from an attached file, the folder dropped: `READ_HSV("a.bmp")` is `rgbToHsv(readImage("a.bmp"), 360)`. A bar above the paper offers to **Convert** them all; Undo puts them back. READWAV and READPRN wait until their file is attached, since how they convert depends on it.' },
+      { p: 'Mathcad\'s file writes work as they do there, as definitions: [[WRITEBMP]], [[WRITERGB]], [[WRITE_HLS]], [[WRITE_HSV]], [[WRITEPRN]] and [[WRITEWAV]]. The region then offers the file to save.' },
     ],
   },
 ];

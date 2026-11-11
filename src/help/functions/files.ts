@@ -23,6 +23,8 @@ const MATHCAD_ONLY = (what: string, instead: string): string[] => [
   instead,
 ];
 
+const CONVERT = 'Convert, on the bar above the paper when a sheet has these, changes the call for you; Undo puts it back.';
+
 const NAME_ONLY = 'The file is read on Mathcad\'s computer by its path, which doesn\'t exist for a worksheet in the browser.';
 
 export const FILES: Entry[] = [
@@ -74,10 +76,17 @@ export const FILES: Entry[] = [
     example: ['f_{s}\\coloneq \\mathrm{wavRate}\\left(\\text{"tone.wav"}\\right)', '\\Delta t\\coloneq \\frac{1}{f_{s}}'],
   },
   {
+    name: 'wavInfo', group: 'Files', usage: 'wavInfo("name.wav")', mathcad: false, results: 'files',
+    summary: 'Facts about an attached WAV file: its channels, samples a second, bits per sample and bytes a second, as a vector.',
+    details: ['The same four numbers as Mathcad\'s GETWAVINFO, without units. [[readWav]] gives the samples and [[wavRate]] the rate with its unit.'],
+    errors: ['A name that isn\'t in quotes.', 'A folder path.', 'A file that isn\'t attached, or isn\'t a readable WAV file.'],
+    example: ['\\mathrm{wavInfo}\\left(\\text{"tone.wav"}\\right)='],
+  },
+  {
     name: 'READPRN', group: 'Files', usage: 'READPRN("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader for a data file as a matrix: recognized here, but refused; use [[readTable]].',
     details: [
-      ...MATHCAD_ONLY('reads a text file of numbers into a matrix', 'Load the file with Files on the toolbar instead: it writes a [[readTable]] line, and the same file gives the same matrix.'),
+      ...MATHCAD_ONLY('reads a text file of numbers into a matrix', `Attach the file with Files and use [[readTable]]: for a file whose numbers are separated one way throughout, all by commas or all by spaces, it gives the same matrix. ${CONVERT} It waits until the file is attached, to check.`),
     ],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['D\\coloneq \\mathrm{READPRN}\\left(\\text{"data.prn"}\\right)', 'D='],
@@ -137,7 +146,7 @@ export const FILES: Entry[] = [
     name: 'READRGB', group: 'Files', usage: 'READRGB("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader of a picture as one matrix, the red, green and blue blocks side by side: recognized here, but refused; use [[readImage]].',
     details: [
-      ...MATHCAD_ONLY('reads a picture file into one matrix three times as wide as the picture', 'Load the picture with Files instead: [[readImage]] gives the same layout, so the rest of the sheet works on it as it did.'),
+      ...MATHCAD_ONLY('reads a picture file into one matrix three times as wide as the picture', `Attach the picture with Files and use [[readImage]]: it gives the same layout and numbers, so the rest of the sheet works as it did. ${CONVERT}`),
     ],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['P\\coloneq \\mathrm{READRGB}\\left(\\text{"photo.jpg"}\\right)', '\\mathrm{toGray}\\left(P\\right)'],
@@ -145,14 +154,14 @@ export const FILES: Entry[] = [
   {
     name: 'READ_IMAGE', group: 'Files', usage: 'READ_IMAGE("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader of a picture as one matrix of gray levels: recognized here, but refused; use [[readImage]] and [[toGray]].',
-    details: [...MATHCAD_ONLY('reads a picture file into a matrix of gray values', 'Load the picture with Files, then [[toGray]] of [[readImage]] gives the same kind of matrix.')],
+    details: [...MATHCAD_ONLY('reads a picture file into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers as Mathcad\'s are. ${CONVERT}`)],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['G\\coloneq \\mathrm{READ\\_IMAGE}\\left(\\text{"photo.bmp"}\\right)', 'G='],
   },
   {
     name: 'READBMP', group: 'Files', usage: 'READBMP("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader of a bitmap file as a matrix of gray levels: recognized here, but refused; use [[readImage]] and [[toGray]].',
-    details: [...MATHCAD_ONLY('reads a bitmap picture into a matrix of gray values', 'Load the picture with Files, then use [[toGray]] on [[readImage]].')],
+    details: [...MATHCAD_ONLY('reads a bitmap picture into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers as Mathcad\'s are. ${CONVERT}`)],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['G\\coloneq \\mathrm{READBMP}\\left(\\text{"photo.bmp"}\\right)', 'G='],
   },
@@ -176,21 +185,64 @@ export const FILES: Entry[] = [
     return {
       name, group: 'Files', usage: `${name}("path")`, mathcad: true, results: 'files',
       summary: `Mathcad's reader of the ${color} values of a picture as a matrix: recognized here, but refused; use [[readImage]] and [[imageChannels]].`,
-      details: [...MATHCAD_ONLY(`reads the ${color} channel of a picture file into a matrix`, `Load the picture with Files; then \`imageChannels(readImage(…))\` gives the three channels and index ${k} is the ${color} one.`)],
+      details: [...MATHCAD_ONLY(`reads the ${color} channel of a picture file into a matrix`, `Attach the picture with Files: imageChannels(readImage("name"), ${k}) is the ${color} one, the channel numbered from ORIGIN. ${CONVERT}`)],
       errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
       example: [`C\\coloneq \\mathrm{${name.replace('_', '\\_')}}\\left(\\text{"photo.jpg"}\\right)`, 'C='],
     };
   }),
   ...(['READ_HLS', 'READ_HSV'] as const).map((name): Entry => {
-    const model = name === 'READ_HLS' ? 'hue, lightness and saturation' : 'hue, saturation and value';
+    const [model, fn] = name === 'READ_HLS' ? ['hue, lightness and saturation', 'rgbToHls'] : ['hue, saturation and value', 'rgbToHsv'];
     return {
       name, group: 'Files', usage: `${name}("path")`, mathcad: true, results: 'files',
-      summary: `Mathcad's reader of a picture as ${model}: recognized here, but refused; use [[readImage]] and [[rgbToHsv]].`,
-      details: [...MATHCAD_ONLY(`reads a picture file as ${model}`, name === 'READ_HSV'
-        ? 'Load the picture with Files, then [[rgbToHsv]] of [[readImage]] gives hue, saturation and value, each 0 to 255.'
-        : 'Load the picture with Files. [[rgbToHsv]] of [[readImage]] gives hue, saturation and value, each 0 to 255, which are close to it; lightness isn\'t offered.')],
+      summary: `Mathcad's reader of a picture as ${model}, packed side by side: recognized here, but refused; use [[readImage]] and [[${fn}]].`,
+      details: [...MATHCAD_ONLY(`reads a picture file as ${model}, the hue in degrees and the others 0 to 255, three blocks side by side`, `Attach the picture with Files: ${fn}(readImage("name"), 360) gives the same numbers. ${CONVERT}`)],
       errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
       example: [`H\\coloneq \\mathrm{${name.replace('_', '\\_')}}\\left(\\text{"photo.jpg"}\\right)`, 'H='],
+    };
+  }),
+  ...([['READ_HLS_HUE', 'hue, in degrees', 0], ['READ_HLS_LIGHT', 'lightness, 0 to 255', 1], ['READ_HLS_SAT', 'saturation, 0 to 255', 2],
+    ['READ_HSV_HUE', 'hue, in degrees', 0], ['READ_HSV_SAT', 'saturation, 0 to 255', 1], ['READ_HSV_VALUE', 'value, 0 to 255', 2]] as const).map(([name, part, k]): Entry => {
+    const fn = name.startsWith('READ_HLS') ? 'rgbToHls' : 'rgbToHsv';
+    return {
+      name, group: 'Files', usage: `${name}("path")`, mathcad: true, results: 'files',
+      summary: `Mathcad's reader of a picture's ${part.split(',')[0]} in the ${name.startsWith('READ_HLS') ? 'HLS' : 'HSV'} model: recognized here, but refused; use [[readImage]], [[${fn}]] and [[imageChannels]].`,
+      details: [...MATHCAD_ONLY(`reads the ${part} of a picture file as a matrix`, `Attach the picture with Files: imageChannels(${fn}(readImage("name"), 360), ${k}) gives the same numbers, the channel numbered from ORIGIN. ${CONVERT}`)],
+      errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
+      example: [`H\\coloneq \\mathrm{${name.replace(/_/g, '\\_')}}\\left(\\text{"photo.jpg"}\\right)`, 'H='],
+    };
+  }),
+  {
+    name: 'READWAV', group: 'Files', usage: 'READWAV("path")', mathcad: true, results: 'files',
+    summary: 'Mathcad\'s reader of a WAV sound file as a matrix of samples: recognized here, but refused; use [[readWav]].',
+    details: [...MATHCAD_ONLY('reads a PCM WAV file of 8 or 16 bits into a matrix, a column per channel, as the raw samples: 0 to 255 for 8 bits and −32768 to 32767 for 16. It refuses other files', `Attach the file with Files: [[readWav]] gives the samples from −1 to 1, so 32768·readWav("name") is Mathcad\'s numbers for a 16-bit file and 128·readWav("name") + 128 for an 8-bit one. ${CONVERT} It waits until the file is attached, to know which.`)],
+    errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
+    example: ['S\\coloneq \\mathrm{READWAV}\\left(\\text{"tone.wav"}\\right)', 'S='],
+  },
+  {
+    name: 'GETWAVINFO', group: 'Files', usage: 'GETWAVINFO("path")', mathcad: true, results: 'files',
+    summary: 'Mathcad\'s facts about a WAV file: recognized here, but refused; use [[wavInfo]].',
+    details: [...MATHCAD_ONLY('gives a WAV file\'s channels, samples a second, bits per sample and bytes a second', `Attach the file with Files: [[wavInfo]] gives the same four numbers. ${CONVERT}`)],
+    errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
+    example: ['\\mathrm{GETWAVINFO}\\left(\\text{"tone.wav"}\\right)='],
+  },
+  {
+    name: 'WRITEWAV', group: 'Files', usage: 'WRITEWAV("name", s, b) := M', mathcad: true, results: 'files',
+    summary: 'Writes a matrix of samples as a WAV sound file, a column per channel, s samples a second and b bits a sample, as Mathcad does.',
+    details: [
+      'As in Mathcad, it\'s written as a definition: `WRITEWAV("out.wav", 8000, 16) := M`. The region shows a **Save** button that downloads the file, named without the folder in its path.',
+      'The samples are Mathcad\'s raw numbers, as [[READWAV]] gives them: b from 1 to 8 writes bytes, 0 to 255, and 9 to 16 writes words, −32768 to 32767. Each value is cut to a whole number toward 0, and one out of range wraps round rather than stopping at the end, as in Mathcad: 40000 is written as −25536. For samples from −1 to 1, as [[readWav]] gives, multiply by 32767 first.',
+    ],
+    errors: ['b outside 1 to 16.', 'A sample rate that isn\'t a whole number above 0.', 'Complex numbers, units or nested arrays.'],
+    example: ['k\\coloneq 0..799', 'S_{k}\\coloneq 10000\\cdot \\sin \\left(2\\cdot \\pi \\cdot 440\\cdot \\frac{k}{8000}\\right)', '\\mathrm{WRITEWAV}\\left(\\text{"tone.wav"},8000,16\\right)\\coloneq S'],
+  },
+  ...(['WRITE_HLS', 'WRITE_HSV'] as const).map((name): Entry => {
+    const [model, fn] = name === 'WRITE_HLS' ? ['hue, lightness and saturation', 'hlsToRgb'] : ['hue, saturation and value', 'hsvToRgb'];
+    return {
+      name, group: 'Files', usage: `${name}("name") := M`, mathcad: true, results: 'files',
+      summary: `Writes a color picture file from ${model}, as Mathcad does.`,
+      details: [`As in Mathcad, it\'s written as a definition: \`${name}("out.bmp") := M\`, where M has three blocks side by side, the hue in degrees and the others 0 to 255, as [[${name.replace('WRITE', 'READ')}]] reads them. It writes what [[WRITERGB]] would of ${fn}(M, 360). The region shows a **Save** button that downloads the file.`],
+      errors: ['A matrix whose width isn\'t a multiple of 3.'],
+      example: ['M\\coloneq \\begin{pmatrix}0&128&255\\end{pmatrix}', `\\mathrm{${name.replace('_', '\\_')}}\\left(\\text{"red.bmp"}\\right)\\coloneq M`],
     };
   }),
 ];

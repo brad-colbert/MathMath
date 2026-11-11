@@ -74,7 +74,9 @@ export function encode(image: Pixels, mime: string): Promise<Blob> {
 
 async function save(file: Written): Promise<void> {
   const name = file.image ? savedName(file.name) : file.name;
-  const blob = file.image ? await encode(file.image, mimeOf(name)) : new Blob([file.text ?? ''], { type: 'text/plain' });
+  const blob = file.image ? await encode(file.image, mimeOf(name))
+    : file.bytes ? new Blob([file.bytes as BlobPart], { type: file.mime ?? 'application/octet-stream' })
+    : new Blob([file.text ?? ''], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -101,6 +103,7 @@ export function drawSaves(el: HTMLElement, files: Written[] | undefined): void {
     b.textContent = `Save ${name}`;
     b.title = f.image
       ? `${f.image.width} × ${f.image.height} pixels${name !== f.name ? `, as PNG: the browser can't write ${f.name.split('.').pop()} files` : ''}. Saves the latest result`
+      : f.bytes ? `${f.about ?? `${f.bytes.length} bytes`}. Saves the latest result`
       : `${(f.text ?? '').split('\n').length - 1} lines of numbers. Saves the latest result`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();

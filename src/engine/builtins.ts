@@ -44,7 +44,7 @@ import { ELECTRICAL_ARITY, electricalFns } from './electrical.js';
 import { RF_ARITY, rfFns } from './rf.js';
 import { DISTRIBUTION_ARITY, distributionFns } from './distributions.js';
 import { parseTable } from './table.js';
-import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
+import { MATHCAD_FILE_FUNCTIONS, MATHCAD_WRITES } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, dimDiv, fromValues, getEl, isNoDim, newMat, num, numbersOf,
@@ -210,13 +210,36 @@ export interface Hooks {
   tol?(): number;
 }
 
-/** Why a Mathcad file function is refused, and what to use instead: readImage, readTable, writeImage or nothing. */
+/**
+ * Why a Mathcad file function is refused, and the MathMath expression that gives the same numbers (as Convert
+ * writes it, src/engine/convert.ts), or what to do instead.
+ */
 function mathcadFileHint(name: string): string {
-  const load = (fn: string): string => `${name} is Mathcad's, and reads a file on Mathcad's computer. Use Files on the toolbar to load the file instead: it adds ${fn}, assigned to a variable you name, to use here in its place.`;
-  if (/^READ(RGB|BMP|_)/.test(name)) return load('readImage');
-  if (name === 'READPRN' || name === 'READFILE' || name === 'READ') return load('readTable');
+  const read = `${name} is Mathcad's, and reads a file on Mathcad's computer. In MathMath, attach the file with Files and use`;
+  const convert = 'Convert, on the bar above the paper, changes it for you, or says why it can\'t yet.';
+  const same: Record<string, string> = {
+    READRGB: 'readImage("name"), which packs red, green and blue side by side the same way',
+    READBMP: 'round(toGray(readImage("name"))): the same gray levels, rounded to whole numbers',
+    READ_IMAGE: 'round(toGray(readImage("name"))): the same gray levels, rounded to whole numbers',
+    READ_RED: 'imageChannels(readImage("name"), 0): channel 0, counted from ORIGIN, is red',
+    READ_GREEN: 'imageChannels(readImage("name"), 1): channel 1, counted from ORIGIN, is green',
+    READ_BLUE: 'imageChannels(readImage("name"), 2): channel 2, counted from ORIGIN, is blue',
+    READ_HSV: 'rgbToHsv(readImage("name"), 360): hue in degrees, saturation and value 0 to 255, packed as Mathcad packs them',
+    READ_HSV_HUE: 'imageChannels(rgbToHsv(readImage("name"), 360), 0): the hue, in degrees',
+    READ_HSV_SAT: 'imageChannels(rgbToHsv(readImage("name"), 360), 1): the saturation, 0 to 255',
+    READ_HSV_VALUE: 'imageChannels(rgbToHsv(readImage("name"), 360), 2): the value, 0 to 255',
+    READ_HLS: 'rgbToHls(readImage("name"), 360): hue in degrees, lightness and saturation 0 to 255, packed as Mathcad packs them',
+    READ_HLS_HUE: 'imageChannels(rgbToHls(readImage("name"), 360), 0): the hue, in degrees',
+    READ_HLS_LIGHT: 'imageChannels(rgbToHls(readImage("name"), 360), 1): the lightness, 0 to 255',
+    READ_HLS_SAT: 'imageChannels(rgbToHls(readImage("name"), 360), 2): the saturation, 0 to 255',
+    READPRN: 'readTable("name"), which reads the same numbers when they are separated one way throughout, all by commas or all by spaces',
+    GETWAVINFO: 'wavInfo("name"): channels, samples a second, bits per sample and bytes a second, the same four',
+    READWAV: 'readWav("name"), which gives samples from −1 to 1: 32768·readWav("name") is Mathcad\'s numbers for a 16-bit file, and 128·readWav("name") + 128 for an 8-bit one',
+  };
+  if (same[name]) return `${read} ${same[name]}. ${convert}`;
+  if (name === 'READFILE' || name === 'READ') return `${read} readTable("name") in its place.`;
   if (name === 'READBIN') return `${name} is Mathcad's, and reads a binary file on Mathcad's computer. MathMath can't read binary data files: save the data as text (CSV) and load it with Files on the toolbar, which adds readTable.`;
-  if (name === 'WRITEBMP' || name === 'WRITERGB' || name === 'WRITEPRN') return `${name} writes a file when it's defined, as in Mathcad: ${name}("name") := M. The region then offers the file to save.`;
+  if (MATHCAD_WRITES.has(name)) return `${name} writes a file when it's defined, as in Mathcad: ${name}("name")${name === 'WRITEWAV' ? ', with the samples a second and bits,' : ''} := M. The region then offers the file to save.`;
   return `${name} is Mathcad's, and writes a file on Mathcad's computer. MathMath doesn't write data files: copy the results from the sheet instead.`;
 }
 
@@ -533,7 +556,8 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
         throw new EvalError('runtime', 'readImage takes the name of an attached file, or a web address, not a folder path');
       }
       const img = files.image(fileKey(name));
-      if (!img) throw new EvalError('runtime', `${name} isn't attached to this worksheet. Load it with Files on the toolbar`);
+      // A missing file, as for readWav and readTable: the region waits for it, and the bar above the paper asks for it.
+      if (!img) throw isWebAddress(name) ? new EvalError('runtime', `${name} isn't loaded in this worksheet. Load it with Files on the toolbar`) : needsFile(name);
       return imageMatrix(img);
     },
     // Mathcad's Fourier transforms, with its scaling and signs (see fourier.ts).
@@ -559,6 +583,22 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(specialFns(() => origin)),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
+    // One channel, counted from ORIGIN like a subscript, so imageChannels(M, 0) is the red of a color image.
+    imageChannels: (m, k, ...rest) => {
+      if (m === undefined || rest.length > 0) throw new EvalError('runtime', 'imageChannels takes an image and, if you want one channel, its number');
+      const all = imageFns.imageChannels!(m);
+      if (k === undefined) return all;
+      const parts = all.t === 'mat' && all.cells ? all : fromValues(1, 1, [all]);
+      const n = idx(k);
+      if (!Number.isInteger(n) || n < 0 || n >= parts.rows) throw new EvalError('runtime', `imageChannels: this image has ${parts.rows} channel${parts.rows === 1 ? '' : 's'}, numbered from ${origin}`);
+      return getEl(parts, n, 0);
+    },
+    // Channels, samples a second, bits per sample and bytes a second, as Mathcad's GETWAVINFO gives them.
+    wavInfo: (source) => {
+      const audio = wavFile(source, 'wavInfo');
+      const bytes = audio.rate * audio.channels.length * (audio.bits / 8);
+      return fromValues(4, 1, [num(audio.channels.length), num(audio.rate), num(audio.bits), num(bytes)]);
+    },
     // Electrical engineering (see electrical.ts).
     ...withArity(electricalFns),
     // Circuit analysis of a netlist (see circuit.ts).

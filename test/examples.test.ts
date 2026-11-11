@@ -50,7 +50,7 @@ test.each(built.map((b) => [b.slug, b] as const))('%s calculates with no errors 
   const attached = Object.keys(ws.assets);
   const browserOnly = (o: (typeof outs)[number]): boolean =>
     o.region.content.k === 'sym' || (b.symbolic && o.error?.reason === 'needs symbolic evaluation') ||
-    attached.some((name) => o.error?.reason.startsWith(`${name} isn't attached`));
+    attached.some((name) => o.error?.reason.startsWith(`${name} isn't`) || (o.error?.kind === 'needs-file' && o.error.needs.includes(name)));
   const wrong = outs.filter((o) => !browserOnly(o) && Boolean(o.error) !== b.sheet.expectedErrors.has(o.region.id));
   expect(wrong.map((o) => [o.region.id, o.error?.reason ?? 'no error, but one was expected'])).toEqual([]);
   expect(outs.filter((o) => o.value || o.error).length).toBeGreaterThan(3);
