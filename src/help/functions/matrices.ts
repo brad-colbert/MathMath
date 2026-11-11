@@ -205,6 +205,28 @@ export const MATRICES: Entry[] = [
     example: ['A\\coloneq \\begin{pmatrix}2&0\\\\0&3\\end{pmatrix}', '\\mathrm{eigenvecs}\\left(A\\right)='],
   },
   {
+    name: 'genvals', group: 'Linear algebra', usage: 'genvals(M, N)', mathcad: true,
+    summary: 'The generalized eigenvalues of M and N: the values λ for which M·x = λ·N·x has a solution x other than 0.',
+    details: [
+      'The problem of vibration, K·x = ω²·M·x with stiffness K and mass M, and of buckling. When N is the identity they are [[eigenvals]]. Found as Mathcad finds them, by LAPACK\'s QZ method, so they come in Mathcad\'s order.',
+      'If N is singular some λ are infinite: for real matrices they come back as 1.79769·10³⁰⁸, the largest number, with the sign of the infinity, and for complex ones as NaN, both as in Mathcad. The values can be complex. [[genvecs]] gives the vectors.',
+    ],
+    units: 'The values are in M\'s units divided by N\'s.',
+    errors: ['Matrices that are not square, or not the same size.'],
+    example: ['K\\coloneq \\begin{pmatrix}2&-1\\\\-1&1\\end{pmatrix}', 'M\\coloneq \\begin{pmatrix}2&0\\\\0&1\\end{pmatrix}', '\\mathrm{genvals}\\left(K,M\\right)='],
+  },
+  {
+    name: 'genvecs', group: 'Linear algebra', usage: 'genvecs(M, N, ["L"])', mathcad: true,
+    summary: 'A matrix whose columns are the generalized eigenvectors of M and N, in the order [[genvals]] lists the values.',
+    details: [
+      'Column k is an x with M·x = λ_k·N·x. As in Mathcad, each is scaled so that its largest element, by |real part| + |imaginary part|, is ±1, rather than to unit length; the signs match Mathcad\'s.',
+      'With "L", the left eigenvectors instead: the y with yᴴ·M = λ·yᴴ·N.',
+    ],
+    units: 'The vectors have no units.',
+    errors: ['Matrices that are not square, or not the same size.', 'A third argument other than "L" or "R".'],
+    example: ['K\\coloneq \\begin{pmatrix}2&-1\\\\-1&1\\end{pmatrix}', 'M\\coloneq \\begin{pmatrix}2&0\\\\0&1\\end{pmatrix}', '\\mathrm{genvecs}\\left(K,M\\right)='],
+  },
+  {
     name: 'cholesky', group: 'Linear algebra', usage: 'cholesky(A)', mathcad: true,
     summary: 'The lower-triangular matrix L with L·Lᵀ = A, for a symmetric positive definite A.',
     details: ['Only the lower triangle of A is read.'],
@@ -228,9 +250,20 @@ export const MATRICES: Entry[] = [
   {
     name: 'svd', group: 'Linear algebra', usage: 'svd(A)', mathcad: true,
     summary: 'The singular value decomposition of A: the matrices U and V stacked one above the other, with A = U·diag(s)·Vᵀ.',
-    details: ['For an m by n matrix, U is m by n and V is n by n, so the result has m+n rows. The values s are in descending order and come from [[svds]]. Each column of U has a positive first nonzero element.'],
+    details: ['For an m by n matrix, U is m by n and V is n by n, so the result has m+n rows. The values s are in descending order and come from [[svds]]. Each column of U has a positive first nonzero element, which matches Mathcad\'s svd on some matrices but not all: for signs that match Mathcad\'s, use [[svd2]].'],
     errors: ['A matrix with fewer rows than columns.'],
     example: ['A\\coloneq \\begin{pmatrix}3&0\\\\0&2\\end{pmatrix}', '\\mathrm{svd}\\left(A\\right)='],
+  },
+  {
+    name: 'svd2', group: 'Linear algebra', usage: 'svd2(A)', mathcad: true,
+    summary: 'The singular value decomposition A = U·diag(s)·Vᵀ, as a vector of three arrays: s, U and Vᵀ.',
+    details: [
+      'Pick the parts out with subscripts: s is svd2(A)₀, the singular values largest first; U is svd2(A)₁, m by n; and Vᵀ is svd2(A)₂, n by n, already transposed. A may be complex, and then the last part is V\'s conjugate transpose.',
+      'Found by LAPACK\'s method, as Mathcad finds them, so the signs of the columns match Mathcad\'s. Mathcad recommends it over the older [[svd]] and [[svds]], whose signs differ.',
+    ],
+    units: 'The singular values have A\'s units; U and Vᵀ have none. Mathcad 14 gives all three parts A\'s units.',
+    errors: ['A matrix with fewer rows than columns.'],
+    example: ['A\\coloneq \\begin{pmatrix}1&2\\\\3&4\\\\5&6\\end{pmatrix}', 'S\\coloneq \\mathrm{svd2}\\left(A\\right)', 'S_{0}=', 'S_{1}\\cdot \\mathrm{diag}\\left(S_{0}\\right)\\cdot S_{2}='],
   },
   {
     name: 'svds', group: 'Linear algebra', usage: 'svds(A)', mathcad: true,

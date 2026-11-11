@@ -2131,6 +2131,12 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     return { href: a?.href ?? '', scipy: text.includes('Copyright (C) 2024 SciPy developers'), sandia: text.includes('APPROVED FOR UNLIMITED RELEASE') };
   });
   check('About links the notices of the Amos port, and they are served', amos.scipy && amos.sandia, amos);
+  const lapack = await page.evaluate(async () => {
+    const a = document.querySelector<HTMLAnchorElement>('#splash .legal a.lapack-license');
+    const text = a ? await (await fetch(a.href)).text() : '';
+    return { href: a?.href ?? '', license: text.includes('The University of Tennessee') && text.includes('LAPACK 3.0') };
+  });
+  check('About links LAPACK\'s license, and it is served', lapack.license, lapack);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);
@@ -2422,6 +2428,75 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
   const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
   check('typed supsmooth, ksmooth and wave calculate', has('supsmooth(x,y)=', '3.8') && has('wave(v)=', '5.902') && has('ksmooth(x,y,1)=', '3.075'), s);
+  await page.close();
+}
+
+// FIF, hhmmss and DMS in a result's unit placeholder show it in that format; typed, FIF reads a builder's length.
+{
+  const page = await fresh();
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const times = (v: number, unit: string) => ({ k: 'op', op: 'mult', args: [{ k: 'real', v }, { k: 'id', name: unit }] });
+    const ev = (id: string, top: number, expr: unknown, unit: string) => ({ id, left: 60, top, alignX: 60, alignY: top + 10, disabled: false,
+      content: { k: 'eval', expr, stored: null, unit: { k: 'id', name: unit } } });
+    m.load('f.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...m.doc.ws, regions: [
+      ev('a', 40, times(114.25, 'in'), 'FIF'), ev('b', 100, times(3723.5, 's'), 'hhmmss'), ev('c', 160, times(10.51, 'deg'), 'DMS'), ev('d', 220, times(3, 'kg'), 'FIF'),
+    ] } }));
+  });
+  await idle(page);
+  await type(page, 72, 300, 'FIF(9,6,0.25)=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  check('FIF, hhmmss and DMS show a result in their formats', s.some((x) => /"9['’]6-1\/4""FIF/.test(x)) && s.some((x) => x.includes('"1:2:3.5"hhmmss'))
+    && s.some((x) => /10.*30.*36.*DMS/.test(x)) && s.some((x) => x.startsWith('FIF(9,6,0.25)=2.902m')), s);
+  const err = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.error')].map((e) => e.title));
+  check('a mass in FIF is refused', err.length === 1 && /length/.test(err[0]!), err);
+  await page.close();
+}
+
+// genvals, genvecs and svd2, typed against matrices already on the sheet.
+{
+  const page = await fresh();
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const mat = (rows: number[][]) => ({ k: 'matrix', rows: rows.length, cols: rows[0]!.length, items: rows[0]!.flatMap((_, j) => rows.map((r) => ({ k: 'real', v: r[j] }))) });
+    const def = (id: string, left: number, name: string, value: unknown) => ({ id, left, top: 40, alignX: left, alignY: 50, disabled: false,
+      content: { k: 'define', target: { k: 'var', name }, value, global: false, stored: null, unit: null, shown: false } });
+    m.load('g.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...m.doc.ws, regions: [
+      def('K', 60, 'K', mat([[2, 1, 0], [1, 3, 1], [0, 1, 4]])), def('M', 260, 'M', mat([[4, 1, 0], [1, 2, 0], [0, 0, 1]])), def('P', 460, 'P', mat([[1, 2], [3, 4], [5, 6]])),
+    ] } }));
+  });
+  await idle(page);
+  await type(page, 72, 160, 'genvals(K,M)=');
+  await type(page, 300, 160, 'genvecs(K,M)=');
+  await type(page, 72, 300, 'S:svd2(P)');
+  await type(page, 72, 360, 'S[0', R, '=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  check('typed genvals, genvecs and svd2 give Mathcad\'s answers', has('genvals(K,M)=', '0.4591.3294.211') && has('genvecs(K,M)=', '−10.301−0.085') && has('S0=', '9.526'), s);
+  await page.close();
+}
+
+// Comparisons and Boolean operators, with Mathcad's keys and from the Boolean menu.
+{
+  const page = await fresh();
+  await type(page, 72, 60, 'x:3');
+  const key = (code: string, shift = false) => ({ press: code, ctrl: true, shift });
+  await type(page, 72, 120, 'x>1', key('Digit7', true), 'x<5=');
+  await type(page, 72, 180, 'x', key('Digit0'), '4', key('Digit6', true), 'x=');
+  await type(page, 72, 240, key('Digit1', true), '(x', key('Digit5', true), '0)=');
+  await clickAt(page, 300, 120);
+  await keys(page, 'x>5');
+  const menu = await page.$$eval('details.menu > summary', (els) => els.map((e) => e.textContent));
+  await page.evaluate(() => {
+    const m = [...document.querySelectorAll<HTMLDetailsElement>('details.menu')].find((d) => d.querySelector('summary')!.textContent === 'Boolean')!;
+    m.open = true;
+    [...m.querySelectorAll('button')].find((b) => b.textContent!.startsWith('Or'))!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await keys(page, 'x<5=');
+  await page.keyboard.press('Escape');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  check('Boolean keys and menu type ∧, ≥, ∨, ¬ and ⊕', menu.includes('Boolean')
+    && s.some((x) => x === 'x>1∧x<5=1') && s.some((x) => x === 'x≥4∨x=1') && s.some((x) => x === '¬(x⊕0)=0') && s.some((x) => x === 'x>5∨x<5=1'), s);
   await page.close();
 }
 

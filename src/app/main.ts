@@ -380,6 +380,37 @@ for (const [label, help, run] of matrixItems) {
   });
   matrixList.appendChild(b);
 }
+// Comparisons and Boolean operators, Mathcad's Boolean toolbar. True is 1 and false is 0.
+const booleanMenu = document.createElement('details');
+booleanMenu.className = 'menu';
+const booleanSummary = document.createElement('summary');
+booleanSummary.textContent = 'Boolean';
+booleanSummary.title = 'Comparisons and logical operators: true is 1, false is 0';
+booleanSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const booleanList = document.createElement('div');
+booleanMenu.append(booleanSummary, booleanList);
+toolbar.appendChild(booleanMenu);
+const booleanItems: [string, string, string][] = [
+  ['Less than or equal  ≤', 'Ctrl+9 where the browser allows it', '\\le '],
+  ['Greater than or equal  ≥', 'Ctrl+0', '\\ge '],
+  ['Not equal  ≠', 'Ctrl+3 where the browser allows it', '\\ne '],
+  ['Not  ¬', 'Ctrl+Shift+1', '\\lnot '],
+  ['And  ∧', 'Ctrl+Shift+7', '\\land '],
+  ['Or  ∨', 'Ctrl+Shift+6', '\\lor '],
+  ['Exclusive or  ⊕', 'Ctrl+Shift+5', '\\oplus '],
+];
+for (const [label, help, latex] of booleanItems) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.title = help;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    booleanMenu.open = false;
+    if (paper.mathEditor.isOpen) paper.mathEditor.insert(latex);
+    else doc.onProblem('Click into some math first');
+  });
+  booleanList.appendChild(b);
+}
 separator();
 button('→', 'Evaluate symbolically (Ctrl+.)', () => {
   if (paper.mathEditor.isOpen) paper.mathEditor.arrow();
