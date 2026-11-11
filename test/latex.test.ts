@@ -96,6 +96,14 @@ describe('typed forms', () => {
     ['8.25\\%', op('mult', R(8.25), V('%'))],
     ['r\\%', op('mult', V('r'), V('%'))],
     ['50\\%x', op('mult', op('mult', R(50), V('%')), V('x'))],
+    // ∧, ∨ and ⊕ bind more loosely than comparisons, as in Mathcad.
+    ['a<9\\wedge b<9', op('and', op('lessThan', V('a'), R(9)), op('lessThan', V('b'), R(9)))],
+    ['a=1\\vee b\\ge 2', op('or', op('equal', V('a'), R(1)), op('greaterOrEqual', V('b'), R(2)))],
+    ['\\left(a\\land b\\right)<9', op('lessThan', op('and', V('a'), V('b')), R(9))],
+    // ∧ binds tighter than ∨, as Mathcad 14 reads it (typed and probed).
+    ['a\\vee b\\wedge c', op('or', V('a'), op('and', V('b'), V('c')))],
+    ['a\\wedge b\\vee c', op('or', op('and', V('a'), V('b')), V('c'))],
+    ['\\left(a\\vee b\\right)\\wedge c', op('and', op('or', V('a'), V('b')), V('c'))],
     ['\\mathrm{\\Delta x}', V('Δx')],
     ['\\sin\\left(x\\right)', { k: 'call', fn: V('sin'), args: [V('x')] }],
     ['\\sinh\\left(x\\right)', { k: 'call', fn: V('sinh'), args: [V('x')] }],

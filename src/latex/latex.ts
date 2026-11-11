@@ -55,7 +55,9 @@ function numberText(v: number, digits?: string): string {
 }
 
 const PREC: Record<string, number> = {
-  equal: 1, notEqual: 1, lessThan: 1, greaterThan: 1, lessOrEqual: 1, greaterOrEqual: 1, and: 1, or: 1, xor: 1,
+  // As Mathcad 14 reads them (typed and probed): comparisons, then ∧, then ∨ and ⊕. a < 9 ∧ b < 9 is (a < 9) ∧ (b < 9),
+  // and a ∨ b ∧ c is a ∨ (b ∧ c).
+  equal: 1, notEqual: 1, lessThan: 1, greaterThan: 1, lessOrEqual: 1, greaterOrEqual: 1, and: 0.5, or: 0.4, xor: 0.4,
   plus: 2, minus: 2, neg: 3, mult: 3, div: 5, crossProduct: 3, pow: 4,
 };
 const INFIX: Record<string, string> = {
@@ -823,12 +825,33 @@ export function readTex(src: string): Expr {
     }
     return first;
   }
-  function relation(): Expr {
+  const LOGIC = new Set(['and', 'or', 'xor']);
+  const OR = new Set(['or', 'xor']);
+  function comparison(): Expr {
     let a = range();
-    while (peek() && REL[peek()!.v]) {
+    while (peek() && REL[peek()!.v] && !LOGIC.has(REL[peek()!.v]!)) {
       const o = REL[peek()!.v]!;
       p++;
       a = op(o, a, range());
+    }
+    return a;
+  }
+  /** Comparisons joined by ∧, which binds more loosely than they do, as in Mathcad: a < 9 ∧ b < 9 compares first. */
+  function conjunction(): Expr {
+    let a = comparison();
+    while (peek() && REL[peek()!.v] === 'and') {
+      p++;
+      a = op('and', a, comparison());
+    }
+    return a;
+  }
+  /** Then ∨ and ⊕, more loosely still: a ∨ b ∧ c is a ∨ (b ∧ c), as Mathcad 14 reads it. */
+  function relation(): Expr {
+    let a = conjunction();
+    while (peek() && REL[peek()!.v] && OR.has(REL[peek()!.v]!)) {
+      const o = REL[peek()!.v]!;
+      p++;
+      a = op(o, a, conjunction());
     }
     return a;
   }
