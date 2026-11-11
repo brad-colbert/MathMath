@@ -93,5 +93,10 @@
     "slug": "shapes",
     "title": "Shapes in three dimensions",
     "summary": "A torus, a helix and a sphere from CreateMesh and CreateSpace, coordinates converted between systems, and points spaced on a log scale."
+  },
+  {
+    "slug": "noisy",
+    "title": "Cleaning up a noisy signal",
+    "summary": "Noisy readings smoothed three ways, an echo's delay found by correlation, wavelet compression, and a blurred picture."
   }
 ]

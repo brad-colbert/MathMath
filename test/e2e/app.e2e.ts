@@ -2403,6 +2403,28 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Smoothing and wavelets, typed as a user would against vectors already on the sheet.
+{
+  const page = await fresh();
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const vec = (items: number[]) => ({ k: 'matrix', rows: items.length, cols: 1, items: items.map((v) => ({ k: 'real', v })) });
+    const def = (id: string, top: number, name: string, value: unknown) => ({ id, left: 60, top, alignX: 60, alignY: top + 10, disabled: false,
+      content: { k: 'define', target: { k: 'var', name }, value, global: false, stored: null, unit: null, shown: false } });
+    m.load('s.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...m.doc.ws, regions: [
+      def('x', 40, 'x', vec([1, 2, 3, 4, 5])), def('y', 40 + 0, 'y', vec([2, 1, 4, 3, 5])), def('v', 40, 'v', vec([1, 2, 3, 4, 5, 6, 7, 8])),
+    ] } }));
+  });
+  await idle(page);
+  await type(page, 72, 180, 'supsmooth(x,y)=');
+  await type(page, 72, 300, 'wave(v)=');
+  await type(page, 300, 180, 'ksmooth(x,y,1)=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  check('typed supsmooth, ksmooth and wave calculate', has('supsmooth(x,y)=', '3.8') && has('wave(v)=', '5.902') && has('ksmooth(x,y,1)=', '3.075'), s);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);

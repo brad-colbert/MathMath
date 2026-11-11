@@ -8,9 +8,29 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
-## [Unreleased]
+## [0.46.0] - 2026-11-10
 
-## [0.45.0] - 2026-11-11
+Mathcad's smoothing, correlation and wavelet functions, and ∧ and ∨ read with Mathcad's precedence.
+
+### Added
+
+- Mathcad's smoothing, correlation and wavelet functions: ksmooth, a Gaussian kernel smoother; supsmooth,
+  Friedman's super smoother; correl and correl2d; and wave and iwave, the Daubechies wavelet transform. Their
+  answers agree with Mathcad 14's to within 6e−15 at every point probed, supsmooth exactly on 128 points. ksmooth's kernel is b/2.696756 wide, the
+  constant Mathcad's answers show, which its Help rounds to 0.37·b; correl orders its lags as Mathcad does, no
+  shift first; supsmooth returns three points or fewer as they are, as Mathcad does.
+- Help has entries for the six, and Curve fitting has a part on smoothing.
+- A new example in the gallery, cleaning up a noisy signal: three smoothers compared, an echo's delay found by
+  correlation, a signal kept in a tenth of its wavelet coefficients, and a picture blurred with a kernel.
+
+### Fixed
+
+- ∧ binds more loosely than comparisons and ∨ more loosely than ∧, as Mathcad 14 reads them, so x > 1 ∧ x < 5
+  means (x > 1) ∧ (x < 5), and a ∨ b ∧ c means a ∨ (b ∧ c). Before, they bound as tightly as comparisons, so the
+  first was read as ((x > 1) ∧ x) < 5. The editor has no key for ∧ and ∨, so this affected math from Mathcad
+  files and pasted LaTeX once it was edited; a sheet saved earlier keeps the grouping it was saved with.
+
+## [0.45.0] - 2026-11-10
 
 Mathcad's coordinate conversions, log-spaced points and 3D plot grids, and curves in 3D plots.
 
