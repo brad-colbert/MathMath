@@ -274,7 +274,7 @@ const CONSTANTS: Record<string, Num> = {
 };
 
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
-export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'root']);
+export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'root', 'Jacob']);
 const BLOCK_FORMS = ['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve'];
 const RELATIONS = new Set(['equal', 'lessThan', 'greaterThan', 'lessOrEqual', 'greaterOrEqual']);
 /**
@@ -651,6 +651,7 @@ export class Evaluator implements Host {
   /** root, Find, Minerr, Maximize, Minimize and Odesolve, which take names, not values, for their variables. */
   solveForm(name: string, args: Expr[], s: Scope): Value {
     if (name === 'root') return this.root(args, s);
+    if (name === 'Jacob') return this.jacob(args, s);
     const ctx = this.solveContext;
     if (name === 'Find' || name === 'Minerr') {
       if (!ctx?.constraints) throw new EvalError('runtime', `${name} ends a solve block: type Given above the constraints, then ${name} below them`);
@@ -1067,6 +1068,51 @@ export class Evaluator implements Host {
   }
 
   /** root(f(x), x) from x's value as a guess, or root(f(x), x, a, b) between a and b, where f changes sign. */
+  /**
+   * Jacob(F(x), x, [k]): the matrix of ∂Fᵢ/∂xⱼ at the vector x defined above, a row per element of F and a column
+   * per element of x, as Mathcad 14 gives it numerically (probed, 2026-11-11): by Ridders' extrapolated differences,
+   * agreeing with Mathcad's to about 1e−13. k, the number of variables, changes nothing once x has a value, as in
+   * Mathcad; complex F is differentiated part by part. A single F gives a row, the gradient.
+   */
+  private jacob(args: Expr[], s: Scope): Value {
+    const [body, v, k] = args;
+    if (!body || v?.k !== 'id' || args.length > 3) throw new EvalError('runtime', 'Jacob takes an expression and the vector it varies, as Jacob(F(x), x), and optionally the number of variables');
+    if (k) requireNum(this.eval(k, s), "Jacob's number of variables");
+    const name = v.name;
+    const point = s.lookup(name);
+    if (!point) throw new EvalError('runtime', `Jacob works out the Jacobian at the vector ${name}: define ${name} above`);
+    const xs = point.t === 'num' ? [point] : point.t === 'mat' && !point.cells && (point.cols === 1 || point.rows === 1) ? Array.from(point.re, (_, i) => getEl(point, point.cols === 1 ? i : 0, point.cols === 1 ? 0 : i) as Num) : null;
+    if (!xs || xs.some((x) => x.im !== 0)) throw new EvalError('runtime', `Jacob: ${name} must be a vector of real numbers`);
+    if (xs.some((x) => !isNoDim(x.dim))) throw new EvalError('runtime', `Jacob: ${name} must be without units, as in Mathcad`);
+    // F at x with its jth element moved to t, each point worked out once for all of F's elements.
+    const seen = new Map<string, Num[]>();
+    const at = (j: number, t: number): Num[] => {
+      const key = `${j}:${t}`;
+      const hit = seen.get(key);
+      if (hit) return hit;
+      const moved = fromValues(xs.length, 1, xs.map((x, i) => num(i === j ? t : x.re)));
+      const frame = new Scope(s);
+      frame.set(name, point.t === 'num' ? num(t) : moved);
+      const out = this.eval(body, frame);
+      const items = out.t === 'num' ? [out] : out.t === 'mat' && !out.cells && (out.cols === 1 || out.rows === 1)
+        ? Array.from({ length: out.rows * out.cols }, (_, i) => requireNum(getEl(out, out.cols === 1 ? i : 0, out.cols === 1 ? 0 : i)))
+        : null;
+      if (!items) throw new EvalError('runtime', 'Jacob: F(x) must be a number or a vector of numbers');
+      seen.set(key, items);
+      return items;
+    };
+    const rows = at(0, xs[0]!.re).length;
+    const cells: Value[] = [];
+    const parts: Num[][] = xs.map((x, j) => Array.from({ length: rows }, (_, i) => {
+      const here = at(j, x.re)[i]!;
+      const d = (im: boolean) => nthDerivative((t) => (im ? at(j, t)[i]!.im : at(j, t)[i]!.re), x.re, 1);
+      const complex = here.im !== 0 || at(j, x.re + 1e-3 * Math.max(1, Math.abs(x.re)))[i]!.im !== 0;
+      return num(d(false), here.dim, complex ? d(true) : 0);
+    }));
+    for (let j = 0; j < xs.length; j++) for (let i = 0; i < rows; i++) cells.push(parts[j]![i]!);
+    return fromValues(rows, xs.length, cells);
+  }
+
   private root(args: Expr[], s: Scope): Value {
     const [body, v, lo, hi] = args;
     if (!body || v?.k !== 'id') throw new EvalError('runtime', 'root takes an expression and its variable, as root(x^2 − 2, x), and optionally a and b to search between');

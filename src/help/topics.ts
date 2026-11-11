@@ -106,6 +106,16 @@ export const TOPICS: Topic[] = [
     ],
   },
   {
+    id: 'odes', title: 'Differential equations', summary: 'Solvers for initial-value problems, linear systems, boundary values, and the Jacobian the stiff solvers take.',
+    body: [
+      { p: 'Write the equations as a vector of first derivatives, D(x, y), with y a vector: y₀′ = y₁ and y₁′ = −y₀ is D(x, y) := (y₁; −y₀). [[rkfixed]] solves from starting values in equal steps, [[Rkadapt]] and [[Bulstoer]] choose their steps, and [[Stiffb]], [[Stiffr]], [[Radau]] and [[BDF]] handle stiff systems. Each gives a table: x in the first column, then each y. A solve block with [[Odesolve]] takes the equations as written instead.' },
+      { id: 'odes-1', example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'Y\\coloneq \\mathrm{rkfixed}\\left(\\begin{pmatrix}0\\\\1\\end{pmatrix},0,\\frac{\\pi }{2},10,D\\right)', 'Y_{10,1}='] },
+      { p: 'A linear system x′ = A(t)·x + B(t)·u(t) goes straight to [[statespace]], with A, B and u as functions of t.' },
+      { p: 'When some conditions are at the far end, as a beam fixed at both ends, [[sbval]] finds the starting values that meet them, by shooting: it solves again and again, adjusting the unknown starting values until the far conditions hold. [[bvalfit]] shoots from both ends to meet in between, for equations that jump there. Pass the starting values to any solver for the whole solution.' },
+      { p: 'The stiff solvers want the Jacobian of D: [[Jacob]] works it out from D itself, as J(x, y) := augment(∂D/∂x, Jacob(D(x, y), y)).' },
+    ],
+  },
+  {
     id: 'programs', title: 'Programs', summary: 'Several lines of steps: local definitions, if, for, while and return.',
     body: [
       { p: 'A program is a definition whose value is worked out by steps. Type `]` to start one, and again for each new line; the value is the last line\'s. Inside, `{` makes a local definition ←, which lasts only inside the program.' },

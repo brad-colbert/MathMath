@@ -22,6 +22,7 @@ import { SMOOTHING_ARITY, smoothingFns } from './smoothing.js';
 import { SCALING_ARITY, scalingFns } from './scaling.js';
 import { gesvd } from './svd.js';
 import { ggev } from './qz.js';
+import { BVP_ARITY, bvpFns } from './bvp.js';
 import { LOOKUP_ARITY, lookupFns } from './lookup.js';
 import { BESSEL_ARITY } from './bessel.js';
 import { SPECIAL_ARITY, specialFns } from './special.js';
@@ -62,7 +63,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? FINANCE_ARITY[name] ?? GRAPHING_ARITY[name] ?? SMOOTHING_ARITY[name] ?? SCALING_ARITY[name] ?? SPECIAL_ARITY[name] ?? BESSEL_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? FINANCE_ARITY[name] ?? GRAPHING_ARITY[name] ?? SMOOTHING_ARITY[name] ?? SCALING_ARITY[name] ?? BVP_ARITY[name] ?? SPECIAL_ARITY[name] ?? BESSEL_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -580,6 +581,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     // Smoothing, correlation and wavelets, as Mathcad's (see smoothing.ts).
     ...withArity(smoothingFns),
     ...withArity(scalingFns),
+    ...withArity(bvpFns),
     ...withArity(specialFns(() => origin)),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),

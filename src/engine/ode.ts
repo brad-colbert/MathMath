@@ -31,6 +31,7 @@
  * values must then be in y's units per x's.
  */
 import { type Engine, type Jacobian, type Setup, adams, adamsBdf, bdf, bulirschStoer, cashKarp, numericJacobian, radau, rosenbrock as rosenbrockEngine, rosenbrockStep, semiImplicitExtrapolation } from './ode-methods.js';
+import { addV, matMul } from './ops.js';
 import { type Dim, EvalError, type Fn, type Mat, type Num, type Value, dimDiv, dimEq, dimMul, getEl, isNoDim, newMat, num, requireMat } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
@@ -481,7 +482,75 @@ const implicit = (fn: string, method: Method, allowMass: boolean): Impl => (...a
   return evenly(p, points, method(setup(p, tol, fn, jac, f)));
 };
 
+/**
+ * statespace(init, t1, t2, npoints, A, [B, u]): x' = A(t)·x + B(t)·u(t), at npoints + 1 evenly spaced t, the same
+ * table as rkfixed. Mathcad 14 integrates it adaptively to the worksheet's TOL, so its answers are about 1e−5 from
+ * the true ones at the default TOL of 0.001, and agree with these to 1e−9 at a TOL of 1e−10 (probed, 2026-11-11).
+ * This integrates to about 1e−12 whatever TOL is: by Bulirsch–Stoer extrapolation, or for a stiff system Radau IIA
+ * with A(t) as its Jacobian.
+ */
+function statespace(args: Value[]): Mat {
+  if (args.length === 6) throw new EvalError('runtime', 'statespace takes u(t) with B(t): statespace(init, t1, t2, npoints, A, B, u)');
+  const init = args[0]!;
+  if (init.t !== 'mat' || init.cols !== 1 || !isNoDim(init.dim)) throw new EvalError('runtime', "statespace's init must be a column of starting values without units");
+  const n = init.rows;
+  const fnArg = (v: Value | undefined, what: string): Fn => {
+    if (v?.t !== 'fn') throw new EvalError('runtime', `statespace's ${what} must be a function of t, as ${what}(t) := …, not a value`);
+    return v;
+  };
+  for (const t of [args[1]!, args[2]!]) {
+    if (t.t !== 'num' || !isNoDim(t.dim)) throw new EvalError('runtime', "statespace's t1 and t2 must be numbers without units, as its other arguments are");
+  }
+  const A = fnArg(args[4], 'A');
+  const B = args.length > 5 ? fnArg(args[5], 'B') : null;
+  const u = args.length > 6 ? fnArg(args[6], 'u') : null;
+  const plain = (v: Value, what: string, rows: number, cols: number): Mat => {
+    const m = v.t === 'num' && rows === 1 && cols === 1 ? fromValuesOf([v]) : v;
+    if (m.t !== 'mat' || m.rows !== rows || m.cols !== cols || m.cells || !isNoDim(m.dim) || m.im?.some((x) => x !== 0)) {
+      throw new EvalError('runtime', `statespace: ${what} must be ${rows === 1 && cols === 1 ? 'a real number' : `a ${rows} × ${cols} matrix of real numbers`} without units, to match the ${n} starting value${n === 1 ? '' : 's'}`);
+    }
+    return m;
+  };
+  const D: Fn = {
+    t: 'fn', name: 'statespace', arity: 2,
+    call: ([t, x]) => {
+      const a = plain(A.call([t!]), 'A(t)', n, n);
+      let out = matMul(a, requireMat(x!));
+      if (B && u) {
+        const b = B.call([t!]);
+        const k = b.t === 'mat' ? b.cols : 1;
+        const bm = plain(b, 'B(t)', n, k);
+        const um = plain(u.call([t!]), 'u(t)', k, 1);
+        out = addV(out, matMul(bm, um));
+      }
+      return out;
+    },
+  };
+  const points = count(args[3]!, 'statespace', 'number of points');
+  const p = problem([init, args[1]!, args[2]!, args[3]!, D], 'statespace');
+  // A stiff system, with time constants far apart, takes Radau with its exact Jacobian, A(t) itself; the rest
+  // Bulirsch–Stoer, which reaches 1e−12 in few steps. ‖A(t1)‖ over the span says which.
+  const at = (x: number): Mat => plain(A.call([num(x, p.xDim)]), 'A(t)', n, n);
+  const a0 = at(p.x1);
+  const norm = Math.max(...Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => Math.abs(a0.re[j * n + i]!)).reduce((x, y) => x + y, 0)));
+  if (norm * Math.abs(p.x2 - p.x1) > 500) {
+    const jac: Jacobian = (x) => {
+      const m = at(x);
+      return { dfdx: new Float64Array(n), dfdy: Array.from({ length: n }, (_, i) => Float64Array.from({ length: n }, (_, j) => m.re[j * n + i]!)) };
+    };
+    return evenly(p, points, radau({ f: p.f, x1: p.x1, y0: p.y0, x2: p.x2, rtol: 1e-11, atol: 1e-12, fn: 'statespace', jac }));
+  }
+  return evenly(p, points, bulirschStoer({ f: p.f, x1: p.x1, y0: p.y0, x2: p.x2, rtol: 1e-12, atol: 1e-12, fn: 'statespace' }));
+}
+
+const fromValuesOf = (items: Value[]): Mat => {
+  const m = newMat(items.length, 1);
+  items.forEach((v, k) => (m.re[k] = (v as Num).re));
+  return m;
+};
+
 export const odeFns: Record<string, Impl> = {
+  statespace: (...args) => statespace(args),
   rkfixed: (...args) => rkfixed(problem(args, 'rkfixed'), count(args[3]!, 'rkfixed', 'number of points')),
   Rkadapt: nonstiffEvenly('Rkadapt', cashKarp, false),
   rkadapt: nonstiffOwn('rkadapt', cashKarp),
@@ -498,6 +567,7 @@ export const odeFns: Record<string, Impl> = {
 };
 
 export const ODE_ARITY: Record<string, [number, number]> = {
+  statespace: [5, 7],
   rkfixed: [5, 5], Rkadapt: [5, 5], Bulstoer: [5, 5], Adams: [5, 6], rkadapt: [7, 7], bulstoer: [7, 7],
   Stiffb: [6, 6], Stiffr: [6, 6], stiffb: [8, 8], stiffr: [8, 8], Radau: [5, 8], BDF: [5, 7], AdamsBDF: [5, 7],
 };

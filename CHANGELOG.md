@@ -8,6 +8,28 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.49.0] - 2026-11-11
+
+Mathcad's statespace, sbval, bvalfit and Jacob, and a Help topic on differential equations.
+
+### Added
+
+- statespace, Mathcad's solver for linear systems x′ = A(t)·x + B(t)·u(t), with A, B and the input u as functions of
+  time, giving the same kind of table as rkfixed. Mathcad 14 integrates it to the worksheet's TOL, so at the default
+  its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is, and agree
+  with Mathcad's at a TOL of 1e−10 to better than 1e−9. A stiff system, with rates far apart, is solved quickly by
+  an implicit method.
+- sbval and bvalfit, Mathcad's shooting solvers for boundary-value problems: the unknown starting values that make
+  a solution meet conditions at the far end, or from both ends at a point between, by Newton's method on the
+  solution. They agree with Mathcad 14 to 1e−10 or better on every problem probed, linear and nonlinear, finding the
+  same one of two solutions from the same guesses, near or far; on one linear problem Mathcad stops 6e−9 short of the exact
+  answer, which MathMath reaches. Where Mathcad returns a number regardless, for a problem with no solution or a
+  score of the wrong length, MathMath says what is wrong.
+- Jacob(F(x), x), the Jacobian of a vector function at the vector x, worked out numerically as Mathcad does and
+  agreeing with it to about 1e−13; it gives the stiff solvers their Jacobian, as J(t, y) := augment(…, Jacob(D(t, y), y)).
+- Help entries for the four, a new Help topic on differential equations, and a new gallery example: a circuit
+  with statespace, a beam by shooting, and a stiff reaction with Jacob.
+
 ## [0.48.0] - 2026-11-11
 
 Convert for Mathcad's file functions, Mathcad's WAV and HLS/HSV writes, and hue, lightness and saturation.

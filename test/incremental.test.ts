@@ -78,6 +78,23 @@ describe('recalculating from a change down', () => {
     expect(new DataView(file.bytes!.buffer).getUint32(24, true)).toBe(11025);
   });
 
+  test('Jacob runs again when its x changes, and sbval when a constant its D uses does', async () => {
+    const lines = [
+      'x\\coloneq \\begin{pmatrix}1\\\\2\\end{pmatrix}', 'F\\left(x\\right)\\coloneq \\begin{pmatrix}x_{0}^{2}\\cdot x_{1}\\\\5\\cdot x_{0}\\end{pmatrix}', '\\mathrm{Jacob}\\left(F\\left(x\\right),x\\right)=',
+      'k\\coloneq 1', 'D\\left(t,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-k\\cdot y_{0}\\end{pmatrix}', 'L\\left(t,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}',
+      'S\\left(t,y\\right)\\coloneq y_{0}-1', '\\mathrm{sbval}\\left(\\begin{pmatrix}1\\end{pmatrix},0,1,D,L,S\\right)=',
+    ];
+    const a = await edited(sheetOf(lines), (ws) => set(ws, 'r1', 'x\\coloneq \\begin{pmatrix}3\\\\2\\end{pmatrix}'));
+    // Function definitions below a change run again too, cheaply; what matters is which answers do.
+    expect(a.ran).toContain('r3');
+    expect(a.ran).not.toContain('r8');
+    expect((a.outcomes.find((o) => o.region.id === 'r3')!.value as { re: Float64Array }).re[0]).toBeCloseTo(12, 10);
+    const b = await edited(sheetOf(lines), (ws) => set(ws, 'r4', 'k\\coloneq 4'));
+    expect(b.ran).toContain('r8');
+    expect(b.ran).not.toContain('r3');
+    expect(value(b.outcomes, 'r8')).toBeCloseTo(2 / Math.sin(2), 12);
+  });
+
   test('a change at the bottom runs only itself', async () => {
     const r = await edited(sheetOf(base), (ws) => set(ws, 'r6', 'w+1='));
     expect(r.ran).toEqual(['r6']);
