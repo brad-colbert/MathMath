@@ -56,6 +56,16 @@ describe('surface data', () => {
     expect([...s.z]).toEqual([7, 9, 8, 10]);
   });
 
+  test('CreateMesh and CreateSpace plot as they are, inside their 1 × 1 array: a surface, and a curve one point wide', () => {
+    const mesh = surfaceOf(['G\\left(s,t\\right)\\coloneq s+100\\cdot t'], '\\mathrm{CreateMesh}\\left(G,0,1,0,2,3,4\\right)').data!.surface!;
+    expect([mesh.rows, mesh.cols]).toEqual([3, 4]);
+    // s down the rows, t along the columns, as in Mathcad.
+    expect([mesh.x[1], mesh.y[3 * 3], mesh.z[1 + 3 * 3]]).toEqual([0.5, 2, 200.5]);
+    const curve = surfaceOf(['H\\left(t\\right)\\coloneq \\begin{pmatrix}\\cos \\left(t\\right)\\\\\\sin \\left(t\\right)\\\\t\\end{pmatrix}'], '\\mathrm{CreateSpace}\\left(H,0,6,50\\right)').data!.surface!;
+    expect([curve.rows, curve.cols]).toEqual([50, 1]);
+    expect(curve.z[49]).toBeCloseTo(6, 12);
+  });
+
   test('X, Y and Z of different sizes say so', () => {
     const r = surfaceOf(['X\\coloneq \\begin{pmatrix}0&1\\\\0&1\\end{pmatrix}', 'Z\\coloneq \\begin{pmatrix}1&2&3\\\\4&5&6\\end{pmatrix}'], '\\begin{pmatrix}X\\\\X\\\\Z\\end{pmatrix}');
     expect(r.error).toContain('same size');

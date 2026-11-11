@@ -10,6 +10,24 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-11
+
+Mathcad's coordinate conversions, log-spaced points and 3D plot grids, and curves in 3D plots.
+
+### Added
+
+- Mathcad's graphing helpers: xy2pol, pol2xy, xyz2sph, sph2xyz, xyz2cyl and cyl2xyz to change coordinates;
+  logspace and logpts for points on a log scale; and CreateMesh and CreateSpace, which sample a surface of two
+  parameters, or a curve of one, for a 3D plot, with an optional mapping to another coordinate system. They follow
+  Mathcad 14's conventions, probed: xy2pol's angle runs from 0 to 2π but the azimuth of xyz2sph and xyz2cyl from
+  −π to π; logpts steps evenly within each decade (logpts(0, 1, 3) is 1, 4, 7); CreateMesh's result is a 1 × 1
+  array holding X, Y and Z, as Mathcad gives it.
+- The surface plot draws CreateMesh's result as it is, and CreateSpace's three vectors as a curve in space,
+  colored by height.
+- Help has a Plots and coordinates group, and the Plots page tells how to make surfaces and curves.
+- A new example in the gallery, shapes in three dimensions: a torus, a helix and a lumpy sphere, with coordinate
+  conversions and log-spaced points.
+
 ## [0.44.0] - 2026-11-10
 
 Mathcad's finance functions, and percent as a unit.

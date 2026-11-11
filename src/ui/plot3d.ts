@@ -114,7 +114,7 @@ function slots(c: Plot, data: PlotData | undefined, area: { x: number; y: number
   const unit = data?.zLabel ? `<div class="zunit" style="left:${area.x + area.w + 4}pt;top:${area.y - 12}pt">${markup(data.zLabel)}</div>` : '';
   return [
     slot('ys', c.ys[0] ? markup(tex(c.ys[0])) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + 24}pt;justify-content:center`,
-      'What to plot: a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector'),
+      'What to plot: a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, or three vectors for a curve, as CreateSpace gives'),
     // The limits apply only to a function, so they're left out once the plot is known to show matrices.
     data?.surface && !data.surface.sampled ? '' : [
       `<div class="ranges" style="left:${area.x}pt;width:${area.w}pt;top:${below + 38}pt" title="Where a function of two variables is sampled">x `,
@@ -147,7 +147,9 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
     empty(el, c, data, problem ?? (c.ys.length ? undefined : undefined));
     return;
   }
-  const s = thinned(s0);
+  // A curve, one point wide, keeps more of its points than a surface needs.
+  const curve = s0.rows === 1 || s0.cols === 1;
+  const s = thinned(s0, curve ? 600 : 48);
   const { area } = frame(c);
   const [[x0, x1], [y0, y1], [z0, z1]] = [range(s.x), range(s.y), range(s.z)];
   const nx = (v: number): number => (x1 > x0 ? ((v - x0) / (x1 - x0)) * 2 - 1 : 0);
@@ -201,6 +203,19 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
   for (const q of quads) {
     const fill = rampColor(z1 > z0 ? (q.z - z0) / (z1 - z0) : 0.5);
     parts.push(`<path d="${q.d}" fill="${fill}" stroke="#0b0b0b" stroke-opacity="0.22" stroke-width="0.35" stroke-linejoin="round"/>`);
+  }
+  // A space curve, as CreateSpace gives: three vectors make a line through the points, back to front, each
+  // segment colored by its height.
+  if (curve) {
+    const n = s.rows * s.cols;
+    const segs: { depth: number; z: number; d: string }[] = [];
+    for (let k = 0; k + 1 < n; k++) {
+      if ([k, k + 1].some((m) => !Number.isFinite(s.z[m]!) || !Number.isFinite(s.x[m]!) || !Number.isFinite(s.y[m]!))) continue;
+      const [p, q] = [k, k + 1].map((m) => project(nx(s.x[m]!), ny(s.y[m]!), nz(s.z[m]!)));
+      segs.push({ depth: (p![2] + q![2]) / 2, z: (s.z[k]! + s.z[k + 1]!) / 2, d: `M${screen(p!).map((v) => v.toFixed(2)).join(' ')}L${screen(q!).map((v) => v.toFixed(2)).join(' ')}` });
+    }
+    segs.sort((p, q) => p.depth - q.depth);
+    for (const g of segs) parts.push(`<path class="curve3d" d="${g.d}" stroke="${rampColor(z1 > z0 ? (g.z - z0) / (z1 - z0) : 0.5)}" stroke-width="1.75" stroke-linecap="round" fill="none"/>`);
   }
   parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 's'));
   // Dragging across the plot turns it.
