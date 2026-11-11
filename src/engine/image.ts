@@ -26,7 +26,7 @@
  * Filters treat the edge as continuing the border pixels, as SciPy's `mode='nearest'`, so the size stays.
  * The tests check them against SciPy's `ndimage`, on invented images.
  */
-import { EvalError, type Mat, type Value, fromValues, isNoDim, newMat, requireReal } from './values.js';
+import { EvalError, type Mat, type Value, fromValues, isNoDim, newMat, num, requireReal } from './values.js';
 import { MATHCAD_WRITES } from '../xmcd/names.js';
 
 /** One channel, column by column, as matrices are stored. */
@@ -242,30 +242,73 @@ function quarterTurns(c: Channel, k: number): Channel {
 /** Rec. 601 luma, the weights JPEG and most image tools use for gray. */
 const luma = (r: number, g: number, b: number): number => 0.299 * r + 0.587 * g + 0.114 * b;
 
-/** Hue, saturation and value, each 0 to 255 like the color channels (hue 255 is a full turn). */
+/**
+ * Hue as a fraction of a turn, as Smith's HSV and the Ostwald HLS share it: 0 for red and for grays, 1/3 green,
+ * 2/3 blue. Probed against Mathcad 14's READ_HSV_HUE and READ_HLS_HUE, which give it in degrees.
+ */
+function hueOf(r: number, g: number, b: number, max: number, d: number): number {
+  if (d <= 0) return 0;
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h /= 6;
+  return h < 0 ? h + 1 : h;
+}
+
+/** Hue, saturation and value, saturation and value 0 to 255 like the color channels, hue a fraction of a turn. */
 function hsvOf(r: number, g: number, b: number): [number, number, number] {
   const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0;
-  if (d > 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h /= 6;
-    if (h < 0) h += 1;
-  }
-  return [h * 255, max === 0 ? 0 : (d / max) * 255, max];
+  const d = max - Math.min(r, g, b);
+  return [hueOf(r, g, b, max, d), max === 0 ? 0 : (d / max) * 255, max];
 }
 
 function rgbOf(h: number, s: number, v: number): [number, number, number] {
-  const hh = (((h / 255) % 1) + 1) % 1 * 6;
+  const hh = ((h % 1) + 1) % 1 * 6;
   const ss = s / 255;
   const i = Math.floor(hh);
   const f = hh - i;
   const [p, q, t] = [v * (1 - ss), v * (1 - ss * f), v * (1 - ss * (1 - f))];
   return ([[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]] as const)[i % 6]!.slice() as [number, number, number];
 }
+
+/**
+ * Hue, lightness and saturation (the Ostwald model, as Mathcad's READ_HLS): lightness is the mean of the largest
+ * and smallest channel, and saturation their difference over their sum, or over 510 less it when lightness is past
+ * half, scaled to 0 to 255. Probed on 12 colors.
+ */
+function hlsOf(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const l = (max + min) / 2;
+  const s = d === 0 ? 0 : l <= 127.5 ? (255 * d) / (max + min) : (255 * d) / (510 - max - min);
+  return [hueOf(r, g, b, max, d), l, s];
+}
+
+function rgbOfHls(h: number, l: number, s: number): [number, number, number] {
+  const ll = l / 255;
+  const ss = s / 255;
+  const m2 = ll <= 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+  const m1 = 2 * ll - m2;
+  const part = (x: number): number => {
+    const t = ((x % 1) + 1) % 1;
+    const v = t < 1 / 6 ? m1 + (m2 - m1) * 6 * t : t < 1 / 2 ? m2 : t < 2 / 3 ? m1 + (m2 - m1) * (2 / 3 - t) * 6 : m1;
+    return v * 255;
+  };
+  return [part(h + 1 / 3), part(h), part(h - 1 / 3)];
+}
+
+/** A hue model's conversion with the hue in turn parts of a circle: 255 by default, like the channels, or 360 for degrees. */
+function hued(f: (r: number, g: number, b: number) => [number, number, number], toHue: boolean) {
+  return (m: Value | undefined, turn: Value | undefined, fn: string): Mat => {
+    const t = turn === undefined ? 255 : requireReal(turn, `${fn}'s turn`);
+    if (!(t > 0)) throw new EvalError('runtime', `${fn}'s full turn of hue must be above 0, as 255 or 360`);
+    if (toHue) return mapColor(m!, fn, (r, g, b) => { const c = f(r, g, b); return [c[0] * t, c[1], c[2]]; });
+    return mapColor(m!, fn, (h, x, y) => f(h / t, x, y));
+  };
+}
+const toHsv = hued(hsvOf, true);
+const fromHsv = hued(rgbOf, false);
+const toHls = hued(hlsOf, true);
+const fromHls = hued(rgbOfHls, false);
 
 function mapColor(v: Value, fn: string, f: (r: number, g: number, b: number) => [number, number, number]): Mat {
   const img = imageOf(v, fn, true);
@@ -396,8 +439,10 @@ export const imageFns: Record<string, (...a: Value[]) => Value> = {
     const [R, G, B] = img.ch as [Channel, Channel, Channel];
     return matOf({ rows: R.rows, cols: R.cols, v: R.v.map((r, k) => luma(r, G.v[k]!, B.v[k]!)) });
   },
-  rgbToHsv: (m) => mapColor(m!, 'rgbToHsv', hsvOf),
-  hsvToRgb: (m) => mapColor(m!, 'hsvToRgb', rgbOf),
+  rgbToHsv: (m, t) => toHsv(m, t, 'rgbToHsv'),
+  hsvToRgb: (m, t) => fromHsv(m, t, 'hsvToRgb'),
+  rgbToHls: (m, t) => toHls(m, t, 'rgbToHls'),
+  hlsToRgb: (m, t) => fromHls(m, t, 'hlsToRgb'),
 
   resizeImage: (m, r, c) => {
     const [rows, cols] = [real(r, "resizeImage's rows"), real(c, "resizeImage's columns")];
@@ -493,7 +538,7 @@ export const imageFns: Record<string, (...a: Value[]) => Value> = {
 
 /** How many arguments each takes, at least and at most. */
 export const IMAGE_ARITY: Record<string, [number, number]> = {
-  imageChannels: [1, 1], joinChannels: [1, 3], toGray: [1, 1], rgbToHsv: [1, 1], hsvToRgb: [1, 1],
+  imageChannels: [1, 1], joinChannels: [1, 3], toGray: [1, 1], rgbToHsv: [1, 2], hsvToRgb: [1, 2], rgbToHls: [1, 2], hlsToRgb: [1, 2],
   resizeImage: [3, 3], rotateImage: [2, 2], rotate90: [1, 2], flipRows: [1, 1], flipCols: [1, 1],
   convolve2d: [2, 2], gaussianBlur: [2, 2], boxBlur: [2, 2], medianFilter: [2, 2], sharpen: [2, 3], sobelEdges: [1, 1],
   threshold: [2, 2], levels: [3, 3], gammaAdjust: [2, 2], equalize: [1, 1], erode: [2, 2], dilate: [2, 2],
@@ -511,7 +556,8 @@ export interface Pixels {
 
 /** An image file a region wrote with `writeImage`, kept with its outcome so the page can offer to save it. */
 /** A file a region wrote, for the page to offer to save: an image, or text such as a data file. */
-export interface Written { name: string; image?: Pixels; text?: string }
+/** A file a region wrote: an image, text, or other bytes such as a WAV file, with what they are. */
+export interface Written { name: string; image?: Pixels; text?: string; bytes?: Uint8Array; mime?: string; about?: string }
 
 /** The sequential blue ramp the surface plots use, light to dark, for false color. */
 const RAMP = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b']
@@ -594,10 +640,50 @@ export function writeImage(name: Value, m: Value, wrote: ((file: Written) => voi
  */
 export { MATHCAD_WRITES };
 
-export function mathcadWrite(fn: string, path: string, v: Value): Written {
+export function mathcadWrite(fn: string, path: string, v: Value, extra: number[] = []): Written {
   const name = path.split(/[\\/]/).pop()?.trim() || path;
   if (fn === 'WRITEPRN') return { name, text: prnText(v) };
+  if (fn === 'WRITEWAV') return wavWrite(name, v, extra);
+  // Packed hue, lightness and saturation, or hue, saturation and value, the hue in degrees, as READ_HLS and READ_HSV give.
+  if (fn === 'WRITE_HLS') return { name, image: pixels(fromHls(v, num(360), fn), 'rgb') };
+  if (fn === 'WRITE_HSV') return { name, image: pixels(fromHsv(v, num(360), fn), 'rgb') };
   return { name, image: pixels(v, fn === 'WRITERGB' ? 'rgb' : 'gray') };
+}
+
+/**
+ * WRITEWAV("name", s, b) := M, as Mathcad 14 writes it (probed): a PCM file at s samples a second, a column per
+ * channel. b from 1 to 8 writes unsigned bytes and 9 to 16 signed words, each value cut to a whole number toward 0
+ * and wrapped round the range rather than clipped: −1 is 255 in bytes, and 40000 is −25536 in words. The header
+ * gives b itself as the bits per sample, as Mathcad's does, though the samples fill a byte or a word.
+ */
+function wavWrite(name: string, v: Value, extra: number[]): Written {
+  const [rate, bits] = extra;
+  if (rate === undefined || bits === undefined || extra.length !== 2) throw new EvalError('runtime', 'WRITEWAV needs a file name, a sample rate and bits per sample: WRITEWAV("name", 8000, 16) := M');
+  if (!(bits >= 1 && bits <= 16)) throw new EvalError('runtime', "WRITEWAV's bits per sample must be between 1 and 16, as in Mathcad");
+  if (!(rate > 0) || !Number.isInteger(rate)) throw new EvalError('runtime', "WRITEWAV's sample rate must be a whole number of samples a second");
+  if (v.t !== 'mat' || v.cells || v.im?.some((x) => x !== 0) || !isNoDim(v.dim)) throw new EvalError('runtime', 'WRITEWAV writes a matrix of real numbers without units: a column per channel');
+  const width = bits <= 8 ? 1 : 2;
+  const [frames, channels] = [v.rows, v.cols];
+  const data = frames * channels * width;
+  // An 18-byte format chunk, its extra size 0, as Mathcad writes it, so the files match Mathcad's byte for byte.
+  const head = 46;
+  const out = new Uint8Array(head + data + (data % 2));
+  const view = new DataView(out.buffer);
+  const tag = (at: number, s: string) => [...s].forEach((c, k) => view.setUint8(at + k, c.charCodeAt(0)));
+  tag(0, 'RIFF'); view.setUint32(4, out.length - 8, true); tag(8, 'WAVE');
+  tag(12, 'fmt '); view.setUint32(16, 18, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true);
+  view.setUint32(24, rate, true); view.setUint32(28, rate * channels * width, true); view.setUint16(32, channels * width, true); view.setUint16(34, bits, true);
+  view.setUint16(36, 0, true);
+  tag(38, 'data'); view.setUint32(42, data, true);
+  for (let f = 0; f < frames; f++) {
+    for (let c = 0; c < channels; c++) {
+      const x = Math.trunc(v.re[c * frames + f]!) || 0;
+      const at = head + (f * channels + c) * width;
+      if (width === 1) view.setUint8(at, ((x % 256) + 256) % 256);
+      else view.setInt16(at, ((((x + 32768) % 65536) + 65536) % 65536) - 32768, true);
+    }
+  }
+  return { name, bytes: out, mime: 'audio/wav', about: `${frames} samples on ${channels} channel${channels === 1 ? '' : 's'}, ${rate} a second, ${bits}-bit` };
 }
 
 /**

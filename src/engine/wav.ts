@@ -21,6 +21,8 @@ export interface DecodedAudio {
   /** Samples per second. */
   rate: number;
   bits: number;
+  /** Floating-point samples rather than PCM integers. */
+  float: boolean;
   /** One array per channel, each scaled to −1 … 1. */
   channels: Float64Array[];
 }
@@ -76,7 +78,7 @@ export function parseWav(bytes: Uint8Array): DecodedAudio | string {
   for (let f = 0; f < frames; f++) {
     for (let c = 0; c < channels; c++) out[c]![f] = read(data.at + (f * channels + c) * width);
   }
-  return { rate, bits, channels: out };
+  return { rate, bits, float: format === FLOAT, channels: out };
 }
 
 /** Whether an attached file is a WAV file, by its name or the type the browser gave it. */

@@ -21,6 +21,8 @@ import { emptyWorksheet } from '../format/native.js';
 import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
+import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible } from '../engine/convert.js';
+import { parseWav } from '../engine/wav.js';
 import { Algebra } from './algebra.js';
 import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
@@ -359,6 +361,52 @@ export class Doc {
     this.dirty = true;
     this.recompute();
     this.onChange(null);
+  }
+
+  /** Attached files as Convert reads them, decoded once each: the bar checks after every change. */
+  private decodedAssets = new WeakMap<object, { audio?: ReturnType<typeof parseWav>; text?: string }>();
+
+  /** What converting reads: the sheet's ORIGIN, its attached sound and data files, and names it reads from two folders. */
+  private convertContext(): ConvertContext {
+    const decoded = (name: string) => {
+      const asset = this.ws.assets[fileKey(name)];
+      if (!asset) return undefined;
+      let d = this.decodedAssets.get(asset);
+      if (!d) this.decodedAssets.set(asset, (d = {}));
+      return { asset, d };
+    };
+    const bytes = (data: string) => Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+    return {
+      origin: this.ws.origin,
+      clashes: fileClashes(this.ws.regions.map((r) => r.content)),
+      audio: (name) => {
+        const x = decoded(name);
+        if (!x) return undefined;
+        return (x.d.audio ??= parseWav(bytes(x.asset.data)));
+      },
+      table: (name) => {
+        const x = decoded(name);
+        if (!x) return undefined;
+        return (x.d.text ??= new TextDecoder().decode(bytes(x.asset.data)));
+      },
+    };
+  }
+
+  /** The Mathcad file-function calls on the sheet that Convert knows, region by region. */
+  convertible(): { region: Region; found: Found[] }[] {
+    const ctx = this.convertContext();
+    return this.ws.regions.flatMap((region) => {
+      const found = findConvertible(region.content, ctx);
+      return found.length ? [{ region, found }] : [];
+    });
+  }
+
+  /** Converts every Mathcad file-function call that can be, as one step to undo. Returns how many regions changed. */
+  convertMathcad(): number {
+    const ctx = this.convertContext();
+    const regions = this.ws.regions.filter((r) => convertContent(r.content, ctx) !== null);
+    if (regions.length > 0) this.updateAll(regions, (c) => convertContent(c, ctx) ?? c);
+    return regions.length;
   }
 
   /** Changes part of a region, such as a plot's axis. */

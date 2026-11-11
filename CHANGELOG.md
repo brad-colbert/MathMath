@@ -8,6 +8,42 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.48.0] - 2026-11-11
+
+Convert for Mathcad's file functions, Mathcad's WAV and HLS/HSV writes, and hue, lightness and saturation.
+
+### Added
+
+- Convert, for Mathcad worksheets that read files: Mathcad's READRGB, READBMP, READ_IMAGE, READ_RED, READ_GREEN,
+  READ_BLUE, READ_HLS, READ_HSV and their hue, lightness, saturation and value readers, READWAV, GETWAVINFO and
+  READPRN stay grayed, as before, and a bar above the paper now offers to change them to the MathMath expressions
+  that give the same numbers from the attached file, any folder dropped: READ_HSV("a.bmp") becomes
+  rgbToHsv(readImage("a.bmp"), 360). Undo puts them back. READWAV and READPRN wait until their file is attached,
+  since how they convert depends on it. Every conversion is checked against Mathcad 14's own answers on the same
+  files.
+- Each grayed Mathcad file function's note now names that exact expression, and READWAV and GETWAVINFO, which
+  before showed as unknown, are recognized.
+- Mathcad's WRITEWAV, WRITE_HLS and WRITE_HSV work as its other file writes do, as definitions such as
+  WRITEWAV("tone.wav", 8000, 16) := M, offering the file to save. WRITEWAV writes as Mathcad 14 does: 1 to 16
+  bits, each sample cut toward zero and wrapped rather than clipped, the bits as given in the header.
+- rgbToHls and hlsToRgb, the hue, lightness and saturation model Mathcad's READ_HLS uses; wavInfo, a WAV file's
+  channels, rate, bits and bytes a second; a full turn of hue for rgbToHsv and hsvToRgb, so 360 gives degrees as
+  Mathcad's do; and a channel number for imageChannels, counted from ORIGIN, as imageChannels(M, 0) for red.
+- Help entries for all of these, and the Files and images topic explains Convert.
+
+### Changed
+
+- readImage of a picture that isn't attached now waits for it, grayed, and the bar above the paper asks for it, as
+  readWav and readTable already did, rather than showing an error.
+
+### Known limits
+
+- Convert doesn't move regions, so a converted line, longer than the Mathcad call, can run into one to its right.
+- The conversions are checked on bitmap pictures. A JPEG may differ from Mathcad's by a level here and there,
+  where the browser decodes it differently.
+- WRITEBMP("name", M) and the other writes on the right of a definition, which Mathcad also allows, are still
+  refused: write them as WRITEBMP("name") := M.
+
 ## [0.47.0] - 2026-11-10
 
 Mathcad's feet-and-inches, time and angle formats, generalized eigenvalues and svd2, and keys for comparisons and logic.

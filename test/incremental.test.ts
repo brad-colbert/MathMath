@@ -70,6 +70,14 @@ describe('recalculating from a change down', () => {
     expect(value(r.outcomes, 'r5')).toBe(11);
   });
 
+  test('WRITEWAV with its rate as a name runs again when the rate changes', async () => {
+    const lines = ['r\\coloneq 8000', 'S\\coloneq \\begin{pmatrix}0\\\\100\\end{pmatrix}', '\\mathrm{WRITEWAV}\\left(\\text{"a.wav"},r,16\\right)\\coloneq S'];
+    const r = await edited(sheetOf(lines), (ws) => set(ws, 'r1', 'r\\coloneq 11025'));
+    expect(r.ran).toEqual(['r1', 'r3']);
+    const file = r.outcomes.find((o) => o.region.id === 'r3')!.files![0]!;
+    expect(new DataView(file.bytes!.buffer).getUint32(24, true)).toBe(11025);
+  });
+
   test('a change at the bottom runs only itself', async () => {
     const r = await edited(sheetOf(base), (ws) => set(ws, 'r6', 'w+1='));
     expect(r.ran).toEqual(['r6']);

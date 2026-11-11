@@ -737,9 +737,13 @@ describe('length, last and the file functions, as Mathcad 14 has them', () => {
       }
       return '';
     };
-    expect(why('READPRN')).toMatch(/adds readTable/);
-    expect(why('READRGB')).toMatch(/adds readImage/);
-    expect(why('READ_RED')).toMatch(/adds readImage/);
+    expect(why('READPRN')).toMatch(/readTable\("name"\)/);
+    expect(why('READRGB')).toMatch(/readImage\("name"\).*Convert/);
+    expect(why('READ_RED')).toMatch(/imageChannels\(readImage\("name"\), 0\)/);
+    expect(why('READ_HSV_HUE')).toMatch(/rgbToHsv\(readImage\("name"\), 360\), 0\)/);
+    expect(why('READWAV')).toMatch(/32768·readWav/);
+    expect(why('GETWAVINFO')).toMatch(/wavInfo\("name"\)/);
+    expect(why('WRITEWAV')).toMatch(/WRITEWAV\("name"\), with the samples a second and bits, := M/);
     expect(why('READBIN')).toMatch(/can't read binary/);
     expect(why('WRITEBMP')).toMatch(/writes a file when it's defined.*WRITEBMP\("name"\) := M/);
     expect(why('WRITEPRN')).toMatch(/WRITEPRN\("name"\) := M/);

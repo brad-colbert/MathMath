@@ -116,6 +116,8 @@ function readsOf(c: Content): Set<string> {
     if (t.k === 'multi') t.targets.forEach(extended);
   };
   if (c.k === 'define' || c.k === 'sym') extended(c.target);
+  // WRITEWAV("a.wav", r, b) := S reads its rate and bits when they are names.
+  if (c.k === 'define' && c.target.k === 'fn' && c.target.file) for (const p of c.target.params.slice(1)) if (!/^-?[\d.]/.test(p)) used.add(p);
   // A solver reads its block, which Given and the constraints above it mark (see SOLVE_BLOCK).
   if (closesBlock(c)) used.add(SOLVE_BLOCK);
   return used;

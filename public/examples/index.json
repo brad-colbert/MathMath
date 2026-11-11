@@ -108,5 +108,10 @@
     "slug": "sway",
     "title": "How a building sways",
     "summary": "A three-storey frame's natural frequencies and mode shapes, from its stiffness and mass matrices with genvals and genvecs, and its stiffness checked with svd2."
+  },
+  {
+    "slug": "hues",
+    "title": "Colour and sound, by the numbers",
+    "summary": "A picture built from numbers, its hues turned with the hue, lightness and saturation model, and a chime written as a WAV file, as Mathcad writes them."
   }
 ]

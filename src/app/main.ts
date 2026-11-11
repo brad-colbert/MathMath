@@ -177,12 +177,45 @@ const showNeeds = (): void => {
     : `This sheet needs ${missing.length === 1 ? 'a file' : `${missing.length} files`} to calculate: ${missing.join(', ')}.`;
 };
 
+// Mathcad's file functions stay grayed, as Brad decided; this offers to change them to MathMath's, where the
+// MathMath expression gives the same numbers (src/engine/convert.ts). Undo puts them back.
+const convertBar = document.createElement('div');
+convertBar.id = 'convert-bar';
+convertBar.hidden = true;
+convertBar.setAttribute('role', 'status');
+const convertText = document.createElement('span');
+const convertButton = document.createElement('button');
+convertButton.textContent = 'Convert';
+convertButton.title = 'Change these Mathcad calls to MathMath\'s, which give the same numbers. Undo (Ctrl+Z) puts them back';
+convertButton.addEventListener('click', () => {
+  const n = doc.convertMathcad();
+  doc.onProblem(n === 0 ? 'Nothing could be converted yet' : `Converted ${n} region${n === 1 ? '' : 's'}. Undo puts ${n === 1 ? 'it' : 'them'} back`);
+});
+convertBar.append(convertText, convertButton);
+needsBar.after(convertBar);
+let convertShown = '';
+const showConvertible = (): void => {
+  const found = doc.convertible().flatMap((x) => x.found);
+  const ready = found.filter((f) => !f.cannot);
+  const pairs = [...new Set(ready.map((f) => f.name))];
+  const waiting = [...new Set(found.filter((f) => f.cannot).map((f) => `${f.name} (${f.cannot})`))];
+  const key = `${pairs.join('\n')}|${waiting.join('\n')}`;
+  if (key === convertShown) return;
+  convertShown = key;
+  convertBar.hidden = found.length === 0;
+  convertButton.hidden = ready.length === 0;
+  const list = (xs: string[]) => (xs.length === 1 ? xs[0]! : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)!}`);
+  convertText.textContent = found.length === 0 ? ''
+    : `This sheet uses Mathcad's file functions, which MathMath does its own way.${pairs.length ? ` Convert changes ${list(pairs)} to MathMath's, with the same numbers; each one's note says to what.` : ''}${waiting.length ? ` Not yet: ${list(waiting)}.` : ''}`;
+};
+
 const redraw = doc.onChange;
 doc.onChange = (ids) => {
   redraw(ids);
   showTitle();
   tracePanel.refresh();
   showNeeds();
+  showConvertible();
 };
 
 const busy = document.createElement('span');
