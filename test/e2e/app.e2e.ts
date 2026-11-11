@@ -2476,6 +2476,28 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// statespace, sbval and Jacob, typed against functions already on the sheet.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = [
+    'A\\left(t\\right)\\coloneq \\begin{pmatrix}0&1\\\\-4&-0.2\\end{pmatrix}', 'D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}',
+    'L\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y_{0}-1',
+    'F\\left(x\\right)\\coloneq \\begin{pmatrix}x_{0}^{2}\\cdot x_{1}\\\\5\\cdot x_{0}\\end{pmatrix}', 'x\\coloneq \\begin{pmatrix}1\\\\2\\end{pmatrix}',
+  ];
+  ws.regions = lines.map((l, i) => ({ id: `d${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  await page.evaluate((t) => (window as any).mathmath.load('ode.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await type(page, 72, 340, 'sbval(1,0,1,D,L,S)=');
+  await type(page, 72, 400, 'Jacob(F(x),x)=');
+  await type(page, 72, 480, 'statespace(stack(1,0),0,1,2,A)=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  const notes = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.error')].map((e) => e.title));
+  check('typed sbval, Jacob and statespace calculate', has('sbval(1,0,1,D,L,S)=', '1.188') && has('Jacob(F(x),x)=', '4510') && has('statespace(stack(1,0),0,1,2,A)=', '0.555'), { s, notes });
+  await page.close();
+}
+
 // Mathcad's file functions: grayed with a note naming MathMath's, and Convert changes them once the files are attached.
 {
   const page = await fresh();

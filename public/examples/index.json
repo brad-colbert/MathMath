@@ -113,5 +113,10 @@
     "slug": "hues",
     "title": "Colour and sound, by the numbers",
     "summary": "A picture built from numbers, its hues turned with the hue, lightness and saturation model, and a chime written as a WAV file, as Mathcad writes them."
+  },
+  {
+    "slug": "shooting",
+    "title": "A circuit, a beam and a reaction",
+    "summary": "Three kinds of differential equation: a driven RLC circuit with statespace, a loaded beam whose far end is fixed, by shooting with sbval, and a stiff reaction whose Jacobian comes from Jacob."
   }
 ]

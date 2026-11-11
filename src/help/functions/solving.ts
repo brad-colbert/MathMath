@@ -375,6 +375,47 @@ export const SOLVING: Entry[] = [
     example: [START, DECAY, 'Y\\coloneq \\mathrm{Adams}\\left(w,0,1,4,D,10^{-10}\\right)', 'Y_{4,1}='],
   },
   {
+    name: 'statespace', group: 'Differential equations', usage: 'statespace(init, t1, t2, npoints, A, [B, u])', mathcad: true,
+    summary: "The solution of a linear system x′ = A(t)·x + B(t)·u(t), at npoints + 1 equal steps from t1 to t2.",
+    details: [
+      'init is the column of starting values at t1. A(t) is a function you define giving an n × n matrix, so the system is x′ = A(t)·x; with B(t), an n × m matrix (or a column, with u a number), and u(t), a vector of m inputs, it is driven: x′ = A·x + B·u. The answer is a table as [[rkfixed]] gives: t in the first column, then each state. t2 can be below t1.',
+      "Mathcad integrates to the worksheet's TOL, so at the default 0.001 its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is, and agree with Mathcad's at a TOL of 1e−10.",
+    ],
+    units: 'The starting values, A, B and u have no units, as in Mathcad.',
+    errors: ['A, B or u given as values rather than functions of t.', 'B without u.', 'A(t) not n × n for n starting values, or B(t) and u(t) of sizes that don\'t fit.', 'A number of points that isn\'t a positive whole number.'],
+    example: ['A\\left(t\\right)\\coloneq \\begin{pmatrix}0&1\\\\-4&-0.2\\end{pmatrix}', 'X\\coloneq \\mathrm{statespace}\\left(\\begin{pmatrix}1\\\\0\\end{pmatrix},0,1,4,A\\right)', 'X='],
+  },
+  {
+    name: 'sbval', group: 'Differential equations', usage: 'sbval(v, x1, x2, D, load, score)', mathcad: true,
+    summary: 'The starting values at x1 that make a boundary-value problem\'s solution meet its conditions at x2, by shooting.',
+    details: [
+      'For y′ = D(x, y) with some values known at x1 and the rest at x2. v holds guesses for the unknown starting values. load(x1, v) gives the full starting vector, the known values and v\'s; score(x2, y) gives one value for each guess, each 0 when the condition at x2 is met, as y₀ − 1 for y(x2) = 1. sbval solves from x1 to x2 again and again, adjusting v by Newton\'s method until the score is 0.',
+      'Pass load(x1, sbval(…)) to [[rkfixed]] or another solver for the whole solution. Different guesses can find different solutions, as in Mathcad. For conditions at both ends and a meeting point between, see [[bvalfit]].',
+    ],
+    errors: ['A score with a different number of values than guesses.', 'A problem the guesses can\'t solve, with no solution near them: Mathcad returns a number regardless.'],
+    example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'L\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y_{0}-1', '\\mathrm{sbval}\\left(\\begin{pmatrix}1\\end{pmatrix},0,1,D,L,S\\right)='],
+  },
+  {
+    name: 'bvalfit', group: 'Differential equations', usage: 'bvalfit(v1, v2, x1, x2, xf, D, load1, load2, score)', mathcad: true,
+    summary: 'The unknown starting values at both ends of a boundary-value problem, shooting from each end to meet at xf.',
+    details: [
+      'As [[sbval]], but from both ends: load1(x1, v1) and load2(x2, v2) give the values at each end, with guesses v1 and v2 for the unknown ones, and score(xf, y) gives what must agree where the two solutions meet, usually score(xf, y) := y. It suits a D that jumps at xf, since neither solution crosses it.',
+      'The answer is v1 and v2 side by side, the shorter padded with zeros, as Mathcad gives them.',
+    ],
+    errors: ['A score with a different number of values than v1 and v2 together.', 'An xf outside x1 to x2.', 'Guesses with no solution near them.'],
+    example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'La\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'Lb\\left(x,v\\right)\\coloneq \\begin{pmatrix}1\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y', '\\mathrm{bvalfit}\\left(\\begin{pmatrix}1\\end{pmatrix},\\begin{pmatrix}1\\end{pmatrix},0,1,0.5,D,La,Lb,S\\right)='],
+  },
+  {
+    name: 'Jacob', group: 'Differential equations', usage: 'Jacob(F(x), x, [k])', mathcad: true,
+    summary: 'The Jacobian of the vector function F at the vector x: a row for each element of F, a column for each of x.',
+    details: [
+      'x must have a value above, a vector of real numbers. Element (i, j) is ∂Fᵢ/∂xⱼ there, worked out numerically as Mathcad does, to about 13 digits. A single F gives a row, its gradient. k, the number of variables, changes nothing once x has a value; the Jacobian has a column for each element of x.',
+      'Its use in Mathcad is the Jacobian the stiff solvers take: J(x, y) := augment(∂D/∂x, Jacob(D(x, y), y)) for [[Stiffb]], [[Stiffr]] or [[Radau]].',
+    ],
+    errors: ['An x with no value above, or with units.'],
+    example: ['F\\left(x\\right)\\coloneq \\begin{pmatrix}x_{0}^{2}\\cdot x_{1}\\\\5\\cdot x_{0}+\\sin \\left(x_{1}\\right)\\end{pmatrix}', 'x\\coloneq \\begin{pmatrix}1\\\\2\\end{pmatrix}', '\\mathrm{Jacob}\\left(F\\left(x\\right),x\\right)='],
+  },
+  {
     name: 'Stiffb', group: 'Differential equations', usage: 'Stiffb(y, x1, x2, npoints, D, J)', mathcad: true,
     summary: 'The solution of a stiff system of differential equations, given at equal steps from x1 to x2, using the Jacobian J.',
     details: [
