@@ -19,6 +19,9 @@ import { FIT_ARITY, fitFns, interpRegress } from './fitting.js';
 import { FINANCE_ARITY, financeFns } from './finance.js';
 import { GRAPHING_ARITY, graphingFns } from './graphing.js';
 import { SMOOTHING_ARITY, smoothingFns } from './smoothing.js';
+import { SCALING_ARITY, scalingFns } from './scaling.js';
+import { gesvd } from './svd.js';
+import { ggev } from './qz.js';
 import { LOOKUP_ARITY, lookupFns } from './lookup.js';
 import { BESSEL_ARITY } from './bessel.js';
 import { SPECIAL_ARITY, specialFns } from './special.js';
@@ -44,7 +47,7 @@ import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
-  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, fromValues, getEl, isNoDim, newMat, num, numbersOf,
+  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, dimDiv, fromValues, getEl, isNoDim, newMat, num, numbersOf,
   needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
@@ -59,7 +62,7 @@ const SIGNAL_ARITY: Record<string, [number, number]> = {
 
 function withArity(fns: Record<string, Impl>): Record<string, Impl> {
   return Object.fromEntries(Object.entries(fns).map(([name, f]) => {
-    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? FINANCE_ARITY[name] ?? GRAPHING_ARITY[name] ?? SMOOTHING_ARITY[name] ?? SPECIAL_ARITY[name] ?? BESSEL_ARITY[name] ?? [0, Infinity];
+    const [lo, hi] = SIGNAL_ARITY[name] ?? IIR_ARITY[name] ?? SYSTEM_ARITY[name] ?? ODE_ARITY[name] ?? IMAGE_ARITY[name] ?? ELECTRICAL_ARITY[name] ?? CIRCUIT_ARITY[name] ?? RF_ARITY[name] ?? DISTRIBUTION_ARITY[name] ?? FIT_ARITY[name] ?? STRING_ARITY[name] ?? LOOKUP_ARITY[name] ?? FINANCE_ARITY[name] ?? GRAPHING_ARITY[name] ?? SMOOTHING_ARITY[name] ?? SCALING_ARITY[name] ?? SPECIAL_ARITY[name] ?? BESSEL_ARITY[name] ?? [0, Infinity];
     const say = lo === hi ? `${lo}` : hi === Infinity ? `at least ${lo}` : `${lo} or ${hi}`;
     return [name, (...args: Value[]) => {
       if (args.length < lo || args.length > hi) throw new EvalError('runtime', `${name} takes ${say} argument${hi === 1 ? '' : 's'}, not ${args.length}`);
@@ -222,6 +225,21 @@ function columnOf(v: Value, fn: string): Mat {
   const m = requireMat(v, `${fn}'s argument`);
   if (m.cols !== 1) throw new EvalError('runtime', `${fn} takes a vector, one column: this has ${m.cols} columns`);
   return m;
+}
+
+/** The two square matrices of a generalized eigenproblem, as rows of numbers, with their units. */
+function pencil(m: Value, n: Value, fn: string): { size: number; are: number[][]; aim: number[][] | null; bre: number[][]; bim: number[][] | null; mdim: Dim; ndim: Dim } {
+  const a = requireMat(m, `${fn}'s M`);
+  const b = requireMat(n, `${fn}'s N`);
+  if (a.cells || b.cells) throw new EvalError('runtime', `${fn} takes matrices of numbers`);
+  if (a.rows !== a.cols || b.rows !== b.cols) throw new EvalError('runtime', `${fn} needs square matrices`);
+  if (a.rows !== b.rows) throw new EvalError('runtime', `${fn}'s M and N must be the same size`);
+  const rows = (x: Mat, xs: Float64Array) => Array.from({ length: x.rows }, (_, i) => Array.from({ length: x.cols }, (_, j) => xs[j * x.rows + i]!));
+  const complex = (x: Mat) => (x.im?.some((v) => v !== 0) ? rows(x, x.im) : null);
+  const [aim, bim] = [complex(a), complex(b)];
+  const both = aim || bim;
+  const zero = () => rows(a, new Float64Array(a.rows * a.cols));
+  return { size: a.rows, are: rows(a, a.re), aim: both ? aim ?? zero() : null, bre: rows(b, b.re), bim: both ? bim ?? zero() : null, mdim: a.dim, ndim: b.dim };
 }
 
 export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
@@ -399,6 +417,49 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       const { U, V } = singular(rowsOf(requireMat(m!)));
       return matOf([...U, ...V]);
     },
+    // The generalized eigenproblem M·x = λ·N·x, as LAPACK 3.0's dggev or zggev solves it (qz.ts): Mathcad's order,
+    // and vectors scaled so the largest |re| + |im| is 1. An infinite λ is the largest number, signed, as Mathcad gives it.
+    genvals: (m, n) => {
+      const p = pencil(m!, n!, 'genvals');
+      const r = ggev(p.are, p.aim, p.bre, p.bim, 'none');
+      return fromValues(p.size, 1, r.alphaRe.map((ar, k) => {
+        const [ai, br, bi] = [r.alphaIm[k]!, r.betaRe[k]!, r.betaIm[k]!];
+        const dim = dimDiv(p.mdim, p.ndim);
+        // Probed: a real pencil's infinite λ is the largest number with α's sign, and 0/0 is 0; a complex pencil's is NaN.
+        if (br === 0 && bi === 0) {
+          if (p.aim) return num(NaN, dim, NaN);
+          return num(ar === 0 ? 0 : Math.sign(ar) * Number.MAX_VALUE, dim);
+        }
+        const d = br * br + bi * bi;
+        return num((ar * br + ai * bi) / d, dim, (ai * br - ar * bi) / d);
+      }));
+    },
+    genvecs: (m, n, side) => {
+      if (side !== undefined && (side.t !== 'str' || (side.v !== 'L' && side.v !== 'R'))) {
+        throw new EvalError('runtime', 'genvecs\'s third argument is "L" for the left eigenvectors or "R" for the right ones');
+      }
+      const p = pencil(m!, n!, 'genvecs');
+      const r = ggev(p.are, p.aim, p.bre, p.bim, side?.t === 'str' && side.v === 'L' ? 'left' : 'right');
+      const items: Value[] = [];
+      for (let j = 0; j < p.size; j++) for (let i = 0; i < p.size; i++) items.push(num(r.vre![i]![j]!, NODIM, r.vim?.[i]?.[j] ?? 0));
+      return fromValues(p.size, p.size, items);
+    },
+    // s, U and Vᵀ as LAPACK 3.0's dgesvd or zgesvd gives them, signs included (svd.ts). Mathcad puts A's units on
+    // all three; only the singular values carry them here, since U and V are rotations.
+    svd2: (m) => {
+      const a = requireMat(m!, "svd2's argument");
+      if (a.cells) throw new EvalError('runtime', 'svd2 takes a matrix of numbers');
+      if (a.rows < a.cols) throw new EvalError('runtime', 'svd2 needs at least as many rows as columns');
+      const part = (xs: Float64Array) => Array.from({ length: a.rows }, (_, i) => Array.from({ length: a.cols }, (_, j) => xs[j * a.rows + i]!));
+      const r = gesvd(part(a.re), a.im?.some((x) => x !== 0) ? part(a.im) : null);
+      const matrix = (re: number[][], im: number[][] | null): Mat => {
+        const items: Value[] = [];
+        for (let j = 0; j < re[0]!.length; j++) for (let i = 0; i < re.length; i++) items.push(num(re[i]![j]!, NODIM, im ? im[i]![j]! : 0));
+        return fromValues(re.length, re[0]!.length, items);
+      };
+      const s = fromValues(r.s.length, 1, r.s.map((x) => num(x, a.dim)));
+      return fromValues(3, 1, [s, matrix(r.Ure, r.Uim), matrix(r.VTre, r.VTim)]);
+    },
     geninv: (m) => geninv(requireMat(m!)),
     // P, L and U side by side, with P·M = L·U.
     lu: (m) => {
@@ -494,6 +555,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(graphingFns),
     // Smoothing, correlation and wavelets, as Mathcad's (see smoothing.ts).
     ...withArity(smoothingFns),
+    ...withArity(scalingFns),
     ...withArity(specialFns(() => origin)),
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),

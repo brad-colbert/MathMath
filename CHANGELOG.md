@@ -8,6 +8,39 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.47.0] - 2026-11-10
+
+Mathcad's feet-and-inches, time and angle formats, generalized eigenvalues and svd2, and keys for comparisons and logic.
+
+### Added
+
+- Mathcad's scaling functions for builders' and surveyors' formats. FIF reads a length in feet, inches and a fraction
+  of an inch, as "9' 6-1/4\"" or three numbers; hhmmss reads a time as "1:02:03.5" or three numbers; DMS reads an
+  angle in degrees, minutes and seconds. Each also works in a result's unit placeholder, as in Mathcad: FIF shows a
+  length as "9' 6-1/4\"", with the closest fraction of an inch whose denominator is 256 or less; hhmmss shows a time
+  as "1:2:3.5", the seconds to 3 decimals; and DMS shows an angle as a vector of degrees, minutes and seconds. Their
+  answers match Mathcad 14's on more than 100 cases probed, including how each handles signs and what it refuses.
+- time(z), Mathcad's clock for timing a calculation: seconds since 1970, to the millisecond.
+- Help has entries for the four, and a new example in the gallery, a staircase in feet and inches: risers and
+  treads from a builder's tape, the stringer's angle in degrees and minutes, and the time to build it.
+- Mathcad's genvals and genvecs, the eigenvalues and eigenvectors of M·x = λ·N·x, the problem of vibration and
+  buckling, and svd2, the singular value decomposition as three arrays: the singular values, U and Vᵀ. They follow
+  LAPACK 3.0's methods, the ones Mathcad 14 uses, so the eigenvalues come in Mathcad's order and the vectors with
+  its signs: they match Mathcad 14 on all 34 matrix pairs and 21 matrices probed, real and complex, where a newer
+  LAPACK (3.12) gives another order or other signs on more than a dozen of them. An infinite eigenvalue, from a
+  singular N, is the largest number, signed, for real matrices and NaN for complex ones, as in Mathcad. Help entries for the three, and a new gallery example: how a three-storey building sways.
+- About links LAPACK's license, which covers these and the existing eigenvalue functions.
+- Keys for comparisons and logic, as in Mathcad: Ctrl+Shift+7 for ∧ (and), Ctrl+Shift+6 for ∨ (or), Ctrl+Shift+5 for
+  ⊕ (exclusive or), Ctrl+Shift+1 for ¬ (not) and Ctrl+0 for ≥. A new Boolean menu on the toolbar has all of them,
+  with ≤ and ≠, whose keys Ctrl+9 and Ctrl+3 the browser keeps for switching tabs. Before, none of these could be
+  typed except ≤ on the touch keypad.
+
+### Known limits
+
+- svd2 gives the singular values A's units and U and Vᵀ none, since U and V are rotations; Mathcad 14 gives all
+  three parts A's units.
+- The older svd is still MathMath's own method: its columns can differ in sign from Mathcad's svd. svd2 matches.
+
 ## [0.46.0] - 2026-11-10
 
 Mathcad's smoothing, correlation and wavelet functions, and ∧ and ∨ read with Mathcad's precedence.

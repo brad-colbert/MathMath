@@ -137,6 +137,12 @@ function endsInName(field: Field): boolean {
   return !/^[0-9.]$/.test(char(k));
 }
 
+/** Mathcad 14's keys for comparisons and Boolean operators (its Boolean toolbar), by key code. */
+export const BOOLEAN_KEYS: Record<string, string> = {
+  Digit9: '\\le ', Digit0: '\\ge ', Digit3: '\\ne ',
+  'Shift+Digit1': '\\lnot ', 'Shift+Digit7': '\\land ', 'Shift+Digit6': '\\lor ', 'Shift+Digit5': '\\oplus ',
+};
+
 export class Editor {
   readonly field: MathfieldElement;
   private open = false;
@@ -357,6 +363,9 @@ export class Editor {
       return this.consume(e, () => this.insert(e.code === 'Digit4' ? TEMPLATES.sum : TEMPLATES.product));
     }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'Slash') return this.consume(e, () => this.insert(TEMPLATES.nthDerivative));
+    // Mathcad's Boolean keys. Chrome keeps Ctrl+3 and Ctrl+9 for switching tabs, so the Boolean menu has these too.
+    const boolean = (e.ctrlKey || e.metaKey) && !e.altKey ? BOOLEAN_KEYS[`${e.shiftKey ? 'Shift+' : ''}${e.code}`] : undefined;
+    if (boolean) return this.consume(e, () => this.insert(boolean));
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Inside a string every key is just text, except the quote that ends it.
     if (f.mode === 'text' && !this.inName && !['"', 'Escape', 'Enter', 'Tab'].includes(e.key)) return;

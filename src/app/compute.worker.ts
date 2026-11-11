@@ -18,6 +18,8 @@ import { type LimitKey, type Outcome, type Pixels, type PlotData, type SymAnswer
 import { type Snapshot, runIncremental } from '../engine/incremental.js';
 import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetKey } from '../engine/files.js';
 import { type DecodedAudio, isWavFile, parseWav } from '../engine/wav.js';
+import { SCALED_DISPLAYS, scaledDisplay } from '../engine/scaling.js';
+import { EvalError } from '../engine/values.js';
 import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/ast.js';
@@ -291,8 +293,18 @@ function shownValue(o: Outcome, format: NumberFormat): Shown {
   if (o.unevaluated) return { id, unevaluated: true };
   if (o.symbolic) return { id, value: tex(o.symbolic) };
   const c = o.region.content;
-  const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
   if (!o.value) return { id };
+  // FIF, hhmmss or DMS in the unit placeholder shows the value in that format, unless the name was given a value.
+  if ((c.k === 'eval' || c.k === 'define') && c.unit?.k === 'id' && SCALED_DISPLAYS[c.unit.name] && !o.unit) {
+    try {
+      const scaled = scaledDisplay(c.unit.name, o.value)!;
+      const name = `\\mathrm{${c.unit.name}}`;
+      return { id, value: `${formatValue(scaled, formatFor(o.region, format), undefined)}\\ ${name}`, unit: name };
+    } catch (err) {
+      return { id, error: err instanceof EvalError ? err.reason : String(err) };
+    }
+  }
+  const unit = c.k === 'eval' || c.k === 'define' ? displayUnit(c.unit, o.unit) : undefined;
   const shownUnit = unitLatexOf(o.value, unit);
   return { id, value: formatValue(o.value, formatFor(o.region, format), unit), ...(shownUnit ? { unit: shownUnit } : {}) };
 }

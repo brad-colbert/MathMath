@@ -33,6 +33,8 @@ export const TOPICS: Topic[] = [
         ['Ctrl+G', 'Turn the letter before the caret into Greek, as w into ω, or G into Γ'], ['Ctrl+M', 'Matrix'],
         ['&', 'Definite integral'], ['?', 'Derivative'], ['Ctrl+Shift+?', 'Nth derivative'],
         ['Ctrl+Shift+4', 'Sum'], ['Ctrl+Shift+3', 'Product'], ['$', 'Sum over a range variable'], ['#', 'Product over a range variable'],
+        ['Ctrl+Shift+7, Ctrl+Shift+6', 'And ∧, or ∨'], ['Ctrl+Shift+5, Ctrl+Shift+1', 'Exclusive or ⊕, not ¬'],
+        ['Ctrl+0', 'Greater than or equal, ≥; the Boolean menu has ≤ and ≠ too'],
         ['Ctrl+.', 'Evaluate symbolically, →'], ['@', 'On empty paper: an X-Y plot'], ['"', 'On empty paper: a text region'],
         ['"', 'In math: a string, as "data.csv"; type it again to end the string'],
         [']', 'In a program: a new line'], ['{', 'In a program: local definition, ←'], ['}', 'In a program: if'],
@@ -42,6 +44,7 @@ export const TOPICS: Topic[] = [
       { p: '**Examples** on the toolbar opens worksheets that show what MathMath does, each a small problem worked on paper. Open one and change a number: everything below it follows.' },
       { p: 'Names are letters, digits and _, with digits anywhere after the first letter, as x2 or str2num; a name like R.load or J0.sc has a literal subscript, typed with `.`. Functions are called by name with their arguments in brackets, as `sin(x)`. A function of your own is defined like a variable: `f(x):x^2`, and a name you define takes the place of a built-in one with that name.' },
       { p: 'A number followed straight away by i or j is imaginary, as in Mathcad: `3+4i` or `2j`. (`4*i` is 4 times a variable named i.) See Complex numbers. Inside math, `"` starts a string, as "data.csv", and a second `"` ends it; the Strings group in the contents lists what works on them.' },
+      { p: 'Comparisons and logic give 1 for true and 0 for false, as in Mathcad. Type < and > as themselves; the Boolean menu on the toolbar has ≤, ≥, ≠, ¬, ∧, ∨ and ⊕, with their keys. Comparisons bind before ∧, and ∧ before ∨ and ⊕, so x > 1 ∧ x < 5 needs no brackets.' },
       { id: 'typing-2', example: ['f\\left(x\\right)\\coloneq x^{2}-1', 'f\\left(3\\right)='] },
       { h: 'On a phone or tablet' },
       { p: 'The page fits the screen\'s width; pinch, or + and − on the toolbar, to zoom, and Fit to fit it again. Tap the paper to start math there: a keypad opens with numbers and operators (123), functions, templates and units (f(x)), letters (abc) and Greek. Its bar has Next ■ for the next blank, → to evaluate symbolically, Done to finish, and ⏎ to finish and start new math below. Text uses the phone\'s own keyboard.' },
@@ -58,6 +61,7 @@ export const TOPICS: Topic[] = [
       { p: 'Some units have typing shortcuts, since the editor has no Ω or μ key: `kohm`, `Mohm` and `ohm` for kΩ, MΩ and Ω; u for micro, as `uF`, `uA` and `us`; `Omega` alone for Ω.' },
       { p: 'Angles are in radians; `deg` is a unit, so `30*deg` is π/6. Temperatures convert with [[°C]] and [[°F]].' },
       { p: 'Percent is a unit too, as in Mathcad: type `8.25%`, which is 0.0825. To show a result as a percentage, type % in its unit blank.' },
+      { p: 'Three of Mathcad\'s formats read and show values as people write them. [[FIF]] reads a length in feet, inches and fractions, as `FIF("9\' 6-1/4\\"")`, and FIF typed in a length\'s unit blank shows it that way. [[hhmmss]] does the same for times, as "1:02:03.5", and [[DMS]] for angles in degrees, minutes and seconds. The gallery\'s staircase example uses all three.' },
     ],
   },
   {
@@ -69,6 +73,7 @@ export const TOPICS: Topic[] = [
       { p: 'Ctrl+M inserts a matrix, and the Matrix menu has its operators: transpose (Ctrl+1), a column (Ctrl+6), vectorize (Ctrl+−), and rows or columns added. Arrays multiply as matrices; the Vectors and matrices and Linear algebra groups in the contents list their functions.' },
       { id: 'arrays-2', example: ['M\\coloneq \\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}', 'M\\cdot M=', 'M^{-1}='] },
       { p: 'To find values in an array, [[lookup]], [[hlookup]], [[vlookup]] and [[match]] compare numbers within TOL, the worksheet\'s tolerance, and strings exactly.' },
+      { p: 'The eigenvalue and decomposition functions find their answers as Mathcad does, by LAPACK\'s methods, so the order of eigenvalues and the signs of vectors match Mathcad\'s: [[eigenvals]] and [[eigenvecs]] for A·x = λ·x, [[genvals]] and [[genvecs]] for M·x = λ·N·x, as in vibration, and [[svd2]] for the singular value decomposition. The gallery\'s building-sway example uses them.' },
     ],
   },
   {

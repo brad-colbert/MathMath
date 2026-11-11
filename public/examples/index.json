@@ -98,5 +98,15 @@
     "slug": "noisy",
     "title": "Cleaning up a noisy signal",
     "summary": "Noisy readings smoothed three ways, an echo's delay found by correlation, wavelet compression, and a blurred picture."
+  },
+  {
+    "slug": "stairs",
+    "title": "A staircase in feet and inches",
+    "summary": "Laying out a stair from a builder's tape: risers and treads in feet, inches and fractions, the stringer's angle in degrees and minutes, and the time to cut it."
+  },
+  {
+    "slug": "sway",
+    "title": "How a building sways",
+    "summary": "A three-storey frame's natural frequencies and mode shapes, from its stiffness and mass matrices with genvals and genvecs, and its stiffness checked with svd2."
   }
 ]
