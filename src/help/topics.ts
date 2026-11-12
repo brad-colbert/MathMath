@@ -131,6 +131,7 @@ export const TOPICS: Topic[] = [
       { p: 'Type an expression and press Ctrl+. for →: the answer is exact, with letters that have no value kept as symbols. A keyword before → says what to do: choose one from Keywords on the toolbar.' },
       { p: 'Keywords: [[simplify]], [[expand]], [[factor]], [[float]], [[solve]], [[collect]], [[coeffs]], [[series]], [[substitute]], [[parfrac]], [[assume]], [[laplace]], [[invlaplace]], [[ztrans]] and [[invztrans]].' },
       { p: 'Some functions are for →: [[numer]] and [[denom]] take an expression apart, and [[IsPrime]] tests a number of any size. The integrals and series of Mathcad\'s symbolic-only functions, [[Si]], [[Zeta]], [[LambertW]] and the rest, are under [[special]]: → keeps them exact where it can, as Zeta(2) → π²/6, and float gives their decimals.' },
+      { p: 'Answers are written as Mathcad writes them: i on its own, as x² + 1 = 0 solve, x → ±i, and decimals from [[float]] to 20 digits, in full between 10⁻⁶ and 10⁶ and with an exponent outside.' },
       { p: 'The exact answers come from Giac, a computer algebra system by Bernard Parisse and others, which runs in your browser beside MathMath. It is free software under the GNU General Public License; About MathMath links to its source code.' },
     ],
   },

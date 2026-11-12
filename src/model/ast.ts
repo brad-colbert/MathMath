@@ -21,7 +21,8 @@ export type Expr =
    * as float's 20-digit answers do, so they show in full.
    */
   | { k: 'real'; v: number; digits?: string }
-  | { k: 'imag'; v: number }
+  /** An imaginary number. `digits` as for a real; empty in an answer, where 1i shows as i alone, as in Mathcad. */
+  | { k: 'imag'; v: number; digits?: string }
   | { k: 'str'; v: string }
   | { k: 'id'; name: string }
   /** Items are column-major, as in the file format. */

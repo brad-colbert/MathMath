@@ -8,6 +8,29 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.51.1] - 2026-11-11
+
+Answers from → laid out as Mathcad 14 lays them out: decimals, imaginary numbers and equations.
+
+### Fixed
+
+- Decimal answers from → are laid out as Mathcad 14 lays them out: written out in full between 10⁻⁶ and 10⁶, as
+  1/12 float → 0.083333333333333333333, where it showed 0.83333333333333333333×10⁻¹, and with an exponent outside,
+  as 1.0×10⁷; trailing zeros are dropped, as 1/2 float → 0.5, and a whole number keeps .0, as 2.0.
+- The last of 20 digits is rounded, as Mathcad rounds it: 2·10⁶/3 float → 666666.66666666666667, where the
+  algebra engine cut it off at …666.
+- An imaginary part shows as one number, as 2.0 + 3.0i and 1.4142135623730950488i, where it showed 3.0·1i; i on
+  its own shows as i, as x² + 1 = 0 solve → ±i, and i·x as x·i, as Mathcad writes them. An upright i written
+  without a number, as in the impedance example, shows as i too.
+- An exact complex answer no longer shows the engine's rough decimal after it: 3i/4 → 3i/4, where it showed
+  3i/4 = 0.75i.
+- A number typed with more digits than a double holds keeps them all under →: 12345678901234567890123 float →
+  1.234567890123456789×10²², where the last digits were lost.
+- An equation under → keeps its right-hand side: x = 3 → x = 3, where it showed x alone.
+- A Mathcad sheet whose → has a keyword with an argument, as float, 5 or solve, x, opens with it: Mathcad saves
+  these as a sequence, which was read as one unknown keyword.
+- The float Help entry and the Symbolic evaluation topic say how answers are laid out.
+
 ## [0.51.0] - 2026-11-11
 
 Mathcad's symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dilog, Zeta, Psi, LambertW, IsPrime, numer and denom.
