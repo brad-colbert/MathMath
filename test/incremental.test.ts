@@ -95,6 +95,15 @@ describe('recalculating from a change down', () => {
     expect(value(b.outcomes, 'r8')).toBeCloseTo(2 / Math.sin(2), 12);
   });
 
+  test('Pdesolve runs again when a constant its equation uses changes', async () => {
+    const sub = (u: string, k: string) => `${u}_{\\text{${k}}}\\left(x,t\\right)`;
+    const lines = ['a\\coloneq 1', '\\mathrm{Given}', `${sub('u', 't')}=a\\cdot ${sub('u', 'xx')}`, 'u\\left(x,0\\right)=\\sin \\left(\\pi \\cdot x\\right)', 'u\\left(0,t\\right)=0', 'u\\left(1,t\\right)=0',
+      'u\\coloneq \\mathrm{Pdesolve}\\left(u,x,\\begin{pmatrix}0\\\\1\\end{pmatrix},t,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},21,11\\right)', 'u\\left(0.5,0.1\\right)='];
+    const r = await edited(sheetOf(lines), (ws) => set(ws, 'r1', 'a\\coloneq 2'));
+    expect(r.ran).toContain('r8');
+    expect(value(r.outcomes, 'r8')).toBeCloseTo(Math.exp(-2 * Math.PI * Math.PI * 0.1), 4);
+  });
+
   test('a change at the bottom runs only itself', async () => {
     const r = await edited(sheetOf(base), (ws) => set(ws, 'r6', 'w+1='));
     expect(r.ran).toEqual(['r6']);

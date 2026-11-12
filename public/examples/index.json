@@ -118,5 +118,10 @@
     "slug": "shooting",
     "title": "A circuit, a beam and a reaction",
     "summary": "Three kinds of differential equation: a driven RLC circuit with statespace, a loaded beam whose far end is fixed, by shooting with sbval, and a stiff reaction whose Jacobian comes from Jacob."
+  },
+  {
+    "slug": "heat",
+    "title": "Heat in a rod and a plate",
+    "summary": "Partial differential equations: a rod cooling from its ends, solved as written with Pdesolve, and a plate heated along one edge, by relaxation."
   }
 ]

@@ -20,6 +20,7 @@ import { makeBuiltins } from './builtins.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
 import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
 import { nthDerivative } from './differentiate.js';
+import { type Side, methodOfLines } from './pde.js';
 import { odeGrid } from './ode.js';
 import { MATHCAD_WRITES, type Pixels, type Written, mathcadWrite, pixels } from './image.js';
 import {
@@ -274,8 +275,8 @@ const CONSTANTS: Record<string, Num> = {
 };
 
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
-export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'root', 'Jacob']);
-const BLOCK_FORMS = ['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve'];
+export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob']);
+const BLOCK_FORMS = ['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve'];
 const RELATIONS = new Set(['equal', 'lessThan', 'greaterThan', 'lessOrEqual', 'greaterOrEqual']);
 /**
  * A name no sheet can write. Given and each constraint set it, and each solver reads it, so recalculation
@@ -658,6 +659,10 @@ export class Evaluator implements Host {
       return this.find(name, args, ctx.constraints, s);
     }
     if (name === 'Maximize' || name === 'Minimize') return this.optimum(name, args, ctx?.constraints ?? null, s);
+    if (name === 'Pdesolve') {
+      if (!ctx?.constraints) throw new EvalError('runtime', 'Pdesolve ends a solve block: type Given above the partial differential equations and their initial and boundary conditions, then Pdesolve below them');
+      return this.pdesolve(args, ctx.constraints, s);
+    }
     if (!ctx?.constraints) throw new EvalError('runtime', 'Odesolve ends a solve block: type Given above the differential equation and its starting values, then Odesolve below them');
     return this.odesolve(args, ctx, s);
   }
@@ -667,6 +672,124 @@ export class Evaluator implements Host {
    * block's differential equations and their starting values, solved from the starting point to b. Each
    * comes back as a function of t, interpolated between the solution's points.
    */
+  /**
+   * Pdesolve(u, x, xrange, t, trange, [xpts, tpts]), or Pdesolve((u; v), …) for a system: the block's PDEs,
+   * u.t(x, t) = …, written with u(x, t), u.x(x, t) and u.xx(x, t); an initial condition u(x, t1) = …; and a
+   * condition at each end the equation's order needs, u(x1, t) = … or u.x(x1, t) = …. Solved by the method of lines
+   * as numol does, on 10 × 10 points by default, as Mathcad (probed); each function comes back as u(x, t),
+   * interpolated linearly in x and in t between the grid's points, as Mathcad's are.
+   */
+  private pdesolve(args: Expr[], constraints: Expr[], s: Scope): Value {
+    const fn = 'Pdesolve';
+    const [uv, xv, xr, tv, tr, xpv, tpv] = args;
+    if (!uv || xv?.k !== 'id' || !xr || tv?.k !== 'id' || !tr || args.length > 7) {
+      throw new EvalError('runtime', 'Pdesolve takes the function, x, its range, t, its range, and optionally the numbers of points: Pdesolve(u, x, (0; 1), t, (0; 5))');
+    }
+    const names = uv.k === 'id' ? [uv.name] : uv.k === 'matrix' && uv.items.every((e) => e.k === 'id') ? uv.items.map((e) => (e as { name: string }).name) : null;
+    if (!names) throw new EvalError('runtime', "Pdesolve's unknowns must be a function's name, or a vector of names, without their variables");
+    const [x, t] = [xv.name, tv.name];
+    const pair = (e: Expr, what: string): [number, number] => {
+      const v = this.eval(e, s);
+      const m = v.t === 'mat' && v.rows * v.cols === 2 ? [0, 1].map((k) => requireReal(getEl(v, v.cols === 1 ? k : 0, v.cols === 1 ? 0 : k), what)) : null;
+      if (!m || !(m[1]! > m[0]!)) throw new EvalError('runtime', `Pdesolve's ${what} must be a vector of two values, the first below the second`);
+      return m as [number, number];
+    };
+    const [xa, xb] = pair(xr, 'xrange');
+    const [ta, tb] = pair(tr, 'trange');
+    const points = (e: Expr | undefined, what: string, min: number): number => {
+      if (!e) return 10;
+      const n = requireReal(this.eval(e, s), `Pdesolve's ${what}`);
+      if (!Number.isInteger(n) || n < min) throw new EvalError('runtime', `Pdesolve's ${what} must be a whole number, ${min} or more`);
+      return n;
+    };
+    const xpts = points(xpv, 'xpts', 6);
+    const tpts = points(tpv, 'tpts', 2);
+    const isId = (e: Expr | undefined, name: string): boolean => e?.k === 'id' && e.name === name;
+    const callOf = (e: Expr): { name: string; args: Expr[] } | null => (e.k === 'call' && e.fn.k === 'id' ? { name: e.fn.name, args: e.args } : null);
+    const known = new Set(names.flatMap((u) => [u, `${u}.x`, `${u}.xx`, `${u}.t`]));
+    const rates = new Map<string, Expr>();
+    const starts = new Map<string, Expr>();
+    const ends = new Map<string, { at: 0 | 1; neumann: boolean; value: Expr }[]>(names.map((u) => [u, []]));
+    const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+    for (const c of constraints) {
+      if (c.k !== 'op' || c.op !== 'equal') throw new EvalError('runtime', "Pdesolve's block holds equations, with =: the PDEs and their initial and boundary conditions");
+      const [l, r] = c.args as [Expr, Expr];
+      const cl = callOf(l);
+      const cr = callOf(r);
+      const side = cl && known.has(cl.name) && cl.args.length === 2 ? { call: cl, other: r } : cr && known.has(cr.name) && cr.args.length === 2 ? { call: cr, other: l } : null;
+      if (!side) throw new EvalError('runtime', `A Pdesolve condition must have one of ${names.join(', ')} on one side, written with its variables, as ${names[0]}(${x}, 0) = … or ${names[0]}.t(${x}, ${t}) = …`);
+      const { name, args: [ax, at] } = side.call as { name: string; args: [Expr, Expr] };
+      const u = name.replace(/\.(x|xx|t)$/, '');
+      if (name.endsWith('.t') && isId(ax, x) && isId(at, t)) {
+        if (rates.has(u)) throw new EvalError('runtime', `Pdesolve has two equations for ${u}.t`);
+        rates.set(u, side.other);
+      } else if (!name.endsWith('.t') && !name.endsWith('.xx') && isId(at, t)) {
+        const where = requireReal(this.eval(ax, s), 'a boundary');
+        if (!close(where, xa) && !close(where, xb)) throw new EvalError('runtime', `Pdesolve's boundary conditions must be at the ends of xrange, ${xa} or ${xb}, not ${where}`);
+        ends.get(u)!.push({ at: close(where, xa) ? 0 : 1, neumann: name.endsWith('.x'), value: side.other });
+      } else if (name === u && isId(ax, x) && close(requireReal(this.eval(at, s), 'the initial time'), ta)) {
+        starts.set(u, side.other);
+      } else {
+        throw new EvalError('runtime', `Pdesolve can't use the condition on ${name}: it takes ${u}.t(${x}, ${t}) = …, ${u}(${x}, ${ta}) = …, and ${u}(${xa}, ${t}) = … or ${u}.x(${xb}, ${t}) = …`);
+      }
+    }
+    const usesIn = (e: Expr, name: string): boolean => JSON.stringify(e).includes(`{"k":"id","name":${JSON.stringify(name)}}`);
+    const sides = names.map((u) => {
+      const rate = rates.get(u);
+      if (!rate) throw new EvalError('runtime', `Pdesolve needs an equation for ${u}.t(${x}, ${t})`);
+      if (!starts.has(u)) throw new EvalError('runtime', `Pdesolve needs an initial condition for ${u}, as ${u}(${x}, ${ta}) = …`);
+      const order = [...rates.values()].some((e) => usesIn(e, `${u}.xx`)) ? 2 : [...rates.values()].some((e) => usesIn(e, `${u}.x`)) ? 1 : 0;
+      const given = ends.get(u)!;
+      if (given.length !== order) throw new EvalError('runtime', `Pdesolve needs ${order} boundary condition${order === 1 ? '' : 's'} for ${u}, as its equation has ${order === 2 ? 'a second' : order === 1 ? 'a first' : 'no'} derivative in ${x}; it has ${given.length}`);
+      if (order === 2 && given[0]!.at === given[1]!.at) throw new EvalError('runtime', `Pdesolve needs a boundary condition for ${u} at each end of xrange`);
+      const sideAt = (end: 0 | 1): Side => {
+        const g = given.find((b) => b.at === end);
+        if (!g) return { kind: 'free' };
+        return { kind: 'value', neumann: g.neumann, f: (tt) => requireReal(this.eval(g.value, this.bindAt(t, num(tt), s)), 'a boundary condition') };
+      };
+      return { left: sideAt(0), right: sideAt(1), neumann: false };
+    });
+    // The equations see each unknown, and its x derivatives, as the values at the point being worked out.
+    const at = (frame: Scope, k: number, u: number[], ux: number[], uxx: number[]): void => {
+      const u0 = names[k]!;
+      const value = (v: number): Fn => ({ t: 'fn', name: u0, arity: 2, call: () => num(v) });
+      frame.set(u0, value(u[k]!));
+      frame.set(`${u0}.x`, value(ux[k]!));
+      frame.set(`${u0}.xx`, value(uxx[k]!));
+    };
+    const grids = methodOfLines({
+      xa, xb, xpts, ta, tb, tpts, sides, fn,
+      rate: (xx, tt, u, ux, uxx) => {
+        const frame = new Scope(s);
+        frame.set(x, num(xx));
+        frame.set(t, num(tt));
+        names.forEach((_, k) => at(frame, k, u, ux, uxx));
+        return names.map((n) => requireReal(this.eval(rates.get(n)!, frame), `the equation for ${n}.t`));
+      },
+      start: (xx) => names.map((n) => requireReal(this.eval(starts.get(n)!, this.bindAt(x, num(xx), s)), `the initial condition for ${n}`)),
+    });
+    const solved = names.map((u, k): Fn => ({
+      t: 'fn', name: u, arity: 2,
+      call: ([xq, tq]) => {
+        const xv2 = requireReal(xq!, `${u}'s ${x}`);
+        const tv2 = requireReal(tq!, `${u}'s ${t}`);
+        if (xv2 < xa - 1e-12 * Math.abs(xb - xa) || xv2 > xb + 1e-12 * Math.abs(xb - xa) || tv2 < ta - 1e-12 * Math.abs(tb - ta) || tv2 > tb + 1e-12 * Math.abs(tb - ta)) {
+          throw new EvalError('runtime', `${u} is solved for ${x} from ${xa} to ${xb} and ${t} from ${ta} to ${tb}`);
+        }
+        const fx = Math.min(Math.max((xv2 - xa) / (xb - xa), 0), 1) * (xpts - 1);
+        const ft = Math.min(Math.max((tv2 - ta) / (tb - ta), 0), 1) * (tpts - 1);
+        const i = Math.min(Math.floor(fx), xpts - 2);
+        const j = Math.min(Math.floor(ft), tpts - 2);
+        const [a, b] = [fx - i, ft - j];
+        const g = grids[k]!;
+        const v = (ii: number, jj: number) => g[jj * xpts + ii]!;
+        return num((1 - a) * (1 - b) * v(i, j) + a * (1 - b) * v(i + 1, j) + (1 - a) * b * v(i, j + 1) + a * b * v(i + 1, j + 1));
+      },
+    }));
+    if (solved.length === 1) return solved[0]!;
+    return { t: 'mat', rows: solved.length, cols: 1, re: new Float64Array(solved.length), im: null, dim: NODIM, cells: solved };
+  }
+
   private odesolve(args: Expr[], ctx: SolveContext, s: Scope): Value {
     const vector = args[0]?.k === 'matrix';
     const rest = vector ? args.slice(1) : args;

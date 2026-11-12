@@ -8,6 +8,36 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.50.0] - 2026-11-11
+
+Mathcad's partial differential equation solvers: Pdesolve, numol, relax and multigrid.
+
+### Added
+
+- Pdesolve, Mathcad's solve block for partial differential equations in one space dimension and time: the
+  equations written as u.t(x, t) = …, with u.x and u.xx for the space derivatives, an initial condition and
+  boundary conditions, giving u(x, t) as a function. And numol, the same problem given as functions. Both use
+  Mathcad's method of lines, differenced to fourth order in space as Mathcad does, and agree with Mathcad 14 to
+  about 1e−6 on every problem probed with fixed-value or open ends (the heat, advection and wave equations, and
+  systems), Pdesolve on its default 10 × 10 grid and with its linear interpolation between points; Mathcad's own
+  blocks, opened from its files, give the same answers. A problem of 101 points across takes a fraction of a second.
+- relax and multigrid, Mathcad's solvers for Poisson's and Laplace's equations on a square: Numerical Recipes'
+  successive over-relaxation and full multigrid, as Mathcad's are, giving Mathcad's answers to the last digit.
+- Help entries for the four, a part on them in the Differential equations topic, and a new gallery example: a
+  rod cooling and a plate heated at one edge.
+
+### Known limits
+
+- With a slope (Neumann) boundary condition, Mathcad 14's answers aren't consistent: numol drifts away from u = x
+  with a slope of 1 at both ends, which should stay as it is, and both numol and Pdesolve gain heat through an
+  insulated end, rising above the starting temperature. MathMath's follow the exact solutions, so they differ from
+  Mathcad's there.
+- numol's algebraic equations (num_pae above 0), and Pdesolve's algebraic constraints, aren't supported yet.
+- Mathcad offers four ways to difference space, chosen by right-clicking Pdesolve; MathMath uses its default, and
+  opens a sheet saved with another as if it used the default.
+- Where a boundary value changes with time, Mathcad 14's numol shows that boundary's value at the in-between
+  times slightly wrong (its interior values are right); MathMath's are the boundary condition's.
+
 ## [0.49.0] - 2026-11-11
 
 Mathcad's statespace, sbval, bvalfit and Jacob, and a Help topic on differential equations.

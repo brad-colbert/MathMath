@@ -106,13 +106,15 @@ export const TOPICS: Topic[] = [
     ],
   },
   {
-    id: 'odes', title: 'Differential equations', summary: 'Solvers for initial-value problems, linear systems, boundary values, and the Jacobian the stiff solvers take.',
+    id: 'odes', title: 'Differential equations', summary: 'Solvers for initial-value problems, linear systems, boundary values, partial differential equations, and the Jacobian the stiff solvers take.',
     body: [
       { p: 'Write the equations as a vector of first derivatives, D(x, y), with y a vector: y₀′ = y₁ and y₁′ = −y₀ is D(x, y) := (y₁; −y₀). [[rkfixed]] solves from starting values in equal steps, [[Rkadapt]] and [[Bulstoer]] choose their steps, and [[Stiffb]], [[Stiffr]], [[Radau]] and [[BDF]] handle stiff systems. Each gives a table: x in the first column, then each y. A solve block with [[Odesolve]] takes the equations as written instead.' },
       { id: 'odes-1', example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'Y\\coloneq \\mathrm{rkfixed}\\left(\\begin{pmatrix}0\\\\1\\end{pmatrix},0,\\frac{\\pi }{2},10,D\\right)', 'Y_{10,1}='] },
       { p: 'A linear system x′ = A(t)·x + B(t)·u(t) goes straight to [[statespace]], with A, B and u as functions of t.' },
       { p: 'When some conditions are at the far end, as a beam fixed at both ends, [[sbval]] finds the starting values that meet them, by shooting: it solves again and again, adjusting the unknown starting values until the far conditions hold. [[bvalfit]] shoots from both ends to meet in between, for equations that jump there. Pass the starting values to any solver for the whole solution.' },
       { p: 'The stiff solvers want the Jacobian of D: [[Jacob]] works it out from D itself, as J(x, y) := augment(∂D/∂x, Jacob(D(x, y), y)).' },
+      { p: 'Partial differential equations in one space dimension and time, as heat flowing along a rod, go to [[Pdesolve]] in a solve block, written as equations, u.t(x, t) = u.xx(x, t), with the subscripts typed after a . so they read as literal subscripts; or to [[numol]] as functions. Both use the method of lines, as Mathcad does. Poisson\'s and Laplace\'s equations on a square, as a plate\'s temperature, go to [[relax]] or [[multigrid]].' },
+      { id: 'odes-2', example: ['\\mathrm{Given}', 'u_{\\text{t}}\\left(x,t\\right)=u_{\\text{xx}}\\left(x,t\\right)', 'u\\left(x,0\\right)=\\sin \\left(\\pi \\cdot x\\right)', 'u\\left(0,t\\right)=0', 'u\\left(1,t\\right)=0', 'u\\coloneq \\mathrm{Pdesolve}\\left(u,x,\\begin{pmatrix}0\\\\1\\end{pmatrix},t,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},21,11\\right)', 'u\\left(0.5,0.1\\right)='] },
     ],
   },
   {
