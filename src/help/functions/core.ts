@@ -502,6 +502,15 @@ export const CORE: Entry[] = [
     example: ['\\mathrm{UnitsOf}\\left(2\\cdot \\frac{\\mathrm{m}}{\\mathrm{s}}\\right)='],
   },
   {
+    name: 'IsPrime', group: A, usage: 'IsPrime(n)', mathcad: true,
+    summary: '1 if n is a prime number, 0 if not.',
+    details: [
+      'Numbers below 2 aren\'t prime. In Mathcad 14 it works only symbolically, with →; MathMath gives its value with = too, for whole numbers up to 2⁵³, and with → for any size.',
+    ],
+    errors: ['A fraction, a complex number or one with units.'],
+    example: ['\\mathrm{IsPrime}\\left(97\\right)=', '\\mathrm{IsPrime}\\left(91\\right)='],
+  },
+  {
     name: 'gcd', group: A, usage: 'gcd(A, B, …)', mathcad: true,
     summary: 'The greatest common divisor: the largest whole number that divides them all.',
     details: [

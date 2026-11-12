@@ -356,4 +356,104 @@ export const SPECIAL: Entry[] = [
     errors: ['0, where it is infinite.', 'A value too large to hold, over 10³⁰⁷, as ys(0, 800i).', 'A complex order: the order must be real, as in Mathcad.'],
     example: ['\\mathrm{ys}\\left(0,1\\right)='],
   },
+  {
+    name: 'Si', group: 'Special functions', usage: 'Si(x)', mathcad: true,
+    summary: 'The sine integral, ∫₀ˣ sin(t)/t dt.',
+    details: [
+      'Si is odd, and approaches π/2 as x grows. With →, its derivative is sin(x)/x, and ∫₀ˣ sin(t)/t dt gives Si(x). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['A complex x, or one with units.'],
+    example: ['\\mathrm{Si}\\left(2\\right)=', '\\mathrm{Si}\\left(100\\right)='],
+  },
+  {
+    name: 'Ci', group: 'Special functions', usage: 'Ci(x)', mathcad: true,
+    summary: 'The cosine integral, γ + ln(x) + ∫₀ˣ (cos(t) − 1)/t dt.',
+    details: [
+      'Ci(x) tends to 0 as x grows, and to −∞ at 0. For a negative x it is complex, Ci(|x|) + iπ, as Mathcad gives it. Its derivative is cos(x)/x. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['0, where Ci is infinite.', 'A complex x, or one with units.'],
+    example: ['\\mathrm{Ci}\\left(2\\right)=', '\\mathrm{Ci}\\left(-2\\right)='],
+  },
+  {
+    name: 'Shi', group: 'Special functions', usage: 'Shi(x)', mathcad: true,
+    summary: 'The hyperbolic sine integral, ∫₀ˣ sinh(t)/t dt.',
+    details: [
+      'Shi is odd and grows like eˣ/(2x). Its derivative, with →, is sinh(x)/x. Mathcad 14 knows the name but leaves Shi(2) unevaluated even with float; MathMath gives the value, with = or float.',
+    ],
+    errors: ['A complex x, or one with units.', 'A value too large to hold, beyond x of about 717.'],
+    example: ['\\mathrm{Shi}\\left(2\\right)='],
+  },
+  {
+    name: 'Chi', group: 'Special functions', usage: 'Chi(x)', mathcad: true,
+    summary: 'The hyperbolic cosine integral, γ + ln(x) + ∫₀ˣ (cosh(t) − 1)/t dt.',
+    details: [
+      'For a negative x it is complex, Chi(|x|) + iπ, as Ci is. Its derivative is cosh(x)/x. As with [[Shi]], Mathcad 14 leaves it unevaluated; MathMath gives the value.',
+    ],
+    errors: ['0, where Chi is infinite.', 'A complex x, or one with units.'],
+    example: ['\\mathrm{Chi}\\left(2\\right)='],
+  },
+  {
+    name: 'Ei', group: 'Special functions', usage: 'Ei(x) or Ei(n, x)', mathcad: true,
+    summary: 'The exponential integral, the principal value of ∫ eᵗ/t dt from −∞ to x; with two arguments, Eₙ(x) = ∫₁^∞ e^(−xt)/tⁿ dt.',
+    details: [
+      'Ei(−x) = −E₁(x) for x above 0, so Ei(1, x) = −Ei(−x). Its derivative is eˣ/x. n is a whole number, 0 or more. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['Ei(0), which is −∞.', 'Ei(n, x) with x below 0, or at 0 with n of 0 or 1.', 'A complex x, or one with units.'],
+    example: ['\\mathrm{Ei}\\left(1\\right)=', '\\mathrm{Ei}\\left(2,1\\right)='],
+  },
+  {
+    name: 'FresnelS', group: 'Special functions', usage: 'FresnelS(x)', mathcad: true,
+    summary: 'The Fresnel sine integral, ∫₀ˣ sin(πt²/2) dt.',
+    details: [
+      'It approaches ½ as x grows, and is odd. Its derivative is sin(πx²/2). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['A complex x, or one with units.'],
+    example: ['\\mathrm{FresnelS}\\left(1\\right)='],
+  },
+  {
+    name: 'FresnelC', group: 'Special functions', usage: 'FresnelC(x)', mathcad: true,
+    summary: 'The Fresnel cosine integral, ∫₀ˣ cos(πt²/2) dt.',
+    details: [
+      'It approaches ½ as x grows, and is odd. Plotting FresnelC(x) against [[FresnelS]](x) draws the Cornu spiral. Its derivative is cos(πx²/2). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['A complex x, or one with units.'],
+    example: ['\\mathrm{FresnelC}\\left(1\\right)='],
+  },
+  {
+    name: 'dilog', group: 'Special functions', usage: 'dilog(x)', mathcad: true,
+    summary: 'The dilogarithm, ∫₁ˣ ln(t)/(1 − t) dt, which is Li₂(1 − x).',
+    details: [
+      'dilog(1) = 0, dilog(0) = π²/6 and dilog(2) = −π²/12. Below 0 it is complex, as dilog(−1) = π²/4 − iπ·ln 2. Its derivative is −ln(x)/(x − 1). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['A complex x, or one with units.'],
+    example: ['\\mathrm{dilog}\\left(0.5\\right)=', '\\mathrm{dilog}\\left(-1\\right)='],
+  },
+  {
+    name: 'Zeta', group: 'Special functions', usage: 'Zeta(s)', mathcad: true,
+    summary: 'Riemann\'s zeta function, the sum of 1/kˢ over k = 1, 2, 3, … and its continuation.',
+    details: [
+      'With →, even whole numbers give exact forms, as Zeta(2) → π²/6. It is 0 at the negative even numbers, and Zeta(0) = −½. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['1, where Zeta is infinite.', 'A complex s, or one with units.'],
+    example: ['\\mathrm{Zeta}\\left(3\\right)=', '\\mathrm{Zeta}\\left(0.5\\right)='],
+  },
+  {
+    name: 'Psi', group: 'Special functions', usage: 'Psi(x) or Psi(n, x)', mathcad: true,
+    summary: 'The digamma function, the derivative of ln Γ(x); with two arguments, its nth derivative, the polygamma function.',
+    details: [
+      'Psi(1) → −γ, Euler\'s constant, and Psi(x + 1) = Psi(x) + 1/x. n is a whole number, 0 or more. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+    ],
+    errors: ['0 or a negative whole number, where Psi is infinite.', 'A complex x, or one with units.'],
+    example: ['\\mathrm{Psi}\\left(2.5\\right)=', '\\mathrm{Psi}\\left(1,2.5\\right)='],
+  },
+  {
+    name: 'LambertW', group: 'Special functions', usage: 'LambertW(x) or LambertW(n, x)', mathcad: true,
+    summary: 'Lambert\'s W: the w for which w·eʷ = x, on the principal branch, or on branch n.',
+    details: [
+      'It is real on the principal branch for x from −1/e up, and on branch −1 for x from −1/e to 0; elsewhere, and on the other branches, it is complex. x can be complex. Its derivative is W/(x·(W + 1)). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'Mathcad 14 gives LambertW(−0.2) as 0 with float, which is wrong: the value is −0.2592, as MathMath gives.',
+    ],
+    errors: ['LambertW(n, 0) on any branch but 0, which is −∞.', 'A branch that isn\'t a whole number.'],
+    example: ['\\mathrm{LambertW}\\left(1\\right)=', '\\mathrm{LambertW}\\left(-1,-0.2\\right)='],
+  },
 ];
