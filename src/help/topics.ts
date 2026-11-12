@@ -130,6 +130,7 @@ export const TOPICS: Topic[] = [
     body: [
       { p: 'Type an expression and press Ctrl+. for →: the answer is exact, with letters that have no value kept as symbols. A keyword before → says what to do: choose one from Keywords on the toolbar.' },
       { p: 'Keywords: [[simplify]], [[expand]], [[factor]], [[float]], [[solve]], [[collect]], [[coeffs]], [[series]], [[substitute]], [[parfrac]], [[assume]], [[laplace]], [[invlaplace]], [[ztrans]] and [[invztrans]].' },
+      { p: 'Some functions are for →: [[numer]] and [[denom]] take an expression apart, and [[IsPrime]] tests a number of any size. The integrals and series of Mathcad\'s symbolic-only functions, [[Si]], [[Zeta]], [[LambertW]] and the rest, are under [[special]]: → keeps them exact where it can, as Zeta(2) → π²/6, and float gives their decimals.' },
       { p: 'The exact answers come from Giac, a computer algebra system by Bernard Parisse and others, which runs in your browser beside MathMath. It is free software under the GNU General Public License; About MathMath links to its source code.' },
     ],
   },
@@ -155,13 +156,17 @@ export const TOPICS: Topic[] = [
     ],
   },
   {
-    id: 'special', title: 'Special functions', summary: 'Γ, Bessel, Airy and Kelvin functions, orthogonal polynomials and hypergeometric functions.',
+    id: 'special', title: 'Special functions', summary: 'Γ, Bessel, Airy and Kelvin functions, orthogonal polynomials, hypergeometric functions, and the sine, exponential and Fresnel integrals, ζ, ψ and Lambert\'s W.',
     body: [
       { p: 'Type Γ as G then Ctrl+G: [[Γ]](z) and the incomplete Γ(a, x), with [[lnΓ]] for when Γ is too large. The polynomials [[Her]], [[Tcheb]], [[Ucheb]], [[Lag]], [[Leg]] and [[Jac]] take a whole-number degree; [[fhyper]] and [[mhyper]] are the hypergeometric functions.' },
       { p: 'The Bessel functions take any real order, fractional or negative: [[J0]], [[Jn]], [[Y0]], [[Yn]], [[I0]], [[In]], [[K0]], [[Kn]], the Hankel functions [[H1]] and [[H2]], the Airy functions [[Ai]] and [[Bi]], the Kelvin functions [[ber]] and [[bei]], and the spherical [[js]] and [[ys]]. Each Bessel and Airy function has a scaled form, typed with .sc, as J0.sc: it stays in range where the plain one would overflow, as I0.sc(1000).' },
       { id: 'special-1', example: ['J0\\left(2.4048\\right)=', '\\mathrm{Jn}\\left(0.5,3\\right)=', '\\Gamma\\left(0.5\\right)^{2}='] },
       { p: 'The Bessel and Airy functions take complex arguments as well as real ones, as Mathcad\'s do, and the spherical js and ys too; the order stays real. At a negative real argument a fractional order gives a complex answer, as it should: Mathcad 14 keeps only the real part there. Only ber and bei need a real argument, as in Mathcad. Far out, beyond |z| of about 10⁹, Mathcad 14 gives up on J, Y and the Hankel functions; MathMath still gives their values.' },
       { id: 'special-2', example: ['J0\\left(1+1\\mathrm{i}\\right)=', '\\mathrm{Kn}\\left(0.5,2+1\\mathrm{i}\\right)=', '\\mathrm{Ai}\\left(-2+1\\mathrm{i}\\right)='] },
+      { h: 'Integrals and series' },
+      { p: 'The sine and cosine integrals [[Si]] and [[Ci]], their hyperbolic forms [[Shi]] and [[Chi]], the exponential integral [[Ei]], the Fresnel integrals [[FresnelS]] and [[FresnelC]], the dilogarithm [[dilog]], Riemann\'s [[Zeta]], the digamma and polygamma functions [[Psi]], and Lambert\'s [[LambertW]] are Mathcad\'s symbolic-only functions. In Mathcad 14 they work only with →: exactly where they can, as Zeta(2) → π²/6 and Psi(1) → −γ, and as decimals with the float keyword. MathMath gives their values with = as well, to about 16 digits.' },
+      { p: 'Their derivatives come out with →, as d/dx FresnelS(x) → sin(πx²/2), and Giac recognizes some integrals as them, as ∫₀ˣ sin(t)/t dt → Si(x). They take real arguments, apart from LambertW, and Ci, Chi and dilog give complex values for some, as Ci(−2) = Ci(2) + iπ.' },
+      { id: 'special-3', example: ['\\mathrm{Si}\\left(\\pi\\right)=', '\\mathrm{Zeta}\\left(3\\right)=', '\\mathrm{LambertW}\\left(1\\right)\\cdot e^{\\mathrm{LambertW}\\left(1\\right)}='] },
     ],
   },
   {

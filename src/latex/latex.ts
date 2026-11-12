@@ -388,7 +388,7 @@ export function readTex(src: string): Expr {
   };
   /**
    * Adjacent letters are one name, as in Mathcad, Greek ones included (Δx, αβ). Multiplication is
-   * always written. A whole name spelled as a Greek letter (alpha) is that letter.
+   * always written. A whole name spelled as a Greek letter (alpha) is that letter, apart from Psi( (see below).
    */
   const word = (first: string): string => {
     // A name runs on through letters and digits alike once it has begun with a letter, as Mathcad's do: str2num.
@@ -402,6 +402,8 @@ export function readTex(src: string): Expr {
       else break;
       p++;
     }
+    // Psi typed as a call is Mathcad's digamma function, Psi(x), not a Ψ: Ψ itself comes from Ctrl+G.
+    if (w === 'Psi' && is('\\left') && toks[p + 1]?.v === '(') return w;
     return GREEK_WORDS[w] ?? w;
   };
   const callOrId = (base: string): Expr => {

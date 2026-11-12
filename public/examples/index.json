@@ -123,5 +123,10 @@
     "slug": "heat",
     "title": "Heat in a rod and a plate",
     "summary": "Partial differential equations: a rod cooling from its ends, solved as written with Pdesolve, and a plate heated along one edge, by relaxation."
+  },
+  {
+    "slug": "fringes",
+    "title": "Fringes, an overshoot and a diode",
+    "summary": "Integrals with names: light bending round an edge with the Fresnel integrals, the Gibbs overshoot with the sine integral, and a diode's current, exactly, with Lambert's W."
   }
 ]

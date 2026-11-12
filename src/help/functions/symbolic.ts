@@ -88,4 +88,16 @@ export const SYMBOLIC: Entry[] = [
     name: 'invztrans', usage: 'expr invztrans, z →', summary: 'The inverse z-transform of an expression in z: a function of n.',
     example: ['\\frac{z}{z-2}\\ \\mathbf{invztrans},z\\to '], answer: '2^{n}',
   }),
+  {
+    name: 'numer', group: 'Arithmetic and functions', usage: 'numer(expr) →', mathcad: true, results: 'symbolic',
+    summary: 'The numerator of an expression, once it is written as one fraction.',
+    details: ['numer(3/4) → 3, and numer((a + 1)/(b·c)) → a + 1. It works on expressions, so evaluate it with → (Ctrl+.); = is an error. See also [[denom]].'],
+    example: ['\\mathrm{numer}\\left(\\frac{a+1}{b\\cdot c}\\right)\\to '], answer: 'a+1',
+  },
+  {
+    name: 'denom', group: 'Arithmetic and functions', usage: 'denom(expr) →', mathcad: true, results: 'symbolic',
+    summary: 'The denominator of an expression, once it is written as one fraction.',
+    details: ['denom(3/4) → 4, and denom(1/x + 1/y) → x·y. It works on expressions, so evaluate it with → (Ctrl+.); = is an error. See also [[numer]].'],
+    example: ['\\mathrm{denom}\\left(\\frac{1}{x}+\\frac{1}{y}\\right)\\to '], answer: 'x\\cdot y',
+  },
 ];

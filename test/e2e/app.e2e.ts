@@ -2494,6 +2494,37 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Mathcad's symbolic-only functions: values with =, exact forms with →.
+{
+  const page = await fresh();
+  const arrow = async (): Promise<void> => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press('Period');
+    await page.keyboard.up('Control');
+    await sleep(60);
+    await page.keyboard.press('Escape');
+    await sleep(50);
+  };
+  await type(page, 72, 60, 'Si(2)=');
+  await type(page, 300, 60, 'LambertW(-1,-0.2)=');
+  await clickAt(page, 72, 120);
+  await keys(page, 'Zeta(2');
+  await arrow();
+  await clickAt(page, 300, 120);
+  await keys(page, 'Psi(1');
+  await arrow();
+  await clickAt(page, 72, 180);
+  await keys(page, 'IsPrime(97');
+  await arrow();
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.region')].every((e) => !/→\s*$/.test(e.innerText.trim())), { timeout: 60000 }).catch(() => {});
+  await idle(page);
+  const s = (await shown(page)).map((x) => x.replace(/[\s​]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  check('Si and LambertW give their values with =', has('Si(2)=', '1.605') && has('LambertW(−1,−0.2)=', '−2.543'), s);
+  check('Zeta(2) → π²/6, Psi(1) → −γ and IsPrime(97) → 1', has('Zeta(2)→', 'π') && has('Psi(1)→', '−γ') && has('IsPrime(97)→', '1'), s);
+  await page.close();
+}
+
 // statespace, sbval and Jacob, typed against functions already on the sheet.
 {
   const page = await fresh();

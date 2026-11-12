@@ -8,6 +8,41 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.51.0] - 2026-11-11
+
+Mathcad's symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dilog, Zeta, Psi, LambertW, IsPrime, numer and denom.
+
+### Added
+
+- Mathcad's symbolic-only functions: the sine and cosine integrals Si and Ci, their hyperbolic forms Shi and Chi,
+  the exponential integral Ei and Eₙ as Ei(n, x), the Fresnel integrals FresnelS and FresnelC, the dilogarithm
+  dilog, Riemann's Zeta, the digamma and polygamma functions Psi(x) and Psi(n, x), Lambert's W as LambertW(x) and
+  LambertW(n, x) on any branch, IsPrime, and numer and denom. With →, Giac keeps them exact where it can, as
+  Zeta(2) → π²/6 and Psi(1) → −γ, and their derivatives come out as Mathcad gives them, as d/dx FresnelS(x) →
+  sin(πx²/2). The float keyword gives their decimals, and MathMath gives their values with = too, which Mathcad
+  14 can't. The values agree with Mathcad 14's float answers and with mpmath, at over 600 points, to about 1e−12
+  or better.
+- A derivative of a function of your own with no definition, as d/dx g(x²), now shows as having no closed form,
+  where it was an error about reading Giac's answer.
+- Help entries for each, a part on them in the Special functions topic, and a new gallery example: light bending
+  round a razor's edge, the Gibbs overshoot of a square wave, and a diode's current solved exactly with LambertW.
+
+### Changed
+
+- Psi typed as a call, Psi(x), is now Mathcad's digamma function; Psi on its own is still Ψ, and Ψ typed with
+  Ctrl+G is still Ψ, as a function of your own or not.
+
+### Known limits
+
+- The values MathMath works out itself have a double's 16 significant digits, so float shows those, not 20,
+  for Shi, Chi, FresnelS, FresnelC, dilog, Psi(n, x), Ci of a negative number, and any of them with a decimal
+  argument. With whole-number arguments, Si, Ci, Ei, Zeta, Psi(x) and LambertW keep all 20 digits.
+- Mathcad 14 gives LambertW(−0.2) as 0, which is wrong; MathMath gives the true value, −0.2592. Mathcad 14
+  leaves Shi and Chi unevaluated, even with float; MathMath gives their values.
+- Their arguments must be real, apart from LambertW's. Giac doesn't know Shi, Chi, FresnelS, FresnelC or dilog,
+  so MathMath writes their derivatives in itself, of any order; but their integrals and series aren't found, and
+  show as having no closed form.
+
 ## [0.50.0] - 2026-11-11
 
 Mathcad's partial differential equation solvers: Pdesolve, numol, relax and multigrid.
