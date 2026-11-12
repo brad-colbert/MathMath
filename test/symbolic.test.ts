@@ -20,7 +20,7 @@ import type { Content, Expr } from '../src/model/ast.js';
 import { Defs } from '../src/symbolic/defs.js';
 import { NotSymbolic, expand } from '../src/symbolic/expand.js';
 import { Printer, buildRequest, readAnswer } from '../src/symbolic/giac.js';
-import { parse } from '../src/symbolic/text.js';
+import { mathcadDecimal, parse, roundDecimal } from '../src/symbolic/text.js';
 import { readTex, tex } from '../src/latex/latex.js';
 import { id, math, real, sheet, stat } from './helpers.js';
 
@@ -277,5 +277,68 @@ describe('collect and float, as Mathcad 14 gives them', () => {
     // And they survive the text form: reading the LaTeX back keeps them.
     expect(tex(readTex(tex(got.result)))).toBe('3.1415926535897932385');
     expect(tex(readTex('-0.33333333333333333333'))).toBe('-0.33333333333333333333');
+  });
+});
+
+describe('answers laid out as Mathcad 14 lays them out (probed 2026-11-11)', () => {
+  test.each([
+    ['0.83333333333333333333e-1', '0.083333333333333333333'], ['-0.83333333333333333333e-1', '-0.083333333333333333333'],
+    ['0.83333333333333333333e-5', '0.0000083333333333333333333'], ['0.83333333333333333333e-6', '8.3333333333333333333e-7'],
+    ['0.1e-5', '1.0e-6'], ['0.15e-5', '0.0000015'], ['0.1e-4', '0.00001'], ['666666.66666666666667', '666666.66666666666667'],
+    ['0.33333333333333333333e7', '3.3333333333333333333e6'], ['0.12345678901234567890e23', '1.234567890123456789e22'],
+    ['2.0000000000000000000', '2.0'], ['100.00000000000000000', '100.0'], ['0.50000000000000000000', '0.5'], ['0.10000000000000000000e8', '1.0e7'],
+  ])('%s as %s: in full between 10⁻⁶ and 10⁶, with an exponent outside, trailing zeros dropped', (giac, mathcad) => {
+    expect(mathcadDecimal(giac)).toBe(mathcad);
+  });
+
+  test('the last digit rounds, where Giac cuts it off: it is asked for two more', () => {
+    expect(roundDecimal('0.6666666666666666666667e6', 20)).toBe('0.66666666666666666667e6');
+    expect(roundDecimal('3.141592653589793238463', 20)).toBe('0.31415926535897932385e1');
+    expect(roundDecimal('0.9999999999999999999999', 20)).toBe('0.10000000000000000000e1');
+    const p = new Printer();
+    const c = sym(op('div', op('mult', R(2), op('pow', R(10), R(6))), R(3)), { name: 'float', args: [] });
+    const req = buildRequest(c.expr, c.commands, p);
+    expect(req.command).toBe('evalf(((2*(10^6))/3),22)');
+    expect(tex((readAnswer('0.6666666666666666666667e6', c, req, p) as { result: Expr }).result)).toBe('666666.66666666666667');
+  });
+
+  test('an imaginary part is one number, 1.4142i, not 1.4142·1i; i alone is i; i·x is x·i', () => {
+    const p = new Printer();
+    const c = sym(V('x'));
+    const req = buildRequest(c.expr, c.commands, p);
+    const x = [...p.back][0]![0];
+    const show = (out: string): string => tex((readAnswer(out, c, req, p) as { result: Expr }).result);
+    expect(show('2.0000000000000000000+3.0000000000000000000*i')).toBe('2.0+3.0\\mathrm{i}');
+    expect(show('-0.83333333333333333333e-1*i')).toBe('-0.083333333333333333333\\mathrm{i}');
+    expect(show('list[i,-i]')).toBe('\\begin{pmatrix}\\mathrm{i}\\\\-\\mathrm{i}\\end{pmatrix}');
+    expect(show(`i*${x}`)).toBe('x\\cdot \\mathrm{i}');
+    expect(show('5+i')).toBe('5+\\mathrm{i}');
+  });
+
+  test('Giac\'s approximation after an exact complex answer is dropped, as after a real one', () => {
+    const p = new Printer();
+    const c = sym(V('x'));
+    const req = buildRequest(c.expr, c.commands, p);
+    expect(tex((readAnswer('3*i/4=0.75*i', c, req, p) as { result: Expr }).result)).toBe('\\frac{3\\mathrm{i}}{4}');
+    expect(tex((readAnswer('2*sqrt(2)+i=2.82842712475+i', c, req, p) as { result: Expr }).result)).toBe('2\\cdot \\sqrt{2}+\\mathrm{i}');
+  });
+
+  test('the answers read back from their LaTeX as they were, as a copied region pastes', () => {
+    for (const t of ['1.4142135623730950488\\mathrm{i}', '\\mathrm{i}', 'x\\cdot \\mathrm{i}', '-0.083333333333333333333\\mathrm{i}', '8.3333333333333333333\\times10^{-10}']) {
+      expect(tex(readTex(t))).toBe(t);
+    }
+  });
+
+  test('an equation keeps its right-hand side: Giac adds no approximation after one', () => {
+    const p = new Printer();
+    const c = sym(op('equal', V('x'), R(3)));
+    const req = buildRequest(c.expr, c.commands, p);
+    expect(tex((readAnswer(`${[...p.back][0]![0]}=3`, c, req, p) as { result: Expr }).result)).toBe('x=3');
+  });
+
+  test('a number with more digits than a double holds goes to Giac as typed', () => {
+    const p = new Printer();
+    const c = sym(readTex('12345678901234567890123'), { name: 'float', args: [] });
+    expect(buildRequest(c.expr, c.commands, p).command).toBe('evalf(12345678901234567890123,22)');
   });
 });

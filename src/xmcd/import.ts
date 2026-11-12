@@ -292,7 +292,9 @@ function parseSym(e: XElement, target: Target | null, global: boolean): Content 
   const body = cs.find((c) => c.localName !== 'command' && c.localName !== 'symResult');
   if (!body) return { k: 'other', tag: 'symEval' };
   const commands = cs.filter((c) => c.localName === 'command').map((c) => {
-    const [name, ...args] = kids(c);
+    // A keyword with arguments, as float, 5 or solve, x, comes as a sequence: Mathcad 14 saves it so (probed).
+    const parts = kids(c);
+    const [name, ...args] = parts.length === 1 && parts[0]!.localName === 'sequence' ? kids(parts[0]!) : parts;
     return { name: name?.textContent?.trim() ?? '', args: args.map(parseExpr) };
   });
   const result = kids(cs.find((c) => c.localName === 'symResult') ?? e).find((c) => c.localName !== 'command');

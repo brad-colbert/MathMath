@@ -22,7 +22,7 @@ import type { Content, Expr, SymCommand } from '../model/ast.js';
 import type { C } from '../engine/complex.js';
 import { SYMFN_ARITY, symFns } from '../engine/symfns.js';
 import { num } from '../engine/values.js';
-import { parse } from './text.js';
+import { mathcadDecimal, parse, roundDecimal } from './text.js';
 
 export interface GiacRequest {
   setup: string[];
@@ -57,7 +57,7 @@ const CONSTANTS: Record<string, string> = { 'π': 'pi', e: 'e', '∞': '(+infini
 
 /** What comes back. Generated names map back separately. */
 const FROM_GIAC: Record<string, Expr> = {
-  pi: { k: 'id', name: 'π' }, e: { k: 'id', name: 'e' }, i: { k: 'imag', v: 1 }, infinity: { k: 'id', name: '∞' },
+  pi: { k: 'id', name: 'π' }, e: { k: 'id', name: 'e' }, infinity: { k: 'id', name: '∞' },
   // Euler's constant, as Mathcad 14 writes Psi(1) → −γ; IsPrime's answer, as Mathcad's 1 or 0.
   euler_gamma: { k: 'id', name: 'γ' }, true: { k: 'real', v: 1 }, false: { k: 'real', v: 0 },
 };
@@ -146,10 +146,31 @@ function numericCalls(e: Expr, float: boolean, made: WeakSet<Expr>): Expr {
   return { k: 'op', op: 'plus', args: [part(out.re), { k: 'op', op: 'mult', args: [part(out.im), { k: 'imag', v: 1 }] }] };
 }
 
+/** Each decimal rounded to n significant digits, from the two more Giac was asked for. */
+function rounded(e: Expr, n: number): Expr {
+  const fix = <T extends { v: number; digits?: string }>(x: T): T => {
+    if (x.digits === '' || x.digits === undefined) return x;
+    const shown = mathcadDecimal(roundDecimal(x.digits.replace('×', 'e'), n));
+    const v = Number(shown);
+    const { digits: _, ...rest } = x;
+    return (shown === String(v) ? { ...rest, v } : { ...rest, v, digits: shown }) as T;
+  };
+  if (e.k === 'real' || e.k === 'imag') return fix(e);
+  if (e.k === 'op') return { ...e, args: e.args.map((a) => rounded(a, n)) };
+  if (e.k === 'matrix') return { ...e, items: e.items.map((a) => rounded(a, n)) };
+  if (e.k === 'call') return { ...e, args: e.args.map((a) => rounded(a, n)) };
+  return e;
+}
+
 /** Each number rounded to 16 significant digits, the rest of a 20-digit answer being only zeros or noise. */
 function sixteen(e: Expr): Expr {
-  if (e.k === 'real') return { k: 'real', v: Number(e.v.toPrecision(16)) };
-  if (e.k === 'imag') return { k: 'imag', v: Number(e.v.toPrecision(16)) };
+  const round = (v: number): { v: number; digits?: string } => {
+    const shown = mathcadDecimal(v.toPrecision(16));
+    const r = Number(shown);
+    return shown === String(r) ? { v: r } : { v: r, digits: shown };
+  };
+  if (e.k === 'real') return { k: 'real', ...round(e.v) };
+  if (e.k === 'imag') return e.digits === '' ? e : { k: 'imag', ...round(e.v) };
   if (e.k === 'op') return { ...e, args: e.args.map(sixteen) };
   if (e.k === 'matrix') return { ...e, items: e.items.map(sixteen) };
   if (e.k === 'call') return { ...e, args: e.args.map(sixteen) };
@@ -177,6 +198,8 @@ export class Printer {
   /** Values MathMath worked out (see numericCalls), printed under float as fractions of their 16 digits. */
   readonly worked = new WeakSet<Expr>();
   float = false;
+  /** For float: the significant digits asked for, when Giac is asked for more, to round to here. */
+  floatDigits: number | null = null;
   /** Whether the command has any of those values in it, and so is good to 16 digits, not 20. */
   usedWorked = false;
   /** Whether this is the second round, after derivatives of functions Giac doesn't know were put in. */
@@ -218,6 +241,8 @@ export class Printer {
       case 'real': {
         if (this.worked.has(e)) this.usedWorked = true;
         if (this.float && this.worked.has(e)) return sixteenDigits(e.v);
+        // More digits than a double holds, as typed: sent as typed, checked to be only a number first.
+        if (e.digits && /^-?\d+(\.\d+)?(e[+-]?\d+)?$/.test(e.digits) && (!this.exactNumbers || /^-?\d+$/.test(e.digits))) return e.digits.startsWith('-') ? `(${e.digits})` : e.digits;
         const text = this.exactNumbers && !Number.isInteger(e.v) ? `exact(${e.v})` : String(e.v);
         return e.v < 0 ? `(${text})` : text;
       }
@@ -314,7 +339,14 @@ function applyKeyword(cmd: string, c: SymCommand, p: Printer, req: GiacRequest, 
     case 'substitute': return `subst(${cmd},${arg(0)})`;
     case 'solve': return `csolve(${cmd},${arg(0)})`;
     case 'series': return `convert(series(${cmd},${c.args[0]?.k === 'id' ? `${arg(0)}=0` : arg(0)},${c.args[1] ? arg(1) : 6}),polynom)`;
-    case 'float': return `evalf(${cmd},${c.args[0] ? arg(0) : 20})`;
+    case 'float': {
+      // Giac cuts off the last of 16 or more digits rather than rounding it, as 666666.66666666666666 for Mathcad's
+      // …667: it is asked for two more, and the answer rounded here (see readAnswer).
+      const n = c.args[0] === undefined ? 20 : c.args[0].k === 'real' && Number.isInteger(c.args[0].v) && c.args[0].v > 0 ? c.args[0].v : null;
+      if (n === null) return `evalf(${cmd},${arg(0)})`;
+      if (n >= 16) p.floatDigits = n;
+      return `evalf(${cmd},${n >= 16 ? n + 2 : n})`;
+    }
     // As Mathcad: the transform's variable, then optionally the result's, which is otherwise s, t, z or n.
     case 'laplace': return `laplace(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('s')})`;
     case 'invlaplace': return `ilaplace(${cmd},${arg(0)},${c.args[1] ? arg(1) : p.name('t')})`;
@@ -354,10 +386,12 @@ function backToSheet(e: Expr, p: Printer): Expr {
     case 'id': {
       const sheet = p.back.get(e.name);
       if (sheet) return { k: 'id', name: sheet };
+      // i alone shows as i, as Mathcad shows it, not 1i; under float, as 1.0i.
+      if (e.name === 'i') return { k: 'imag', v: 1, digits: p.float ? '1.0' : '' };
       return FROM_GIAC[e.name] ?? e;
     }
     case 'matrix': return { ...e, items: e.items.map(go) };
-    case 'op': return { ...e, args: e.args.map(go) };
+    case 'op': return imaginary({ ...e, args: e.args.map(go) });
     case 'call': {
       const name = (e.fn as { name: string }).name;
       const args = e.args.map(go);
@@ -371,6 +405,21 @@ function backToSheet(e: Expr, p: Printer): Expr {
     }
     default: return e;
   }
+}
+
+/**
+ * Giac's 1.4142*i as one imaginary number, 1.4142i, as Mathcad writes it, rather than 1.4142·i; and i·x as x·i,
+ * Mathcad's order.
+ */
+function imaginary(e: Extract<Expr, { k: 'op' }>): Expr {
+  if (e.op !== 'mult' || e.args.length !== 2) return e;
+  const [a, b] = e.args as [Expr, Expr];
+  const bare = (x: Expr): boolean => x.k === 'imag' && x.v === 1 && x.digits !== undefined;
+  const times = (r: Extract<Expr, { k: 'real' }>): Expr => ({ k: 'imag', v: r.v, ...(r.digits !== undefined ? { digits: r.digits } : {}) });
+  if (bare(b) && a.k === 'real') return times(a);
+  if (bare(b) && a.k === 'op' && a.op === 'neg' && a.args[0]?.k === 'real') return { k: 'op', op: 'neg', args: [times(a.args[0])] };
+  if (bare(a) && b.k !== 'real' && b.k !== 'imag') return { ...e, args: [b, a] };
+  return e;
 }
 
 /** A polynomial from its coefficients, highest power first, as Mathcad's collect writes it: x² + (a + b)·x + a·b. */
@@ -454,7 +503,10 @@ function writeDerivatives(text: string, p: Printer): string | null {
 
 export function readAnswer(out: string, c: Sym, req: GiacRequest, p: Printer): GiacAnswer {
   // Giac adds an approximation to exact results: 2*sqrt(2)=2.82842712475.
-  const text = out.trim().replace(/=-?[\d.]+(e[+-]?\d+)?$/, '');
+  // Giac adds an approximation after an exact answer, real or complex: 3*i/4=0.75*i, 2*sqrt(2)+i=2.82842712475+i.
+  // Not after an equation, whose own = it is: x = 3 → x = 3.
+  const relation = c.expr.k === 'op' && ['equal', 'notEqual', 'lessThan', 'greaterThan', 'lessOrEqual', 'greaterOrEqual'].includes(c.expr.op);
+  const text = relation ? out.trim() : out.trim().replace(/=(?=[-\d.i])-?(?:[\d.]+(?:e[+-]?\d+)?)?(?:[+-]?(?:[\d.]+(?:e[+-]?\d+)?\*)?i)?$/, '');
   if (text.startsWith('ERROR ')) return { error: text.slice(6) };
   if (text.includes('undef')) {
     const transform = c.commands.find((k) => TRANSFORMS.includes(k.name));
@@ -482,6 +534,7 @@ export function readAnswer(out: string, c: Sym, req: GiacRequest, p: Printer): G
   if (UNEVALUATED.test(text)) return { unevaluated: true };
   let e = backToSheet(parse(text), p);
   // A value MathMath worked out has a double's 16 digits, so the answer shows no more than those.
+  if (p.floatDigits !== null) e = rounded(e, p.floatDigits);
   if (p.usedWorked && p.float) e = sixteen(e);
   if (req.collectIn) e = polynomial(e, req.collectIn);
   // One solution shows on its own, and none is an error.

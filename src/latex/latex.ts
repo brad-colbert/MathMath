@@ -139,7 +139,7 @@ export function tex(e: Expr): string {
 function print(e: Expr, tail: boolean): string {
   switch (e.k) {
     case 'real': return numberText(e.v, e.digits);
-    case 'imag': return `${numberText(e.v)}\\mathrm{i}`;
+    case 'imag': return `${numberText(e.v, e.digits)}\\mathrm{i}`;
     case 'str': return `\\text{"${escapeText(e.v)}"}`;
     case 'id': return name(e.name);
     case 'placeholder': return '\\placeholder{}';
@@ -555,14 +555,17 @@ export function readTex(src: string): Expr {
    * straight away by i or j on its own: 4i and 4j are imaginary, where 4·i, 4in and 4i₁ are not.
    */
   function imaginary(v: number, text?: string): Expr {
+    // Its digits kept as a real's are, when a double can't hold them all, as a 20-digit answer's.
+    const digits = text === undefined ? undefined : realFrom(text).digits;
+    const imag: Expr = digits === undefined ? { k: 'imag', v } : { k: 'imag', v, digits };
     if (is('\\mathrm') && toks[p + 1]?.v === '{' && toks[p + 2]?.v === 'i' && toks[p + 3]?.v === '}') {
       p += 4;
-      return { k: 'imag', v };
+      return imag;
     }
     const next = toks[p];
     if (next?.t === 'ch' && (next.v === 'i' || next.v === 'j') && !/^[A-Za-z0-9_'.]$/.test(toks[p + 1]?.v ?? '')) {
       p++;
-      return { k: 'imag', v };
+      return imag;
     }
     return text === undefined ? { k: 'real', v } : realFrom(text);
   }
@@ -599,7 +602,8 @@ export function readTex(src: string): Expr {
     switch (t.v) {
       case '\\mathrm': {
         const base = rawBetween();
-        if (base === 'i' ) return { k: 'imag', v: 1 };
+        // An upright i with no number before it, as answers show i alone: still shown so.
+        if (base === 'i') return { k: 'imag', v: 1, digits: '' };
         return callOrId(base);
       }
       case '\\operatorname': return callOrId(rawBetween());

@@ -16,6 +16,61 @@
 /** Reads math as the algebra engine prints it, into the worksheet tree. */
 import { type Expr, realFrom } from '../model/ast.js';
 
+/**
+ * A decimal as Mathcad 14 lays out a float answer (probed 2026-11-11): its significant digits without trailing zeros,
+ * written out in full between 10⁻⁶ and 10⁶, both excluded, and with an exponent outside, as 8.3333e-7 and 1.0e7; a
+ * whole number keeps ".0", as 2.0. Giac writes them as 0.83333333333333333333e-1 or 2.0000000000000000000.
+ */
+export function mathcadDecimal(text: string): string {
+  const m = /^(-?)(\d*)\.?(\d*)(?:[eE]([+-]?\d+))?$/.exec(text.trim());
+  if (!m) return text;
+  const [, sign, whole = '', frac = '', exp = '0'] = m;
+  const all = whole + frac;
+  const lead = /^0*/.exec(all)![0].length;
+  const digits = all.slice(lead).replace(/0+$/, '');
+  if (!digits) return '0.0';
+  // The power of ten of the first significant digit.
+  const e = Number(exp) + whole.length - lead - 1;
+  const inFull = (e > -6 || (e === -6 && digits !== '1')) && e < 6;
+  if (!inFull) return `${sign}${digits[0]}.${digits.slice(1) || '0'}e${e}`;
+  if (e < 0) return `${sign}0.${'0'.repeat(-e - 1)}${digits}`;
+  const intPart = digits.slice(0, e + 1).padEnd(e + 1, '0');
+  return `${sign}${intPart}.${digits.slice(e + 1) || '0'}`;
+}
+
+/** A decimal rounded to n significant digits, half up, in Giac's form: 0.66666666666666666666667e6 to 20 is 0.66666666666666666666667 → 0.66666666666666666667e6. */
+export function roundDecimal(text: string, n: number): string {
+  const m = /^(-?)(\d*)\.?(\d*)(?:[eE]([+-]?\d+))?$/.exec(text.trim());
+  if (!m) return text;
+  const [, sign, whole = '', frac = '', exp = '0'] = m;
+  const all = whole + frac;
+  const lead = /^0*/.exec(all)![0].length;
+  let digits = all.slice(lead);
+  if (digits.length <= n) return text;
+  let e = Number(exp) + whole.length - lead;
+  const up = digits.charCodeAt(n) >= 53; // '5'
+  const kept = digits.slice(0, n).split('').map(Number);
+  if (up) {
+    let k = n - 1;
+    while (k >= 0 && kept[k] === 9) kept[k--] = 0;
+    if (k >= 0) kept[k]!++;
+    else {
+      kept.unshift(1);
+      kept.pop();
+      e++;
+    }
+  }
+  digits = kept.join('');
+  return `${sign}0.${digits}e${e}`;
+}
+
+/** A decimal from Giac, kept as Mathcad lays it out where that isn't how the number would print anyway. */
+function decimal(text: string): Extract<Expr, { k: 'real' }> {
+  const shown = mathcadDecimal(text);
+  const v = Number(text);
+  return shown === String(v) ? { k: 'real', v } : { k: 'real', v, digits: shown };
+}
+
 type Tok = { t: 'num' | 'id' | 'op'; v: string };
 
 function lex(src: string): Tok[] {
@@ -76,7 +131,7 @@ export function parse(src: string): Expr {
     const t = toks[p];
     if (!t) throw new Error('unexpected end');
     p++;
-    if (t.t === 'num') return realFrom(t.v);
+    if (t.t === 'num') return /[.eE]/.test(t.v) ? decimal(t.v) : realFrom(t.v);
     if (t.t === 'id') {
       if (isOp('(')) {
         p++;

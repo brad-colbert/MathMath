@@ -124,7 +124,7 @@ describe('with →, through Giac', () => {
 
   test('exact arguments stay exact, for Giac\'s closed forms, as Zeta(2) → π²/6', () => {
     expect(request(sym(F('Zeta', R(2)))).command).toBe('regroup(Zeta(2))');
-    expect(request(sym(F('Si', R(2)), 'float')).command).toBe('evalf(Si(2),20)');
+    expect(request(sym(F('Si', R(2)), 'float')).command).toBe('evalf(Si(2),22)');
   });
 
   test('decimal arguments are worked out by MathMath, to 16 digits', () => {
@@ -132,14 +132,14 @@ describe('with →, through Giac', () => {
   });
 
   test('under float, what Giac can\'t evaluate is worked out by MathMath, as an exact fraction of its 16 digits', () => {
-    expect(request(sym(F('FresnelS', R(1)), 'float')).command).toBe('evalf((4382591473903548/10^16),20)');
-    expect(request(sym(F('Psi', R(2), R(1)), 'float')).command).toBe('evalf((-(2404113806319188/10^15)),20)');
+    expect(request(sym(F('FresnelS', R(1)), 'float')).command).toBe('evalf((4382591473903548/10^16),22)');
+    expect(request(sym(F('Psi', R(2), R(1)), 'float')).command).toBe('evalf((-(2404113806319188/10^15)),22)');
     expect(request(sym(F('Ci', { k: 'op', op: 'neg', args: [R(2)] }), 'float')).command)
-      .toBe('evalf(((4229808287748648/10^16)+((3141592653589793/10^15)*(1*i))),20)');
+      .toBe('evalf(((4229808287748648/10^16)+((3141592653589793/10^15)*(1*i))),22)');
     // Without float, a whole-number argument is left for Giac: Mathcad leaves FresnelS(1) as it is.
     expect(request(sym(F('FresnelS', R(1)))).command).toBe('regroup(f0(1))');
     // And so is a name.
-    expect(request(sym(F('Shi', V('x')), 'float')).command).toBe('evalf(f0(v0),20)');
+    expect(request(sym(F('Shi', V('x')), 'float')).command).toBe('evalf(f0(v0),22)');
   });
 
   test('the answer is then rounded to those 16 digits', () => {

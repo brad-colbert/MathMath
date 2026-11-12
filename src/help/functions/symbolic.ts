@@ -38,6 +38,7 @@ export const SYMBOLIC: Entry[] = [
   }),
   kw({
     name: 'float', usage: 'expr float, [n] →', summary: 'The expression as a decimal number, to 20 significant digits, or to n with `float, n`.',
+    details: ['As in Mathcad, the last digit is rounded, and an answer between 10⁻⁶ and 10⁶ is written out in full, as 0.083333333333333333333; outside that it has an exponent, as 1.0×10⁷. Trailing zeros are dropped, but a whole number keeps .0, as 2.0, to show it is a decimal. A complex answer shows as 2.0 + 3.0i.'],
     example: ['\\pi \\ \\mathbf{float}\\to '], answer: '3.1415926535897932385',
   }),
   kw({
