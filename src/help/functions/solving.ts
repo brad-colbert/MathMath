@@ -406,6 +406,46 @@ export const SOLVING: Entry[] = [
     example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'La\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'Lb\\left(x,v\\right)\\coloneq \\begin{pmatrix}1\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y', '\\mathrm{bvalfit}\\left(\\begin{pmatrix}1\\end{pmatrix},\\begin{pmatrix}1\\end{pmatrix},0,1,0.5,D,La,Lb,S\\right)='],
   },
   {
+    name: 'numol', group: 'Differential equations', usage: 'numol(xrange, xpts, trange, tpts, npde, npae, F, init, bc)', mathcad: true,
+    summary: 'The solution of partial differential equations u_t = F(x, t, u, u_x, u_xx) on a line, by the method of lines.',
+    details: [
+      'xrange and trange are vectors of two ends; xpts and tpts the numbers of points across and in time; npde the number of equations (npae, algebraic equations, must be 0 here). F(x, t, u, ux, uxx) is a function you define giving each equation\'s u_t, with u, ux and uxx vectors of the functions and their first and second x derivatives, so ux₀ is ∂u₀/∂x. init(x) gives the functions at the first time.',
+      'bc(t) gives an npde × 3 matrix, a row per equation: the left and right boundary values and "D", for values, or "N", for slopes ∂u/∂x. An equation with only a first derivative in x takes one condition, the other end "NA". The answer has xpts rows and tpts columns per function, the functions side by side. Space is differenced as Mathcad does, to fourth order, so the answers agree with Mathcad\'s to about 1e−6; use more points across for more accuracy. [[Pdesolve]] takes the same problem written as equations.',
+    ],
+    errors: ['Ends not in increasing order.', 'Fewer than 6 points across.', 'A bc row without "D" or "N", or with "NA" for an equation of second order.', 'Algebraic equations (npae above 0).'],
+    example: ['F\\left(x,t,u,ux,uxx\\right)\\coloneq \\begin{pmatrix}uxx_{0}\\end{pmatrix}', 'P\\left(x\\right)\\coloneq \\begin{pmatrix}\\sin \\left(\\pi \\cdot x\\right)\\end{pmatrix}', 'B\\left(t\\right)\\coloneq \\begin{pmatrix}0&0&\\text{"D"}\\end{pmatrix}', 'U\\coloneq \\mathrm{numol}\\left(\\begin{pmatrix}0\\\\1\\end{pmatrix},11,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},3,1,0,F,P,B\\right)', 'U_{5,2}='],
+  },
+  {
+    name: 'Pdesolve', group: 'Differential equations', usage: 'Pdesolve(u, x, xrange, t, trange, [xpts, tpts])', mathcad: true,
+    summary: 'Ends a solve block of partial differential equations, giving the unknown function u(x, t), or a vector of them.',
+    details: [
+      'Between Given and Pdesolve: each equation as u.t(x, t) = …, using u(x, t), u.x(x, t) and u.xx(x, t), the partial derivatives typed as literal subscripts (u, then . then t); an initial condition u(x, 0) = …; and the boundary conditions the order needs, u(0, t) = … for a value or u.x(1, t) = … for a slope, at the ends of xrange. A system names its functions as a vector, Pdesolve((u; v), x, …).',
+      'It is solved as [[numol]] solves it, on xpts × tpts points, 10 × 10 if left out, as in Mathcad; the answer is a function of x and t, interpolated linearly between the points. Use more points for a smoother, more accurate answer.',
+    ],
+    errors: ['A missing equation, initial condition or boundary condition, or one too many.', 'A boundary condition not at an end of xrange.', 'A point outside the ranges solved.'],
+    example: ['\\mathrm{Given}', 'u_{\\text{t}}\\left(x,t\\right)=u_{\\text{xx}}\\left(x,t\\right)', 'u\\left(x,0\\right)=\\sin \\left(\\pi \\cdot x\\right)', 'u\\left(0,t\\right)=0', 'u\\left(1,t\\right)=0', 'u\\coloneq \\mathrm{Pdesolve}\\left(u,x,\\begin{pmatrix}0\\\\1\\end{pmatrix},t,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},21,11\\right)', 'u\\left(0.5,0.1\\right)='],
+  },
+  {
+    name: 'relax', group: 'Differential equations', usage: 'relax(a, b, c, d, e, f, u, rjac)', mathcad: true,
+    summary: 'The solution of Poisson\'s equation on a square grid, by successive over-relaxation.',
+    details: [
+      'The equation at each inner point (i, j) is a·u(i+1, j) + b·u(i−1, j) + c·u(i, j+1) + d·u(i, j−1) + e·u(i, j) = f, with a to f square matrices of its coefficients, all the same size; for ∇²u = ρ on a grid of spacing h, a to d are 1, e is −4 and f is h²·ρ. u holds the boundary values on its edges, which stay, and a first guess inside. rjac, between 0 and 1, sets the over-relaxation: 1 − π²/(2n²) suits an n × n grid.',
+      'The method is Numerical Recipes\' sor, as Mathcad\'s is, so the answers are Mathcad\'s to the last digit. For zero boundaries and a 2ⁿ + 1 grid, [[multigrid]] is quicker.',
+    ],
+    errors: ['Matrices of different sizes, or not square.', 'An rjac outside 0 to 1.', 'No convergence in 1000 sweeps.'],
+    example: ['o\\left(i,j\\right)\\coloneq 1', 'A\\coloneq \\mathrm{matrix}\\left(5,5,o\\right)', 'g\\left(i,j\\right)\\coloneq \\mathrm{if}\\left(i=0,1,0\\right)', 'U\\coloneq \\mathrm{matrix}\\left(5,5,g\\right)', '\\mathrm{relax}\\left(A,A,A,A,-4\\cdot A,0\\cdot A,U,0.6\\right)='],
+  },
+  {
+    name: 'multigrid', group: 'Differential equations', usage: 'multigrid(M, ncycle)', mathcad: true,
+    summary: 'The solution of Poisson\'s equation ∇²u = M on the unit square, zero on its edges, by the multigrid method.',
+    details: [
+      'M is the source at each point of a 2ⁿ + 1 square grid (5, 9, 17, 33 …) over the unit square, so the spacing is 1/(rows − 1); ncycle, usually 2, is the number of cycles at each level. The method is Numerical Recipes\' full multigrid, mglin, as Mathcad\'s is, so the answers are Mathcad\'s to the last digit.',
+      'For other boundary values, subtract a function that takes them, or use [[relax]].',
+    ],
+    errors: ['A matrix whose rows less one isn\'t a power of 2.', 'An ncycle that isn\'t a whole number, 1 or more.'],
+    example: ['f\\left(i,j\\right)\\coloneq \\mathrm{if}\\left(i=4\\land j=4,-100,0\\right)', 'S\\coloneq \\mathrm{matrix}\\left(9,9,f\\right)', 'u\\coloneq \\mathrm{multigrid}\\left(S,2\\right)', 'u_{4,4}='],
+  },
+  {
     name: 'Jacob', group: 'Differential equations', usage: 'Jacob(F(x), x, [k])', mathcad: true,
     summary: 'The Jacobian of the vector function F at the vector x: a row for each element of F, a column for each of x.',
     details: [

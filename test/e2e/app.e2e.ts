@@ -2476,6 +2476,24 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// A Pdesolve block, and a typed call to its answer.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  // The equation itself is typed below, as a user would: u, then . for the literal subscript t.
+  const lines = ['\\mathrm{Given}', 'u\\left(x,0\\right)=\\sin \\left(\\pi \\cdot x\\right)', 'u\\left(0,t\\right)=0', 'u\\left(1,t\\right)=0',
+    'u\\coloneq \\mathrm{Pdesolve}\\left(u,x,\\begin{pmatrix}0\\\\1\\end{pmatrix},t,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},21,11\\right)'];
+  ws.regions = lines.map((l, i) => ({ id: `p${i}`, left: 60, top: 40 + i * 40 - 8, alignX: 60, alignY: 40 + i * 40, disabled: false, content: readRegion(l) }));
+  await page.evaluate((t) => (window as any).mathmath.load('pde.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await type(page, 260, 40, 'u.t(x,t)=u.xx(x,t)');
+  await type(page, 72, 320, 'u(0.5,0.1)=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const notes = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region.error')].map((e) => e.title));
+  check('a Pdesolve block solves the heat equation', s.some((x) => x.startsWith('u(0.5,0.1)=0.373')) && notes.length === 0, { s, notes });
+  await page.close();
+}
+
 // statespace, sbval and Jacob, typed against functions already on the sheet.
 {
   const page = await fresh();
