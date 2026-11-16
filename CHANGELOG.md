@@ -8,6 +8,34 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.52.0] - 2026-11-16
+
+Mathcad's Seed, until, trace, pause and PolyLookup.
+
+### Added
+
+- Seed, Mathcad's way to repeat random numbers: after Seed(x), the regions below draw one after another from a
+  single stream started at x, so Seed(x) again draws the same numbers again. It takes 1 to 2147483647, as
+  Mathcad does, and gives the seed in effect before. Sheets without Seed draw exactly as before, and
+  recalculating only what changed still gives the same numbers as a full run.
+- until, which stops a definition over a range variable at the first value where its condition turns negative:
+  x_k := until(c, e). It works inside larger expressions and in recurrences, as w_(k+1) := until(100 − w_k,
+  2·w_k), and refuses use anywhere else, as Mathcad does.
+- trace and pause, Mathcad's debugging prints: trace("x = {0}", x) prints a line in a small box under the
+  region, a line a pass in a loop, and gives 0. The box isn't printed with the sheet. pause prints the same way;
+  a browser can't stop a calculation to wait, as Mathcad's pause does.
+- PolyLookup, the names, duals and Wythoff symbols of the 80 uniform polyhedra, numbered as Mathcad numbers them.
+- Help entries for each, parts on them in the Random numbers, Ranges, Programs and Plots topics, and a new gallery
+  example: estimating π by darts with a repeatable seed, a cooling cup stopped by until, and Newton's method
+  followed with trace.
+
+### Known limits
+
+- Seed's numbers differ from Mathcad's, whose generator isn't public, and once numbers have been drawn Mathcad's
+  Seed gives its generator's position, where MathMath gives the seed in effect.
+- Polyhedron, LoadColormap and SaveColormap aren't in MathMath yet: they need polyhedra and colour maps in 3D
+  plots, which come in later releases.
+
 ## [0.51.1] - 2026-11-11
 
 Answers from → laid out as Mathcad 14 lays them out: decimals, imaginary numbers and equations.

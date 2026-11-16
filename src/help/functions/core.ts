@@ -511,6 +511,32 @@ export const CORE: Entry[] = [
     example: ['\\mathrm{IsPrime}\\left(97\\right)=', '\\mathrm{IsPrime}\\left(91\\right)='],
   },
   {
+    name: 'until', group: 'Vectors and matrices', usage: 'x_k := until(c, e)', mathcad: true,
+    summary: 'In a definition over a range variable: e for each k, until c is negative, where the vector stops.',
+    details: [
+      'Like if, it works out e only while c is 0 or more. It may stand inside a larger expression, as 2·until(c, e), and in a recurrence, as w_(k+1) := until(100 − w_k, 2·w_k), which doubles w until it passes 100. If c is negative from the start, the vector keeps what it had, or it\'s an error if there was nothing.',
+      'c may have units, as T_k − 60 K; only its sign counts. With two range variables, it stops at the first negative c, leaving the rest 0; Mathcad 14 exits when it opens such a sheet. Inside a program, it ends the whole definition the program stands in.',
+    ],
+    errors: ['until anywhere but a definition over a range variable, as Mathcad refuses it.', 'A c that isn\'t a real number.'],
+    example: ['k\\coloneq 0..10', 'x_{k}\\coloneq \\mathrm{until}\\left(5-k,k^{2}\\right)', 'x='],
+  },
+  {
+    name: 'trace', group: A, usage: 'trace(S, x, y, …)', mathcad: true,
+    summary: 'Prints a line under the region, as x = 2, and gives 0: for following what a program does.',
+    details: [
+      'S is the text, with {0}, {1} … where the values go: trace("x = {0}, y = {1}", x, y). With one value and no text, the value alone prints. A vector prints as vector{n} [v0, v1, …] and a matrix as matrix{m, n} [[…], …], as Mathcad\'s Help describes; a value with units prints in base SI units, without them. In a loop each pass prints a line, up to 200. The lines aren\'t printed with the sheet. See also [[pause]].',
+    ],
+    example: ['\\mathrm{trace}\\left(\\text{"x = {0}"},2\\right)='],
+  },
+  {
+    name: 'pause', group: A, usage: 'pause(S, x, y, …)', mathcad: true,
+    summary: 'Prints a line under the region, as [[trace]] does, and gives 0.',
+    details: [
+      'In Mathcad it also stops the calculation until you carry on. A browser calculates without stopping, so here it prints and carries on, the same as trace.',
+    ],
+    example: ['\\mathrm{pause}\\left(\\text{"step {0}"},1\\right)='],
+  },
+  {
     name: 'gcd', group: A, usage: 'gcd(A, B, …)', mathcad: true,
     summary: 'The greatest common divisor: the largest whole number that divides them all.',
     details: [
@@ -648,6 +674,15 @@ export const CORE: Entry[] = [
     errors: ['A complex x.'],
     results: 'varies',
     example: ['\\mathrm{rnd}\\left(10\\right)='],
+  },
+  {
+    name: 'Seed', group: 'Random numbers', usage: 'Seed(x)', mathcad: true,
+    summary: 'Starts the random numbers below it from seed x, and gives the seed that was in effect.',
+    details: [
+      'Before any Seed, each region draws from its own stream, from the worksheet\'s seed. After Seed(x), the regions below draw one after another from a single stream started at x, as in Mathcad, so seeding again with the same x draws the same numbers again. Seed gives the seed in effect before it: the worksheet\'s, 1 unless Reroll changed it, or the last Seed\'s. Reroll doesn\'t change the numbers below a Seed: they come from x. Mathcad gives its generator\'s position instead once numbers have been drawn, and its numbers differ from MathMath\'s.',
+    ],
+    errors: ['Anything but a whole number from 1 to 2147483647, as in Mathcad.'],
+    example: ['\\mathrm{Seed}\\left(5\\right)=', 'a\\coloneq \\mathrm{rnd}\\left(1\\right)', '\\mathrm{Seed}\\left(5\\right)=', 'a-\\mathrm{rnd}\\left(1\\right)='],
   },
   {
     name: 'runif', group: 'Random numbers', usage: 'runif(m, a, b)', mathcad: true,

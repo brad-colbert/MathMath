@@ -98,4 +98,13 @@ export const GRAPHING: Entry[] = [
     errors: ['A function that doesn\'t take one parameter.', 'A grid that isn\'t a positive whole number.'],
     example: ['H\\left(t\\right)\\coloneq \\begin{pmatrix}\\cos \\left(t\\right)\\\\\\sin \\left(t\\right)\\\\t\\end{pmatrix}', '\\mathrm{CreateSpace}\\left(H,0,\\pi ,3\\right)='],
   },
+  {
+    name: 'PolyLookup', group: 'Plots and coordinates', usage: 'PolyLookup(n)', mathcad: true,
+    summary: 'The name of uniform polyhedron n, the name of its dual and its Wythoff symbol, as a vector of three strings.',
+    details: [
+      'n is 1 to 80, or a string "#n", numbered as Mathcad numbers them: 11 is the cube, 27 the icosahedron, 6 the tetrahedron. The names are spelt as Mathcad gives them.',
+    ],
+    errors: ['A number outside 1 to 80.'],
+    example: ['\\mathrm{PolyLookup}\\left(11\\right)=', '\\mathrm{PolyLookup}\\left(\\text{"#27"}\\right)='],
+  },
 ];

@@ -27,7 +27,7 @@ import {
   absV, addV, compareClose, compareReal, cross, divE, divZeroE, inverse, magnitude, mapMat, matPow, mulE, mulV, neg, powE, subV, sumV,
   transpose, zip,
 } from './ops.js';
-import { stream } from './random.js';
+import { type Seeded, drawFrom, seeded, stream } from './random.js';
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
@@ -168,6 +168,8 @@ export interface Outcome {
   image?: Pixels;
   /** Image files the region wrote with writeImage, to offer for saving. */
   files?: Written[];
+  /** What trace and pause printed, shown under the region. */
+  trace?: string[];
   /** The result of a symbolic region. */
   symbolic?: Expr;
   unevaluated?: boolean;
@@ -175,6 +177,9 @@ export interface Outcome {
   unit?: Value;
   error?: EvalError;
 }
+
+/** Lines of trace kept for one region; a trace in a long loop shows these and a count of the rest. */
+const TRACE_LINES = 200;
 
 const truthy = (v: Value): boolean => requireNum(v, 'condition').re !== 0;
 const bool = (b: boolean): Num => num(b ? 1 : 0);
@@ -275,7 +280,10 @@ const CONSTANTS: Record<string, Num> = {
 };
 
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
-export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob']);
+export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob', 'until']);
+
+/** until(c, x) with c negative: ends the range definition it stands in, as Mathcad's does. */
+class UntilStop {}
 const BLOCK_FORMS = ['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve'];
 const RELATIONS = new Set(['equal', 'lessThan', 'greaterThan', 'lessOrEqual', 'greaterOrEqual']);
 /**
@@ -361,7 +369,41 @@ export class Evaluator implements Host {
       random: () => this.random(),
       wrote: (file) => this.writes.at(-1)?.set(file.name, file),
       tol: () => this.ws.tol,
+      seed: (x) => {
+        const before = this.seeded?.seed ?? this.ws.seed ?? 1;
+        this.seeded = seeded(x);
+        const s = this.seeded;
+        this.random = () => drawFrom(s);
+        return before;
+      },
+      trace: (text) => {
+        const lines = this.traced.at(-1);
+        if (!lines) return;
+        if (lines.length < TRACE_LINES) lines.push(text);
+        else this.tracedOver[this.tracedOver.length - 1]!++;
+      },
     });
+  }
+
+  /**
+   * After a Seed: the one stream the rest of the sheet draws from, and where it has got to. Null before any Seed,
+   * when each region draws from its own (see randomFor). Recalculation compares it to decide what to reuse.
+   */
+  seeded: Seeded | null = null;
+
+  /** Lines trace and pause printed in the regions being calculated, innermost last, and how many were left out. */
+  private traced: string[][] = [];
+  private tracedOver: number[] = [];
+
+  beginTrace(): void {
+    this.traced.push([]);
+    this.tracedOver.push(0);
+  }
+
+  takeTrace(): string[] {
+    const lines = this.traced.pop() ?? [];
+    const over = this.tracedOver.pop() ?? 0;
+    return over > 0 ? [...lines, `… and ${over} more`] : lines;
   }
 
   /** Files written by the regions being calculated, innermost last: an included sheet's regions nest. */
@@ -378,9 +420,13 @@ export class Evaluator implements Host {
   /** The stream random numbers come from, set as each region starts. */
   private random: () => number = stream('');
 
-  /** Starts the random stream for a region, so its numbers are the same every time it calculates. */
+  /**
+   * Starts the random stream for a region, so its numbers are the same every time it calculates; after a Seed, the
+   * sheet's one stream carries on instead.
+   */
   randomFor(key: string): void {
-    this.random = stream(key, this.ws.seed ?? 1);
+    const s = this.seeded;
+    this.random = s ? () => drawFrom(s) : stream(key, this.ws.seed ?? 1);
   }
 
   get origin(): number {
@@ -647,10 +693,29 @@ export class Evaluator implements Host {
 
   private builtinIf: Fn = { t: 'fn', name: 'if', call: () => num(0) };
 
+  /** Range definitions running, which until can end. */
+  private ranging = 0;
+
+  /**
+   * until(c, x): x while c is 0 or more; when c is negative, the range definition it stands in stops there, keeping
+   * the elements it has. As Mathcad 14 (probed): only in a definition over a range variable, x_k := until(c, x),
+   * where it may stand inside a larger expression, or inside another until.
+   */
+  private until(args: Expr[], s: Scope): Value {
+    if (args.length !== 2) throw new EvalError('runtime', 'until takes a condition and a value: until(c, x) gives x until c is negative');
+    if (this.ranging === 0) {
+      throw new EvalError('runtime', 'until works in a definition over a range variable, as x_k := until(c, x): it stops at the first k where c is negative');
+    }
+    const c = requireReal(this.eval(args[0]!, s), 'until\'s condition');
+    if (c < 0) throw new UntilStop();
+    return this.eval(args[1]!, s);
+  }
+
   // ── Solve blocks and root ───────────────────────────────────────────────────────────────────────
 
   /** root, Find, Minerr, Maximize, Minimize and Odesolve, which take names, not values, for their variables. */
   solveForm(name: string, args: Expr[], s: Scope): Value {
+    if (name === 'until') return this.until(args, s);
     if (name === 'root') return this.root(args, s);
     if (name === 'Jacob') return this.jacob(args, s);
     const ctx = this.solveContext;
@@ -1596,11 +1661,22 @@ export class Evaluator implements Host {
     if (vars.length > 0 && t.k === 'var') throw new EvalError('runtime', 'range variable in a non-indexed definition');
     let last: Value | undefined;
     const items: Value[] = [];
-    this.forEachBinding(vars, s, (scope) => {
-      this.assign(t, () => (last = this.eval(c.value, scope)), null, scope, s);
-      if (last) items.push(last);
-    });
-    return vars.length > 0 ? fromValues(items.length, 1, items) : last;
+    if (vars.length > 0) this.ranging++;
+    try {
+      this.forEachBinding(vars, s, (scope) => {
+        this.assign(t, () => (last = this.eval(c.value, scope)), null, scope, s);
+        if (last) items.push(last);
+      });
+    } catch (err) {
+      if (!(err instanceof UntilStop)) throw err;
+      // Stopped by until. With nothing assigned, and nothing there before, there's no vector to give.
+      if (items.length === 0 && !('name' in t && t.k !== 'var' && s.lookup(t.name))) {
+        throw new EvalError('runtime', 'until stopped at the first value: the condition was negative from the start, so there is nothing to define');
+      }
+    } finally {
+      if (vars.length > 0) this.ranging--;
+    }
+    return vars.length > 0 ? (items.length > 0 ? fromValues(items.length, 1, items) : undefined) : last;
   }
 
   markFailed(t: Target, error: EvalError, s: Scope): void {
@@ -1749,13 +1825,16 @@ export class Run {
 
   plain(region: Region): void {
     this.ev.beginWrites();
+    this.ev.beginTrace();
     const shown = this.outcomes.length;
     try {
       this.plainRegion(region);
     } finally {
       const files = this.ev.takeWrites();
+      const trace = this.ev.takeTrace();
       const outcome = this.outcomes[shown];
       if (files.length > 0 && outcome) outcome.files = files;
+      if (trace.length > 0 && outcome) outcome.trace = trace;
     }
   }
 

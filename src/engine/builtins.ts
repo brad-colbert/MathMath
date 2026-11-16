@@ -37,6 +37,8 @@ import {
 } from './linalg.js';
 import { complexTransform, realForward, realInverse } from './fourier.js';
 import { normal } from './random.js';
+import { POLYHEDRA } from './polyhedra.js';
+import { traceText } from './trace.js';
 import { convolve, correlate, filterFns, firFns, windowFns } from './signal.js';
 import { IIR_ARITY, iirFns } from './iir.js';
 import { SYSTEM_ARITY, systemFns } from './systems.js';
@@ -211,6 +213,10 @@ export interface Hooks {
   wrote?(file: Written): void;
   /** The worksheet's TOL, which lookup and match compare within. */
   tol?(): number;
+  /** Seed(x): random numbers from here on come from one stream started at x. Gives the seed in effect before. */
+  seed?(x: number): number;
+  /** A line trace or pause printed, kept with the region. */
+  trace?(text: string): void;
 }
 
 /**
@@ -588,6 +594,31 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     // Mathcad's symbolic-only functions, here with = too (see symfns.ts).
     ...withArity(symFns),
     ...withArity(specialFns(() => origin)),
+    // Mathcad's Seed: random numbers from here on come from one stream started at x, so the same x draws the same
+    // numbers again (see random.ts). Mathcad takes 1 to 2147483647, and refuses anything else so (probed).
+    Seed: (x, ...rest) => {
+      if (x === undefined || rest.length > 0) throw new EvalError('runtime', 'Seed takes one number, the seed');
+      const v = requireReal(x, 'Seed');
+      if (!Number.isInteger(v) || v < 1 || v > 2147483647) throw new EvalError('runtime', 'Seed takes a whole number from 1 to 2147483647');
+      return num(hooks.seed ? hooks.seed(v) : 1);
+    },
+    // Mathcad's debugging prints: the text goes under the region, and both give 0 (see trace.ts).
+    trace: (...args) => {
+      hooks.trace?.(traceText('trace', args));
+      return num(0);
+    },
+    pause: (...args) => {
+      hooks.trace?.(traceText('pause', args));
+      return num(0);
+    },
+    // The name, the dual's name and the Wythoff symbol of uniform polyhedron n, or "#n", as Mathcad's.
+    PolyLookup: (n, ...rest) => {
+      if (n === undefined || rest.length > 0) throw new EvalError('runtime', 'PolyLookup takes one polyhedron number, 1 to 80, or a string "#n"');
+      const k = n.t === 'str' ? (/^#\s*(\d+)$/.exec(n.v.trim()) ? Number(n.v.trim().slice(1)) : NaN) : requireReal(n, 'PolyLookup');
+      const entry = Number.isInteger(k) ? POLYHEDRA[k - 1] : undefined;
+      if (!entry) throw new EvalError('runtime', 'PolyLookup takes a polyhedron number from 1 to 80, or a string "#n" with one');
+      return fromValues(3, 1, entry.map((t) => str(t)));
+    },
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // One channel, counted from ORIGIN like a subscript, so imageChannels(M, 0) is the red of a color image.

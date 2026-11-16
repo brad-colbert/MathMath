@@ -30,6 +30,7 @@ import type { Defs } from '../symbolic/defs.js';
 import type { Files } from './files.js';
 import { NO_FILES } from './files.js';
 import { type OrderKey, type Outcome, Run, SOLVE_BLOCK, Scope, type SymSolver, closesBlock, collectIds, inOrder } from './evaluate.js';
+import type { Seeded } from './random.js';
 import type { Value } from './values.js';
 
 /** One region's part of a run. */
@@ -51,7 +52,13 @@ interface Step {
   reads: Set<string>;
   /** Its values include a function, which holds a scope from its own run, so it can't be reused. */
   holdsFunction: boolean;
+  /** The sheet's random stream after a Seed, as it came into the region and as it left: see Evaluator.seeded. */
+  seededIn: Seeded | null;
+  seededOut: Seeded | null;
 }
+
+const copySeeded = (s: Seeded | null): Seeded | null => (s ? { ...s } : null);
+const sameSeeded = (a: Seeded | null, b: Seeded | null): boolean => (a === null ? b === null : b !== null && a.seed === b.seed && a.a === b.a);
 
 export interface Snapshot {
   /** The sheet settings and attached files the snapshot was made with. A change to either starts over. */
@@ -163,6 +170,8 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
   resumeScope.forgetAfter();
   const run = new Run(ws, opts.files ?? NO_FILES, { ev: run0.ev, scope: resumeScope, defs: resumeDefs });
   run.order = order;
+  // The random stream as it stood after the last region kept, if the sheet had seeded one by then.
+  run.ev.seeded = copySeeded(before?.seededOut ?? null);
 
   // Names whose meaning may have changed from here down. Regions that were below the change and are gone,
   // or have moved, leave their names behind as changed: a reader below may now see an earlier definition.
@@ -208,7 +217,10 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
     const prior = kept.get(region.id);
     const reads = readsOf(c);
     const touches = [...reads].some((name) => dirty.has(name));
-    const reuse = prior && prior.calc === calc && !touches && !prior.holdsFunction && c.k !== 'include';
+    // A region that draws random numbers after a Seed reads the stream: the same calculation only gives the same
+    // numbers when the stream comes in where it did before.
+    const seededIn = copySeeded(run.ev.seeded);
+    const reuse = prior && prior.calc === calc && !touches && !prior.holdsFunction && c.k !== 'include' && sameSeeded(prior.seededIn, seededIn);
     const scopeBefore = run.scope;
     if (reuse) {
       // Same calculation, nothing it reads has changed: set its names again and keep its outcome.
@@ -223,6 +235,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
         const { unit: _, ...rest } = outcome;
         outcome = { ...rest, ...run.unitAt(c.unit) };
       }
+      run.ev.seeded = copySeeded(prior.seededOut);
       steps.push({ ...prior, content: json(c), outcome, scope: run.scope, defs: run.defs });
       snapshot.steps = steps;
       opts.kept?.(region.id);
@@ -255,6 +268,7 @@ export async function runIncremental(ws: Worksheet, solve: SymSolver, prev: Snap
     steps.push({
       id: region.id, calc, content: json(c), outcome, scope: run.scope, defs: run.defs, sets, symbolic, reads,
       holdsFunction: holdsFunction(outcome.value) || sets.some(([, v]) => holdsFunction(v)),
+      seededIn, seededOut: copySeeded(run.ev.seeded),
     });
     snapshot.steps = steps;
   }

@@ -27,6 +27,7 @@ import { mathMarkup } from './markup.js';
 import { drawPlot } from './plot.js';
 import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
+import { drawTraced } from './traced.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
@@ -279,6 +280,7 @@ export class Paper {
     el.classList.toggle('draft', state === 'draft');
     el.title = note;
     drawSaves(el, this.doc.outcomes.get(item.region.id)?.files);
+    drawTraced(el, this.doc.outcomes.get(item.region.id)?.trace);
   }
 
   /** A matrix as an image. Until it's computed, or if it can't be, the stored picture stands in. */
