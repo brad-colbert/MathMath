@@ -27,16 +27,43 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-/** Mulberry32: small, fast and well mixed, plenty for test data. Returns numbers in [0, 1). */
+/** Mulberry32's step: its state advances by this each draw. */
+const STEP = 0x6d2b79f5;
+
+/** Mulberry32's output for a state: small, fast and well mixed, plenty for test data. In [0, 1). */
+function mix(a: number): number {
+  let t = a;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/** A region's own stream: Mulberry32 seeded from the region and the sheet's seed. Returns numbers in [0, 1). */
 export function stream(key: string, seed = 1): () => number {
   let a = (hash(key) ^ Math.imul(seed, 0x9e3779b9)) >>> 0;
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    a = (a + STEP) >>> 0;
+    return mix(a);
   };
+}
+
+/**
+ * After Seed(x): one stream for the rest of the sheet, as Mathcad's generator is, so seeding again with the same
+ * x draws the same numbers again. `a` is the generator's state, which each draw moves on.
+ */
+export interface Seeded {
+  seed: number;
+  a: number;
+}
+
+export function seeded(seed: number): Seeded {
+  return { seed, a: (hash('Seed') ^ Math.imul(seed, 0x9e3779b9)) >>> 0 };
+}
+
+/** The next number from a seeded stream, moving it on. */
+export function drawFrom(s: Seeded): number {
+  s.a = (s.a + STEP) >>> 0;
+  return mix(s.a);
 }
 
 /** A standard normal number, by the Box–Muller transform. */

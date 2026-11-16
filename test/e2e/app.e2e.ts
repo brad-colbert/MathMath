@@ -2525,6 +2525,24 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// The final sweep's functions, typed: Seed, until, trace and PolyLookup.
+{
+  const page = await fresh();
+  await type(page, 72, 60, 'Seed(7)=');
+  await type(page, 300, 60, 'k:0;10');
+  await type(page, 72, 120, 'x[k', R, ':until(5-k,k^2', R, R);
+  await type(page, 300, 120, 'x=');
+  await type(page, 72, 200, 'trace("a {0}",5)=');
+  await type(page, 300, 200, 'PolyLookup(11)=');
+  await idle(page);
+  const s = (await shown(page)).map((x) => x.replace(/[\s​]/g, ''));
+  const has = (start: string, bit: string) => s.some((x) => x.startsWith(start) && x.includes(bit));
+  const traced = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region .traced')].map((e) => e.textContent));
+  const errors = await page.evaluate(() => document.querySelectorAll('.region.error').length);
+  check('typed Seed, until, trace and PolyLookup calculate, the trace printed under its region', has('Seed(7)=', '1') && has('x=', '0149162536'.slice(0, 5)) && has('trace(', '=0') && has('PolyLookup(11)=', 'cube') && traced.length === 1 && traced[0] === 'a 5' && errors === 0, { s, traced, errors });
+  await page.close();
+}
+
 // statespace, sbval and Jacob, typed against functions already on the sheet.
 {
   const page = await fresh();

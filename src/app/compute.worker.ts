@@ -52,6 +52,8 @@ export interface Shown {
   needs?: string[];
   /** Image files the region wrote, for the page to offer to save. */
   files?: Written[];
+  /** What trace and pause printed, for the page to show under the region. */
+  trace?: string[];
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
@@ -270,7 +272,9 @@ async function run({ seq, sheet }: ComputeRequest): Promise<void> {
 /** What the page shows for one region, with any image files it wrote, copied as pixels are. */
 function shownOf(o: Outcome, format: NumberFormat): Shown {
   const shown = shownValue(o, format);
-  return o.files ? { ...shown, files: o.files.map((f) => (f.image ? { ...f, image: { ...f.image, rgba: f.image.rgba.slice() } } : { ...f })) } : shown;
+  const withFiles = o.files ? { ...shown, files: o.files.map((f) => (f.image ? { ...f, image: { ...f.image, rgba: f.image.rgba.slice() } } : { ...f })) } : shown;
+  // Kept even when the region failed: what it printed on the way is what finds the mistake.
+  return o.trace ? { ...withFiles, trace: o.trace } : withFiles;
 }
 
 /** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */

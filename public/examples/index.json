@@ -128,5 +128,10 @@
     "slug": "fringes",
     "title": "Fringes, an overshoot and a diode",
     "summary": "Integrals with names: light bending round an edge with the Fresnel integrals, the Gibbs overshoot with the sine integral, and a diode's current, exactly, with Lambert's W."
+  },
+  {
+    "slug": "trials",
+    "title": "Repeatable trials, stopping rules and tracing",
+    "summary": "Seed to repeat a random experiment exactly, until to stop a recurrence at a limit, and trace to follow a program step by step."
   }
 ]
