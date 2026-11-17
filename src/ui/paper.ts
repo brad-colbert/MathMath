@@ -29,6 +29,7 @@ import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
 import { drawTraced } from './traced.js';
 import { paletteFor } from './colormap.js';
+import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
@@ -262,7 +263,9 @@ export class Paper {
       cache.plotData = outcome;
       el.classList.add('plot');
       const c = item.region.content;
-      const palette = c.view === 'surface' || c.view === 'contour' ? paletteFor(c.colorMap, outcome?.plot, this.doc.ws.assets) : {};
+      // A vector field's default is dark ink, so the ramp is a choice it names.
+      const palette = c.view === 'vector' && c.colorMap?.toLowerCase() === DEFAULT_MAP ? { rows: BUILTIN_MAPS[DEFAULT_MAP] }
+        : c.view === 'surface' || c.view === 'contour' || c.view === 'vector' ? paletteFor(c.colorMap, outcome?.plot, this.doc.ws.assets) : {};
       drawPlot(el, c, outcome?.plot, outcome?.error, palette.rows);
       el.title = palette.problem ?? '';
       if (this.selected.has(item.region.id)) {
@@ -823,7 +826,7 @@ export class Paper {
     // Dragging across a surface plot turns it, rather than moving it.
     if (target.closest('.rotate-area') && view) {
       const item = this.doc.find(view.dataset.id!);
-      if (item?.kind === 'math' && item.region.content.k === 'plot' && item.region.content.view === 'surface') {
+      if (item?.kind === 'math' && item.region.content.k === 'plot' && (item.region.content.view === 'surface' || item.region.content.view === 'vector')) {
         const was = item.region.content.view3d;
         const { azimuth, elevation } = was ?? DEFAULT_VIEW;
         this.select([item.region.id]);

@@ -108,8 +108,10 @@ function inUnits(p: PlotData, c: Plot): PlotData {
   const out: PlotData = { traces, limits, labels: { x: ax.latex, y: ay.latex, xChosen: ax.chosen, yChosen: ay.chosen } };
   // The sheet's colour maps go too, for the page to draw a surface in the one it names.
   if (p.maps) out.maps = p.maps;
-  // A polyhedron goes as it is: its corners have no units.
+  // A polyhedron goes as it is: its corners have no units. So does a vector field, whose units are dropped, as
+  // Mathcad drops them.
   if (p.poly) out.poly = p.poly;
+  if (p.field) out.field = p.field;
   if (p.surface) {
     // Heights in their default display unit, which the color bar names.
     const zs = axisScale(p.surface.zDim, undefined);
@@ -301,7 +303,9 @@ function shownValue(o: Outcome, format: NumberFormat): Shown {
   if (o.plot && o.region.content.k === 'plot') {
     const plot = inUnits(o.plot, o.region.content);
     const surface = plot.surface ? { ...plot.surface, x: plot.surface.x.slice(), y: plot.surface.y.slice(), z: plot.surface.z.slice() } : undefined;
-    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice(), ...(t.param ? { param: t.param.slice() } : {}) })), ...(surface ? { surface } : {}) } };
+    const f = plot.field;
+    const field = f ? { ...f, x: f.x.slice(), y: f.y.slice(), z: f.z.slice(), u: f.u.slice(), v: f.v.slice(), w: f.w.slice() } : undefined;
+    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice(), ...(t.param ? { param: t.param.slice() } : {}) })), ...(surface ? { surface } : {}), ...(field ? { field } : {}) } };
   }
   if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
   if (o.unevaluated) return { id, unevaluated: true };
@@ -331,6 +335,7 @@ function buffersOf(shown: Shown[]): ArrayBuffer[] {
   return [...new Set(shown.flatMap((s) => [
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.plot?.surface ? [s.plot.surface.x.buffer, s.plot.surface.y.buffer, s.plot.surface.z.buffer] : []),
+    ...(s.plot?.field ? [s.plot.field.x, s.plot.field.y, s.plot.field.z, s.plot.field.u, s.plot.field.v, s.plot.field.w].map((a) => a.buffer) : []),
     ...(s.image ? [s.image.rgba.buffer] : []),
     ...(s.files?.flatMap((f) => (f.image ? [f.image.rgba.buffer] : [])) ?? []),
   ]))] as ArrayBuffer[];

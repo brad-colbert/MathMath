@@ -434,6 +434,7 @@ export const RESULTS: Record<string, string[]> = {
   "topic:odes-1": ["","","1"],
   "topic:odes-2": ["","","","","","","0.373"],
   "topic:plots-1": ["",""],
+  "topic:plots-2": ["","",""],
   "topic:programs-1": ["","55"],
   "topic:random-1": ["0.267","0.975","1.96"],
   "topic:solve-1": ["","","","","","\\begin{pmatrix}4\\\\3\\end{pmatrix}"],

@@ -127,10 +127,13 @@ function slots(c: Plot, data: PlotData | undefined, area: { x: number; y: number
   const below = area.y + area.h;
   const unit = data?.zLabel ? `<div class="zunit" style="left:${area.x + area.w + 4}pt;top:${area.y - 12}pt">${markup(data.zLabel)}</div>` : '';
   return [
-    slot('ys', c.ys[0] ? markup(tex(c.ys[0])) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + 24}pt;justify-content:center;align-items:center`,
-      'What to plot: a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, three vectors for a curve, as CreateSpace gives, or a polyhedron, as Polyhedron gives'),
+    // Every expression, as typed: a vector field can take two or six.
+    slot('ys', c.ys.length ? `<span>${c.ys.map((e) => markup(tex(e))).join(', ')}</span>` : '', `left:${area.x}pt;width:${area.w}pt;top:${below + 24}pt;justify-content:center;align-items:center`,
+      c.view === 'vector'
+        ? 'What to plot: a matrix of complex numbers, two matrices X, Y of the arrows\' parts, a function of x and y giving two parts, or six arrays X, Y, Z, U, V, W for arrows in space'
+        : 'What to plot: a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, three vectors for a curve, as CreateSpace gives, or a polyhedron, as Polyhedron gives'),
     // The limits apply only to a function, so they're left out once the plot is known to show matrices.
-    data?.poly || (data?.surface && !data.surface.sampled) ? '' : [
+    data?.poly || (data?.surface && !data.surface.sampled) || (data?.field && !data.field.sampled) ? '' : [
       `<div class="ranges" style="left:${area.x}pt;width:${area.w}pt;top:${below + 38}pt" title="Where a function of two variables is sampled">x `,
       slot('xmin', lim(c.xAxis.min, -5), 'position:static;display:inline-flex', 'Lowest x a function is sampled at'),
       ' to ', slot('xmax', lim(c.xAxis.max, 5), 'position:static;display:inline-flex', 'Highest x a function is sampled at'),
@@ -421,4 +424,170 @@ function hoverNearest(el: HTMLElement, find: (px: number, py: number) => string 
   svg.addEventListener('mouseleave', () => {
     readout.hidden = true;
   });
+}
+
+const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+
+/** Dark ink for arrows, as Mathcad draws a vector field: thin black arrows. */
+const INK = '#1f1f1f';
+
+/**
+ * A vector field: an arrow from each point, its length in proportion, the longest reaching the next point (see
+ * vectorfield.ts). Arrows in the plane are drawn flat with axes, x and y to one scale so each arrow points the way
+ * its vector does; arrows in space are drawn in a box that turns when dragged, as a surface does. Dark ink, or
+ * with a colour map each arrow colored by its length.
+ */
+export function drawVector(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
+  const f = data?.field;
+  if (!f || problem) {
+    empty(el, c, data, problem);
+    return;
+  }
+  const framed = frame(c).area;
+  // Without a colour map there is no color bar, so the arrows take its room.
+  const area = palette ? framed : { ...framed, w: Math.max(40, c.width - framed.x - 12) };
+  const n = f.x.length;
+  const lengths = Float64Array.from({ length: n }, (_, k) => Math.hypot(f.u[k]!, f.v[k]!, f.w[k]!));
+  const big = Math.max(0, ...[...lengths].filter(Number.isFinite));
+  const colour = (k: number): string => (palette ? `rgb(${mapColor(palette, big > 0 ? lengths[k]! / big : 0).join(',')})` : INK);
+  const tip = (k: number): [number, number, number] => [f.x[k]! + f.u[k]! * f.scale, f.y[k]! + f.v[k]! * f.scale, f.z[k]! + f.w[k]! * f.scale];
+  const parts: string[] = [`<svg class="plot-svg" width="${c.width}pt" height="${c.height}pt" viewBox="0 0 ${c.width} ${c.height}" font-family="system-ui, sans-serif" font-size="8">`];
+  /** An arrow from (ax, ay) to (bx, by) on the page, its head two strokes a third of its length, or a dot. */
+  const arrow = (ax: number, ay: number, bx: number, by: number, col: string, opacity = 1): string => {
+    const [dx, dy] = [bx - ax, by - ay];
+    const len = Math.hypot(dx, dy);
+    if (!(len > 0.4)) return `<circle cx="${ax.toFixed(2)}" cy="${ay.toFixed(2)}" r="0.7" fill="${col}"${opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : ''}/>`;
+    const h = Math.min(len * 0.32, 6);
+    const [ux, uy] = [dx / len, dy / len];
+    const [c1, s1] = [Math.cos(0.45), Math.sin(0.45)];
+    const head = (sign: number): string => `${(bx - h * (ux * c1 - sign * uy * s1)).toFixed(2)} ${(by - h * (sign * ux * s1 + uy * c1)).toFixed(2)}`;
+    return `<path d="M${ax.toFixed(2)} ${ay.toFixed(2)}L${bx.toFixed(2)} ${by.toFixed(2)}M${head(1)}L${bx.toFixed(2)} ${by.toFixed(2)}L${head(-1)}" stroke="${col}" stroke-width="0.8" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : ''}/>`;
+  };
+  if (f.dims === 2) {
+    // The points and the arrows' tips, with half a step round them, to one scale both ways.
+    let [x0, x1, y0, y1] = [Infinity, -Infinity, Infinity, -Infinity];
+    for (let k = 0; k < n; k++) {
+      const [tx, ty] = tip(k);
+      for (const [px, py] of [[f.x[k]!, f.y[k]!], [tx, ty]] as [number, number][]) {
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        [x0, x1, y0, y1] = [Math.min(x0, px), Math.max(x1, px), Math.min(y0, py), Math.max(y1, py)];
+      }
+    }
+    const pad = f.step / 2;
+    [x0, x1, y0, y1] = [x0 - pad, x1 + pad, y0 - pad, y1 + pad];
+    const k = Math.min(area.w / (x1 - x0 || 1), area.h / (y1 - y0 || 1));
+    const [ox, oy] = [area.x + (area.w - (x1 - x0) * k) / 2, area.y + (area.h + (y1 - y0) * k) / 2];
+    const X = (v: number): number => ox + (v - x0) * k;
+    const Y = (v: number): number => oy - (v - y0) * k;
+    const [bx0, bx1, by1, by0] = [X(x0), X(x1), Y(y0), Y(y1)];
+    parts.push(`<rect x="${bx0}" y="${by0}" width="${bx1 - bx0}" height="${by1 - by0}" fill="none" stroke="${SECONDARY}" stroke-width="0.75"/>`);
+    // Ticks inside the box, at least three where the range allows.
+    const inside = (lo: number, hi: number, count: number): number[] => {
+      const pick = (n: number) => ticks({ lo, hi, log: false }, n).filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
+      const first = pick(count);
+      return first.length >= 3 ? first : pick(count * 2.5);
+    };
+    for (const t of inside(x0, x1, Math.max(3, Math.round((bx1 - bx0) / 45)))) {
+      parts.push(`<line x1="${X(t)}" y1="${by0}" x2="${X(t)}" y2="${by1}" stroke="${GRID}" stroke-width="0.75"/>`);
+      parts.push(`<text x="${X(t)}" y="${by1 + 9}" text-anchor="middle" fill="${SECONDARY}">${esc(label(t))}</text>`);
+    }
+    for (const t of inside(y0, y1, Math.max(3, Math.round((by1 - by0) / 35)))) {
+      parts.push(`<line x1="${bx0}" y1="${Y(t)}" x2="${bx1}" y2="${Y(t)}" stroke="${GRID}" stroke-width="0.75"/>`);
+      parts.push(`<text x="${bx0 - 3}" y="${Y(t) + 2.8}" text-anchor="end" fill="${SECONDARY}">${esc(label(t))}</text>`);
+    }
+    for (let i = 0; i < n; i++) {
+      if (![f.x[i], f.y[i], f.u[i], f.v[i]].every((v) => Number.isFinite(v!))) continue;
+      const [tx, ty] = tip(i);
+      parts.push(arrow(X(f.x[i]!), Y(f.y[i]!), X(tx), Y(ty), colour(i)));
+    }
+    if (palette) parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, 0, big, el.dataset.id ?? 'v', 0, colorOf(palette), true));
+    // A big matrix draws every few rows and columns, and says so.
+    if (f.every > 1) parts.push(`<text class="thinned" x="${bx1}" y="${by0 - 3}" text-anchor="end" fill="${SECONDARY}" font-size="6.5">every ${ordinal(f.every)} row and column</text>`);
+    parts.push('</svg>');
+    el.innerHTML = parts.join('') + slots(c, data, area);
+    el.style.width = `${c.width}pt`;
+    el.style.height = `${c.height}pt`;
+    hoverNearest(el, (px, py) => {
+      let best = -1;
+      let bd = Infinity;
+      for (let i = 0; i < n; i++) {
+        const d = (X(f.x[i]!) - px) ** 2 + (Y(f.y[i]!) - py) ** 2;
+        if (d < bd) [bd, best] = [d, i];
+      }
+      return best >= 0 && bd < 400 ? `x = ${num(f.x[best]!)}, y = ${num(f.y[best]!)}: (${num(f.u[best]!)}, ${num(f.v[best]!)})` : null;
+    }, area);
+    return;
+  }
+  // In space: a box round the points and tips, one scale all three ways, turned as a surface is.
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < n; i++) {
+    for (const p of [[f.x[i]!, f.y[i]!, f.z[i]!], tip(i)]) {
+      p.forEach((v, a) => {
+        if (Number.isFinite(v)) [lo[a], hi[a]] = [Math.min(lo[a]!, v), Math.max(hi[a]!, v)];
+      });
+    }
+  }
+  const half = Math.max(...[0, 1, 2].map((a) => (hi[a]! - lo[a]!) / 2), 1e-12);
+  const mid = [0, 1, 2].map((a) => (lo[a]! + hi[a]!) / 2);
+  const norm = (p: number[]): [number, number, number] => [(p[0]! - mid[0]!) / half, (p[1]! - mid[1]!) / half, (p[2]! - mid[2]!) / half];
+  const ext = [0, 1, 2].map((a) => (hi[a]! - lo[a]!) / 2 / half);
+  const view = c.view3d ?? DEFAULT_VIEW;
+  const [a, e] = [(view.azimuth * Math.PI) / 180, (view.elevation * Math.PI) / 180];
+  const [ca, sa, ce, se] = [Math.cos(a), Math.sin(a), Math.cos(e), Math.sin(e)];
+  const project = (px: number, py: number, pz: number): [number, number, number] => {
+    const x1r = px * ca - py * sa;
+    const y1r = px * sa + py * ca;
+    return [x1r, pz * ce + y1r * se, -y1r * ce + pz * se];
+  };
+  const corners = [-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [-1, 1].map((sz) => project(sx * ext[0]!, sy * ext[1]!, sz * ext[2]!))));
+  const [bx0, bx1] = [Math.min(...corners.map((p) => p[0])), Math.max(...corners.map((p) => p[0]))];
+  const [by0, by1] = [Math.min(...corners.map((p) => p[1])), Math.max(...corners.map((p) => p[1]))];
+  const scale = Math.min(area.w / (bx1 - bx0 || 1), area.h / (by1 - by0 || 1)) * 0.92;
+  const [ox, oy] = [area.x + area.w / 2 - ((bx0 + bx1) / 2) * scale, area.y + area.h / 2 + ((by0 + by1) / 2) * scale];
+  const screen = (p: [number, number, number]): [number, number] => [ox + p[0] * scale, oy - p[1] * scale];
+  const at = (p: number[]): [number, number, number] => project(...norm(p));
+  const boxPt = (sx: number, sy: number, sz: number): string => screen(project(sx * ext[0]!, sy * ext[1]!, sz * ext[2]!)).map((v) => v.toFixed(2)).join(' ');
+  for (const [p, q] of [
+    ...[-1, 1].flatMap((sy) => [-1, 1].map((sz) => [[-1, sy, sz], [1, sy, sz]])),
+    ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => [[sx, -1, sz], [sx, 1, sz]])),
+    ...[-1, 1].flatMap((sx) => [-1, 1].map((sy) => [[sx, sy, -1], [sx, sy, 1]])),
+  ] as [number, number, number][][]) parts.push(`<path d="M${boxPt(...p!)}L${boxPt(...q!)}" stroke="${GRID}" stroke-width="0.75" fill="none"/>`);
+  const tag = (p: [number, number, number], text: string): void => {
+    const [sx, sy] = screen(project(p[0] * ext[0]!, p[1] * ext[1]!, p[2] * ext[2]!));
+    parts.push(`<text x="${sx.toFixed(2)}" y="${(sy + 10).toFixed(2)}" text-anchor="middle" fill="${SECONDARY}">${esc(text)}</text>`);
+  };
+  tag([-1, -1, -1], `x ${label(lo[0]!)}`);
+  tag([1, -1, -1], label(hi[0]!));
+  tag([1, 1, -1], `y ${label(hi[1]!)}`);
+  // Back to front, the farther a little fainter.
+  const order = Array.from({ length: n }, (_, i) => i).filter((i) => [f.x[i], f.y[i], f.z[i], f.u[i], f.v[i], f.w[i]].every((v) => Number.isFinite(v!)));
+  const depth = order.map((i) => at([f.x[i]!, f.y[i]!, f.z[i]!])[2]);
+  const [d0, d1] = [Math.min(...depth), Math.max(...depth)];
+  const sorted = order.map((i, k) => ({ i, d: depth[k]! })).sort((p, q) => p.d - q.d);
+  const shown: { i: number; s: [number, number] }[] = [];
+  for (const { i, d } of sorted) {
+    const s0 = screen(at([f.x[i]!, f.y[i]!, f.z[i]!]));
+    const s1 = screen(at(tip(i)));
+    const fade = d1 > d0 ? 0.45 + 0.55 * ((d - d0) / (d1 - d0)) : 1;
+    parts.push(arrow(s0[0], s0[1], s1[0], s1[1], colour(i), fade));
+    shown.push({ i, s: s0 });
+  }
+  if (palette) parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, 0, big, el.dataset.id ?? 'v', 0, colorOf(palette), true));
+  // Dragging across the plot turns it.
+  parts.push(`<rect class="rotate-area" x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}" fill="transparent"/>`);
+  parts.push('</svg>');
+  el.innerHTML = parts.join('') + slots(c, data, area);
+  el.style.width = `${c.width}pt`;
+  el.style.height = `${c.height}pt`;
+  hoverNearest(el, (px, py) => {
+    let best: { d: number; i: number } | null = null;
+    for (const { i, s: [sx, sy] } of shown) {
+      const d = (sx - px) ** 2 + (sy - py) ** 2;
+      if (!best || d < best.d) best = { d, i };
+    }
+    if (!best || best.d > 400) return null;
+    const i = best.i;
+    return `(${num(f.x[i]!)}, ${num(f.y[i]!)}, ${num(f.z[i]!)}): (${num(f.u[i]!)}, ${num(f.v[i]!)}, ${num(f.w[i]!)})`;
+  }, area);
 }

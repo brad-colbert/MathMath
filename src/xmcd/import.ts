@@ -439,10 +439,25 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
       }
       const rendering = kids(r).find((c) => c.localName === 'rendering')?.getAttribute('item-idref');
       const png = rendering ? (binary.get(rendering) ?? null) : null;
-      // A 3D plot of Polyhedron("…") becomes a surface plot of it, at the plot's size.
+      // A 3D plot of Polyhedron("…") becomes a surface plot of it, at the plot's size; one of two matrices in
+      // parentheses, (X, Y), is a vector field, the only 3D plot that takes two (a surface takes one or three).
       if (name === 'component' && clsid === PLOT_3D) {
-        const input = kids(kids(body).find((c) => c.localName === 'inputs') ?? body)[0];
-        const expr = input ? parseExpr(input) : null;
+        const inputs = kids(kids(body).find((c) => c.localName === 'inputs') ?? body);
+        const input = inputs.length === 1 ? inputs[0] : undefined;
+        const pair = input?.localName === 'parens' && kids(input)[0]?.localName === 'sequence' ? kids(kids(input)[0]!) : null;
+        if (pair?.length === 2) {
+          regions.push({
+            id: r.getAttribute('region-id') ?? '',
+            left: num(r, 'left'),
+            top: num(r, 'top'),
+            alignX: num(r, 'left'),
+            alignY: num(r, 'top'),
+            disabled: body.getAttribute('disable-calc') === 'true',
+            content: { k: 'plot', x: null, ys: pair.map(parseExpr), xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: num(r, 'width'), height: num(r, 'height'), view: 'vector' },
+          });
+          continue;
+        }
+        const expr = input && !pair ? parseExpr(input) : null;
         if (expr && isPolyhedron(expr)) {
           regions.push({
             id: r.getAttribute('region-id') ?? '',

@@ -2714,6 +2714,98 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Vector field plots: a complex matrix as Mathcad gives one, switched to from Format; arrows in space turned by
+// dragging; and a colour map coloring arrows by length.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['f\\left(i,j\\right)\\coloneq \\left(i-3\\right)+\\left(j-3\\right)\\cdot 1i', 'M\\coloneq \\mathrm{matrix}\\left(7,7,f\\right)',
+    'P\\coloneq \\begin{pmatrix}0\\\\1\\\\0\\\\1\\end{pmatrix}', 'Q\\coloneq \\begin{pmatrix}0\\\\0\\\\1\\\\1\\end{pmatrix}',
+    'g\\left(i,j\\right)\\coloneq 1', 'R\\coloneq \\mathrm{matrix}\\left(4,4,g\\right)'];
+  ws.regions = lines.map((l, i) => ({ id: `m${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'p', left: 60, top: 260, alignX: 60, alignY: 260, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('M')], markers: false, width: 240, height: 220, view: 'surface',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never }, { id: 's', left: 340, top: 260, alignX: 340, alignY: 260, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('\\begin{pmatrix}P\\\\Q\\\\P\\\\Q\\\\P\\\\P\\end{pmatrix}')], markers: false, width: 240, height: 220, view: 'vector',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never });
+  await page.evaluate((t) => (window as any).mathmath.load('field.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const b = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('[data-id="p"]')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  });
+  await page.mouse.click(b.x, b.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Vector field plot')!.click());
+  await idle(page);
+  await sleep(150);
+  const arrows = () => page.evaluate(() => {
+    const el = document.querySelector('[data-id="p"]')!;
+    return { paths: el.querySelectorAll('.plot-svg path[stroke-linecap="round"]').length, dots: el.querySelectorAll('.plot-svg circle').length, strokes: [...el.querySelectorAll<SVGPathElement>('.plot-svg path[stroke-linecap="round"]')].map((p) => p.getAttribute('stroke')), view: (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.view };
+  });
+  const flat = await arrows();
+  // 7 × 7 points: 48 arrows and the one of length 0, at the middle, a dot.
+  check('Format → Vector field plot draws a complex matrix as Mathcad does: an arrow at each point, a dot where it is 0', flat.view === 'vector' && flat.paths === 48 && flat.dots === 1 && flat.strokes.every((c) => c === '#1f1f1f'), flat);
+  // Color map…: ink is the default, ramp a choice, and ink again puts the arrows back.
+  const chooseFor = async (name: string) => {
+    await page.mouse.click(b.x, b.y);
+    await sleep(80);
+    await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Color map…')!.click());
+    await sleep(80);
+    const offered = await page.evaluate(() => [...document.querySelectorAll('.map-chooser button')].map((x) => x.textContent));
+    await page.evaluate((n) => [...document.querySelectorAll<HTMLButtonElement>('.map-chooser button')].find((x) => x.textContent!.split(' (')[0] === n)!.click(), name);
+    await sleep(200);
+    return offered;
+  };
+  const offered = await chooseFor('ramp');
+  const ramped = await arrows();
+  const rampMap = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.colorMap);
+  await chooseFor('ink');
+  const inked = await arrows();
+  const inkMap = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.colorMap);
+  check('Color map… on a vector field offers ink as the default; ramp colors the arrows by length, and ink puts them back', offered[0] === 'ink (the default)' && rampMap === 'ramp' && new Set(ramped.strokes).size > 3 && !ramped.strokes.includes('#1f1f1f') && inkMap === undefined && inked.strokes.every((c) => c === '#1f1f1f'), { offered: offered.slice(0, 3), rampMap, ramped: ramped.strokes.slice(0, 3), inkMap });
+  // Typed from scratch: a plot of R, R, two matrices separated by a comma, as Mathcad takes them, made a vector
+  // field from Format. Equal parts point up and to the right.
+  await clickAt(page, 60, 520);
+  await keys(page, '@');
+  await sleep(80);
+  await keys(page, 'R,R');
+  await page.keyboard.press('Tab');
+  await sleep(60);
+  await page.keyboard.press('Escape');
+  await sleep(80);
+  const typed = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.content.k === 'plot' && r.id !== 'p' && r.id !== 's')?.id);
+  const tb = await page.evaluate((id) => {
+    const r = document.querySelector<HTMLElement>(`[data-id="${id}"]`)!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  }, typed);
+  await page.mouse.click(tb.x, tb.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Vector field plot')!.click());
+  await idle(page);
+  await sleep(150);
+  const typedArrows = await page.evaluate((id) => [...document.querySelectorAll<SVGPathElement>(`[data-id="${id}"] .plot-svg path[stroke-linecap="round"]`)].map((p) => p.getAttribute('d')!.match(/-?[\d.]+/g)!.slice(0, 4).map(Number)), typed);
+  const upRight = typedArrows.every(([x0, y0, x1, y1]) => x1! > x0! + 1 && y1! < y0! - 1);
+  check('typing R, R in a new plot and making it a vector field draws the pair as arrows up and to the right', typedArrows.length === 16 && upRight, { n: typedArrows.length, first: typedArrows[0] });
+  // Arrows in space turn when dragged.
+  const before = await page.evaluate(() => document.querySelector('[data-id="s"] .plot-svg path[stroke-linecap="round"]')?.getAttribute('d'));
+  const area = await page.evaluate(() => {
+    const r = document.querySelector('[data-id="s"] .rotate-area')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(area.x, area.y);
+  await page.mouse.down();
+  await page.mouse.move(area.x + 40, area.y + 12, { steps: 4 });
+  await page.mouse.up();
+  await sleep(150);
+  const after = await page.evaluate(() => ({ d: document.querySelector('[data-id="s"] .plot-svg path[stroke-linecap="round"]')?.getAttribute('d'), view3d: (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 's').content.view3d, n: document.querySelectorAll('[data-id="s"] .plot-svg path[stroke-linecap="round"], [data-id="s"] .plot-svg circle').length }));
+  check('arrows in space are drawn in a box and turn when dragged, one seen end-on as a dot', after.n === 4 && !!after.view3d && after.d !== before, { before, after });
+  await page.close();
+}
+
 // statespace, sbval and Jacob, typed against functions already on the sheet.
 {
   const page = await fresh();
