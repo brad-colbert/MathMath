@@ -133,5 +133,10 @@
     "slug": "trials",
     "title": "Repeatable trials, stopping rules and tracing",
     "summary": "Seed to repeat a random experiment exactly, until to stop a recurrence at a limit, and trace to follow a program step by step."
+  },
+  {
+    "slug": "terrain",
+    "title": "Hills in color",
+    "summary": "Colour maps for surface and contour plots: a landscape in a map of its own, made with SaveColormap, and the same heights in viridis."
   }
 ]

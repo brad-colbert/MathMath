@@ -88,6 +88,7 @@ export function corpusFiles(corpus: string, also: string[]): (sheetPath: string,
     const folder = dirname(sheetPath);
     return {
       image: () => undefined,
+      colormap: () => undefined,
       audio: () => undefined,
       table: (name) => {
         const paths = data.get(name);

@@ -69,8 +69,9 @@ describe('Seed', () => {
 
   test('recalculating from a change matches a full run, whether the change is to the seed or to a draw above it', async () => {
     const ws = sheetOf([...lines, 'd\\coloneq \\mathrm{rnd}\\left(1\\right)', 'x\\coloneq 1', 'y\\coloneq x+1']);
-    const first = await runIncremental(ws, noAlgebra, null);
     for (const [id, latex] of [['r3', '\\mathrm{Seed}\\left(8\\right)='], ['r4', 'b\\coloneq \\mathrm{rnd}\\left(1\\right)+\\mathrm{rnd}\\left(1\\right)'], ['r7', 'x\\coloneq 2']] as const) {
+      // A recalculation moves its snapshot on, so each edit starts from a first run of its own, as the page's do.
+      const first = await runIncremental(ws, noAlgebra, null);
       const after = structuredClone(ws);
       after.regions.find((r) => r.id === id)!.content = readRegion(latex);
       const next = await runIncremental(after, noAlgebra, first.snapshot);

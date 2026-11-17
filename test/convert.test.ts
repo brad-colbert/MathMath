@@ -44,6 +44,7 @@ const FILES: Files = {
   table: (n) => tables.get(n),
   sheet: () => undefined,
   audio: (n) => audio.get(fileKey(n)),
+  colormap: () => undefined,
 };
 const CTX = { origin: 0, audio: (n: string) => audio.get(fileKey(n)), table: (n: string) => tables.get(fileKey(n)) };
 

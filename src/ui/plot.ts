@@ -22,6 +22,7 @@ import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
 import { drawContour, drawSurface } from './plot3d.js';
+import type { MapRows } from '../engine/colormaps.js';
 import { pointsPerPixel } from './zoom.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
@@ -164,7 +165,7 @@ const slot = (name: string, html: string, style: string, hint: string): string =
 /** Room taken by each title, in points. The plot keeps its size, so its area shrinks to fit them. */
 const TITLE = { top: 13, left: 11, bottom: 11 };
 
-export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
   if (c.view === 'polar') {
     drawPolar(el, c, data, problem);
     return;
@@ -174,11 +175,11 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
     return;
   }
   if (c.view === 'surface') {
-    drawSurface(el, c, data, problem);
+    drawSurface(el, c, data, problem, palette);
     return;
   }
   if (c.view === 'contour') {
-    drawContour(el, c, data, problem);
+    drawContour(el, c, data, problem, palette);
     return;
   }
   const [w, h] = [c.width, c.height];

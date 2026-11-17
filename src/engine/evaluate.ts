@@ -15,7 +15,7 @@
 
 import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/ast.js';
 import { Defs } from '../symbolic/defs.js';
-import { type Files, NO_FILES, sheetKey } from './files.js';
+import { type Files, NO_FILES, fileKey, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
 import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
@@ -28,6 +28,7 @@ import {
   transpose, zip,
 } from './ops.js';
 import { type Seeded, drawFrom, seeded, stream } from './random.js';
+import { type MapRows, builtinMap, isCmpFile, mapFromMatrix, mapMatrix, writeCmp } from './colormaps.js';
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
@@ -158,6 +159,8 @@ export interface PlotData {
   surface?: SurfaceData;
   /** The unit the surface's heights are shown in, as LaTeX. Set by the worker. */
   zLabel?: string;
+  /** The colour maps saved in the sheet above a surface or contour plot, by name. */
+  maps?: [string, MapRows][];
 }
 
 
@@ -280,7 +283,7 @@ const CONSTANTS: Record<string, Num> = {
 };
 
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
-export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob', 'until']);
+export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob', 'until', 'SaveColormap', 'LoadColormap']);
 
 /** until(c, x) with c negative: ends the range definition it stands in, as Mathcad's does. */
 class UntilStop {}
@@ -291,6 +294,11 @@ const RELATIONS = new Set(['equal', 'lessThan', 'greaterThan', 'lessOrEqual', 'g
  * that changes a constraint calculates the solver below it again.
  */
 export const SOLVE_BLOCK = '\u0000solve block';
+/**
+ * The colour maps SaveColormap has added to the sheet so far, as one name in the scope, so recalculation sees a
+ * plot or LoadColormap depend on them: a k × 2 array of each map's name and its rows.
+ */
+export const COLORMAPS = '\u0000colour maps';
 
 const BLOCK_CALL = new RegExp(`"name":"(${BLOCK_FORMS.join('|')})"`);
 /** Whether a definition or evaluation calls a function that closes a solve block. Its stored answer isn't looked at. */
@@ -361,7 +369,9 @@ export class Evaluator implements Host {
   private compiler = new Compiler(this);
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
   private corners: { at: number; tables: Set<Float64Array> } | null = null;
+  private files: Files;
   constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { ctol?: number; exactCompare?: boolean; zeroOverZero?: boolean; seed?: number }, files?: Files) {
+    this.files = files ?? NO_FILES;
     this.builtins = makeBuiltins(ws.origin, files, {
       interpolated: (xs, at) => {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
@@ -693,6 +703,65 @@ export class Evaluator implements Host {
 
   private builtinIf: Fn = { t: 'fn', name: 'if', call: () => num(0) };
 
+  /** Colour maps saved by the region being calculated, to add to the sheet's after it (see Run.plain). */
+  savedMaps: [string, MapRows][] = [];
+
+  /** A colour map's name, as SaveColormap and LoadColormap take it: a string, and nothing that names a folder. */
+  private mapName(v: Expr | undefined, s: Scope, fn: string): string {
+    const name = v ? this.eval(v, s) : undefined;
+    if (name?.t !== 'str' || !name.v.trim()) throw new EvalError('runtime', `${fn}'s first argument is the map's name, a string, as ${fn}("mine"${fn === 'SaveColormap' ? ', M' : ''})`);
+    if (/[\\/:]/.test(name.v)) throw new EvalError('runtime', `A colour map's name is just a name, without a folder: MathMath keeps maps in the worksheet`);
+    return name.v.trim();
+  }
+
+  /**
+   * SaveColormap("name", M): adds M to the sheet's colour maps under the name, for the plots below it, and offers it
+   * as Mathcad's name.cmp file to save. Gives the number of rows, as Mathcad.
+   */
+  private saveColormap(args: Expr[], s: Scope): Value {
+    if (args.length !== 2) throw new EvalError('runtime', 'SaveColormap takes a name and a matrix: SaveColormap("mine", M), with M n × 3, red, green and blue 0 to 255');
+    const name = this.mapName(args[0], s, 'SaveColormap');
+    const rows = mapFromMatrix(this.eval(args[1]!, s), 'SaveColormap');
+    this.savedMaps = [...this.savedMaps.filter(([n]) => n.toLowerCase() !== name.toLowerCase()), [name, rows]];
+    const file = `${name}.cmp`;
+    this.writes.at(-1)?.set(file, { name: file, bytes: writeCmp(rows), mime: 'application/octet-stream', about: `A Mathcad colour map of ${rows.length} colours` });
+    return num(rows.length);
+  }
+
+  /** The sheet's colour maps where it stands, the region's own last. */
+  mapsAt(s: Scope): [string, MapRows][] {
+    const v = s.lookup(COLORMAPS);
+    const saved: [string, MapRows][] = [];
+    if (v?.t === 'mat' && v.cells) {
+      for (let i = 0; i < v.rows; i++) {
+        const name = getEl(v, i, 0);
+        const m = getEl(v, i, 1);
+        if (name.t === 'str' && m.t === 'mat') saved.push([name.v, Array.from({ length: m.rows }, (_, r) => [0, 1, 2].map((c) => requireReal(getEl(m, r, c))))]);
+      }
+    }
+    const own = new Set(this.savedMaps.map(([n]) => n.toLowerCase()));
+    return [...saved.filter(([n]) => !own.has(n.toLowerCase())), ...this.savedMaps];
+  }
+
+  /**
+   * LoadColormap("name"): a colour map's rows, as an n × 3 matrix: one saved above with SaveColormap, an attached
+   * Mathcad name.cmp file, or one of MathMath's own. Names match whatever their case, as Mathcad's do.
+   */
+  private loadColormap(args: Expr[], s: Scope): Value {
+    if (args.length !== 1) throw new EvalError('runtime', 'LoadColormap takes a colour map\'s name: LoadColormap("mine")');
+    const name = this.mapName(args[0], s, 'LoadColormap');
+    const key = name.toLowerCase();
+    const saved = this.mapsAt(s).find(([n]) => n.toLowerCase() === key);
+    if (saved) return mapMatrix(saved[1]);
+    const file = isCmpFile(name) ? name : `${name}.cmp`;
+    const attached = this.files.colormap(fileKey(file));
+    if (typeof attached === 'string') throw new EvalError('runtime', `${file}: ${attached}`);
+    if (attached) return mapMatrix(attached);
+    const builtin = builtinMap(name);
+    if (builtin) return mapMatrix(builtin);
+    throw needsFile(file);
+  }
+
   /** Range definitions running, which until can end. */
   private ranging = 0;
 
@@ -716,6 +785,8 @@ export class Evaluator implements Host {
   /** root, Find, Minerr, Maximize, Minimize and Odesolve, which take names, not values, for their variables. */
   solveForm(name: string, args: Expr[], s: Scope): Value {
     if (name === 'until') return this.until(args, s);
+    if (name === 'SaveColormap') return this.saveColormap(args, s);
+    if (name === 'LoadColormap') return this.loadColormap(args, s);
     if (name === 'root') return this.root(args, s);
     if (name === 'Jacob') return this.jacob(args, s);
     const ctx = this.solveContext;
@@ -1832,6 +1903,13 @@ export class Run {
     } finally {
       const files = this.ev.takeWrites();
       const trace = this.ev.takeTrace();
+      // Maps SaveColormap added hold from here down, as a definition does.
+      if (this.ev.savedMaps.length > 0) {
+        const maps = this.ev.mapsAt(this.scope);
+        this.ev.savedMaps = [];
+        this.scope = Scope.after(this.scope);
+        this.scope.set(COLORMAPS, fromValues(maps.length, 2, [...maps.map(([n]) => str(n)), ...maps.map(([, rows]) => mapMatrix(rows))]));
+      }
       const outcome = this.outcomes[shown];
       if (files.length > 0 && outcome) outcome.files = files;
       if (trace.length > 0 && outcome) outcome.trace = trace;
@@ -2058,7 +2136,12 @@ function smithData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Sco
 }
 
 export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
-  if (c.view === 'surface' || c.view === 'contour') return surfaceData(ev, c, scope);
+  if (c.view === 'surface' || c.view === 'contour') {
+    // The sheet's saved colour maps go with it, so the page can draw it in whichever the plot names.
+    const maps = ev.mapsAt(scope);
+    const data = surfaceData(ev, c, scope);
+    return maps.length > 0 ? { ...data, maps } : data;
+  }
   if (c.view === 'smith') return smithData(ev, c, scope);
   const limits: PlotData['limits'] = {};
   const limitDims: Partial<Record<LimitKey, Dim>> = {};

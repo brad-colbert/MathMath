@@ -28,6 +28,7 @@ import { drawPlot } from './plot.js';
 import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
 import { drawTraced } from './traced.js';
+import { paletteFor } from './colormap.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
@@ -260,7 +261,10 @@ export class Paper {
       cache.plotKey = key;
       cache.plotData = outcome;
       el.classList.add('plot');
-      drawPlot(el, item.region.content, outcome?.plot, outcome?.error);
+      const c = item.region.content;
+      const palette = c.view === 'surface' || c.view === 'contour' ? paletteFor(c.colorMap, outcome?.plot, this.doc.ws.assets) : {};
+      drawPlot(el, c, outcome?.plot, outcome?.error, palette.rows);
+      el.title = palette.problem ?? '';
       if (this.selected.has(item.region.id)) {
         const handle = document.createElement('div');
         handle.className = 'handle';
