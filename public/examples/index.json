@@ -143,5 +143,10 @@
     "slug": "polyhedra",
     "title": "Uniform polyhedra",
     "summary": "The 80 uniform polyhedra and their duals, drawn with Polyhedron: a snub, a star, a dual, and any of them by number."
+  },
+  {
+    "slug": "fields",
+    "title": "Fields of arrows",
+    "summary": "Vector field plots: a whirlpool from a complex matrix, a pendulum's phase portrait, the gradient of a hill, and arrows in space."
   }
 ]

@@ -30,6 +30,7 @@ import {
 import { type Seeded, drawFrom, seeded, stream } from './random.js';
 import { type MapRows, builtinMap, isCmpFile, mapFromMatrix, mapMatrix, writeCmp } from './colormaps.js';
 import { type Polyhedron, polyhedron } from './polyhedra.js';
+import { type FieldData, fieldOf } from './vectorfield.js';
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
@@ -164,6 +165,8 @@ export interface PlotData {
   maps?: [string, MapRows][];
   /** For a surface plot of a polyhedron's name, as Polyhedron gives, in place of a surface. */
   poly?: Polyhedron;
+  /** For a vector field plot: its arrows. */
+  field?: FieldData;
 }
 
 
@@ -2151,6 +2154,19 @@ export function plotData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scop
     const maps = ev.mapsAt(scope);
     const data = surfaceData(ev, c, scope);
     return maps.length > 0 ? { ...data, maps } : data;
+  }
+  if (c.view === 'vector') {
+    const maps = ev.mapsAt(scope);
+    if (c.ys.length === 0) return { traces: [], limits: {} };
+    if (c.ys.length !== 1 && c.ys.length !== 2 && c.ys.length !== 6) {
+      throw new EvalError('runtime', 'A vector field takes one expression, two matrices X, Y of the parts, or six arrays X, Y, Z, U, V, W for arrows in space');
+    }
+    const limit = (x: Expr | null, fallback: number): number => (x ? requireReal(ev.eval(x, scope), 'a limit') : fallback);
+    // X, Y typed as two expressions, as Mathcad takes them, are the pair; six are arrows in space.
+    const values = c.ys.map((e) => ev.eval(e, scope));
+    const value = values.length === 1 ? values[0]! : fromValues(values.length, 1, values);
+    const field = fieldOf(value, ev.origin, { x0: limit(c.xAxis.min, -5), x1: limit(c.xAxis.max, 5), y0: limit(c.yAxis.min, -5), y1: limit(c.yAxis.max, 5) });
+    return { traces: [], limits: {}, field, ...(maps.length > 0 ? { maps } : {}) };
   }
   if (c.view === 'smith') return smithData(ev, c, scope);
   const limits: PlotData['limits'] = {};

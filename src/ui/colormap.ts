@@ -59,7 +59,7 @@ export function swatch(rows: MapRows): string {
  * The list Format's Color map… opens under the toolbar: each map a swatch and its name, the plot's own marked.
  * Picking one, or Escape or a click elsewhere, closes it.
  */
-export function chooseMap(anchor: HTMLElement, names: string[], current: string | undefined, rowsOf: (name: string) => MapRows | undefined, pick: (name: string) => void): void {
+export function chooseMap(anchor: HTMLElement, names: string[], current: string | undefined, rowsOf: (name: string) => MapRows | undefined, pick: (name: string) => void, defaultName: string = DEFAULT_MAP): void {
   document.querySelector('.map-chooser')?.remove();
   const box = document.createElement('div');
   box.className = 'map-chooser';
@@ -81,7 +81,7 @@ export function chooseMap(anchor: HTMLElement, names: string[], current: string 
       close();
     }
   };
-  const chosen = (current ?? DEFAULT_MAP).toLowerCase();
+  const chosen = (current ?? defaultName).toLowerCase();
   for (const name of names) {
     const rows = rowsOf(name);
     const b = document.createElement('button');
@@ -91,7 +91,7 @@ export function chooseMap(anchor: HTMLElement, names: string[], current: string 
     const bar = document.createElement('span');
     bar.className = 'swatch';
     if (rows) bar.style.background = swatch(rows);
-    b.append(bar, document.createTextNode(name === DEFAULT_MAP ? `${name} (MathMath's, the default)` : name));
+    b.append(bar, document.createTextNode(name === defaultName ? `${name} (${name === DEFAULT_MAP ? 'MathMath\'s, ' : ''}the default)` : name));
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', () => {
       close();

@@ -29,7 +29,9 @@ import { touchScreen } from '../ui/editor.js';
 import { regionLatex } from '../latex/region.js';
 import { toggleTitles } from '../ui/slots.js';
 import { chooseMap, mapChoices, paletteFor } from '../ui/colormap.js';
-import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
+import { BUILTIN_MAPS, DEFAULT_MAP, type MapRows } from '../engine/colormaps.js';
+/** A vector field's default, dark arrows as Mathcad draws them, in Color map…. */
+const INK = 'ink';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
@@ -521,6 +523,7 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Smith chart', 'plot', (c) => (c.k === 'plot' ? withView(c, 'smith') : c)],
   ['Surface plot (3-D)', 'plot', (c) => (c.k === 'plot' ? withView(c, 'surface') : c)],
   ['Contour plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'contour') : c)],
+  ['Vector field plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'vector') : c)],
   ['Reset the 3-D view', 'plot', (c) => {
     if (c.k !== 'plot') return c;
     const { view3d: _, ...rest } = c;
@@ -604,25 +607,28 @@ document.addEventListener('keydown', (e) => {
   // A surface or contour plot's colour map, from a short list with a swatch of each.
   const b = document.createElement('button');
   b.textContent = 'Color map…';
-  b.title = 'How heights are colored in the selected surface or contour plot: MathMath\'s maps, those saved with SaveColormap above it, and attached .cmp files';
+  b.title = 'How heights are colored in the selected surface or contour plot, or arrows by their length in a vector field: MathMath\'s maps, those saved with SaveColormap above it, and attached .cmp files';
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     plotMenu.open = false;
     const region = paper.selectedOf('plot');
     const c = region?.content;
-    if (!region || c?.k !== 'plot' || (c.view !== 'surface' && c.view !== 'contour')) {
-      doc.onProblem('Select a surface or contour plot first');
+    if (!region || c?.k !== 'plot' || (c.view !== 'surface' && c.view !== 'contour' && c.view !== 'vector')) {
+      doc.onProblem('Select a surface, contour or vector field plot first');
       return;
     }
     const data = doc.outcomes.get(region.id)?.plot;
-    const names = mapChoices(data, doc.ws.assets);
-    chooseMap(plotSummary, names, c.colorMap, (name) => paletteFor(name, data, doc.ws.assets).rows ?? BUILTIN_MAPS[DEFAULT_MAP], (name) => {
+    // A vector field's arrows are dark ink unless a map is chosen, as Mathcad draws them; the ramp is one choice.
+    const arrows = c.view === 'vector';
+    const names = [...(arrows ? [INK] : []), ...mapChoices(data, doc.ws.assets)];
+    const rowsOf = (name: string): MapRows => (name === INK ? [[31, 31, 31], [31, 31, 31]] : paletteFor(name, data, doc.ws.assets).rows ?? BUILTIN_MAPS[DEFAULT_MAP]);
+    chooseMap(plotSummary, names, c.colorMap, rowsOf, (name) => {
       doc.update(region, (old) => {
         if (old.k !== 'plot') return old;
         const { colorMap: _, ...rest } = old;
-        return name.toLowerCase() === DEFAULT_MAP ? rest : { ...rest, colorMap: name };
+        return name === (arrows ? INK : DEFAULT_MAP) || (!arrows && name.toLowerCase() === DEFAULT_MAP) ? rest : { ...rest, colorMap: name };
       });
-    });
+    }, arrows ? INK : DEFAULT_MAP);
   });
   plotList.appendChild(b);
 }

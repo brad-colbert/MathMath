@@ -8,7 +8,39 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
-## [Unreleased]
+## [0.55.0] - 2026-11-17
+
+Vector field plots, as Mathcad 14 draws them, with functions and arrows in space besides.
+
+### Added
+
+- Vector field plots, from Format → Vector field plot: an arrow at each point, its length in proportion, the
+  longest reaching the next point. As in Mathcad 14, a plot takes a matrix of complex numbers, the real part across
+  and the imaginary part up, with row i at x = i and column j at y = j counted from ORIGIN, or two matrices of the
+  same size typed X, Y with a comma; units are dropped and arrows of length 0 are dots, as Mathcad draws them.
+  Arrows are dark, as Mathcad's are; Format → Color map… colors each by its length, and ink puts them back. Hovering
+  reads an arrow's point and parts. A matrix over 40 rows or columns draws every second, third… row and column, and
+  says so above the plot.
+- Beyond Mathcad, which refuses both: a function of x and y giving two parts or a complex number, sampled 15 points
+  a side over the plot's limits; and arrows in space from six arrays typed X, Y, Z, U, V, W, the points and then the
+  arrows' parts, drawn in a box that turns when dragged, up to 4,000 arrows.
+- Mathcad worksheets with a vector field plot of two matrices, (X, Y), open with it as a MathMath plot. Other
+  Mathcad 3D plots still open as their pictures.
+- A part on vector field plots in the Plots topic, and a new gallery example: a whirlpool from a complex matrix, a
+  pendulum's phase portrait, the gradient of a hill beside its contours, and arrows out of a sphere.
+
+### Fixed
+
+- A 3D plot's expression slot shows every expression typed in it, not only the first.
+
+### Known limits
+
+- A vector field plot draws x and y to one scale, so each arrow points the way its vector does; Mathcad 14 scales
+  them separately, so its arrows lean when the grid isn't square, and a long, thin range draws as a thin strip here.
+- One 3D plot holds one kind of plot, so an arrow can't be drawn on a surface; and a function of x, y and z can't be
+  sampled in a box, since a plot has no z limits. Arrows in space need their points as arrays.
+- The .mathmath format: a plot can be a vector field. The format's version stays the same; MathMath 0.54.0 and
+  earlier show such a plot as an X-Y plot, usually with an error such as "a y value must be a vector".
 
 ## [0.54.0] - 2026-11-16
 

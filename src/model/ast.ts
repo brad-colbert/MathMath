@@ -154,9 +154,11 @@ export type Content =
        * Surface and contour plot the first y expression: a matrix of heights, a function of two variables
        * (sampled over the x and y limits, −5 to 5 by default), or three matrices X, Y and Z. A Smith chart
        * takes each y as complex reflection coefficients Γ; x, if given, is what they're swept over, shown on hover.
+       * A vector field draws arrows from the first y expression (see vectorfield.ts).
        */
-      view?: 'polar' | 'surface' | 'contour' | 'smith';
-      /** For a surface or contour plot: the colour map by name, MathMath's ramp when left out (see colormaps.ts). */
+      view?: 'polar' | 'surface' | 'contour' | 'smith' | 'vector';
+      /** For a surface, contour or vector field plot: the colour map by name (see colormaps.ts). Left out, a
+       *  surface uses MathMath's ramp and a vector field dark ink. */
       colorMap?: string;
       /** The angle a surface is seen from, in degrees: round the vertical, and above the horizontal. */
       view3d?: { azimuth: number; elevation: number } }

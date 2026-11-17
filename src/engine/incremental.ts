@@ -104,7 +104,7 @@ export function calcKey(c: Content): string {
     case 'sym': return json({ k: c.k, expr: c.expr, commands: c.commands, target: c.target, global: c.global });
     // Surface, contour and Smith read their expressions differently from X-Y and polar, so that choice calculates.
     case 'plot': return json({
-      k: c.k, x: c.x, ys: c.ys, grid: c.view === 'surface' || c.view === 'contour', smith: c.view === 'smith',
+      k: c.k, x: c.x, ys: c.ys, grid: c.view === 'surface' || c.view === 'contour', smith: c.view === 'smith', vector: c.view === 'vector',
       xAxis: { min: c.xAxis.min, max: c.xAxis.max, unit: c.xAxis.unit ?? null },
       yAxis: { min: c.yAxis.min, max: c.yAxis.max, unit: c.yAxis.unit ?? null },
     });
@@ -128,7 +128,7 @@ function readsOf(c: Content): Set<string> {
   // A solver reads its block, which Given and the constraints above it mark (see SOLVE_BLOCK).
   if (closesBlock(c)) used.add(SOLVE_BLOCK);
   // The sheet's colour maps, which SaveColormap adds to and LoadColormap and the surface and contour plots read.
-  if (used.has('SaveColormap') || used.has('LoadColormap') || (c.k === 'plot' && (c.view === 'surface' || c.view === 'contour'))) used.add(COLORMAPS);
+  if (used.has('SaveColormap') || used.has('LoadColormap') || (c.k === 'plot' && (c.view === 'surface' || c.view === 'contour' || c.view === 'vector'))) used.add(COLORMAPS);
   return used;
 }
 

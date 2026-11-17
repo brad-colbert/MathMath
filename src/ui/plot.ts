@@ -21,7 +21,7 @@ import type { LimitKey, PlotData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content, TraceStyle } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
-import { drawContour, drawSurface } from './plot3d.js';
+import { drawContour, drawSurface, drawVector } from './plot3d.js';
 import type { MapRows } from '../engine/colormaps.js';
 import { pointsPerPixel } from './zoom.js';
 
@@ -180,6 +180,10 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
   }
   if (c.view === 'contour') {
     drawContour(el, c, data, problem, palette);
+    return;
+  }
+  if (c.view === 'vector') {
+    drawVector(el, c, data, problem, palette);
     return;
   }
   const [w, h] = [c.width, c.height];
