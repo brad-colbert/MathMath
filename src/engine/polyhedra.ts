@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU Affero General Public License along with this program. If not,
 // see <https://www.gnu.org/licenses/>.
 
+import { dual, type Mesh, parseSymbol, wythoff } from './wythoff.js';
+
 /**
  * The 80 uniform polyhedra, numbered as Mathcad 14's PolyLookup numbers them (probed 2026-11-16, all 80), which is
  * the order of Har'El's list: for each, its name, its dual's name and its Wythoff symbol, spelt as Mathcad gives them.
@@ -99,3 +101,36 @@ export const POLYHEDRA: readonly (readonly [name: string, dual: string, wythoff:
   ["great retrosnub icosidodecahedron", "great pentagrammic hexecontahedron", "|3/2 5/3 2"], // 79
   ["great dirhombicosidodecahedron", "great dirhombicosidodecacron", "|3/2 5/3 3 5/2"], // 80
 ];
+
+/** A polyhedron to draw, with the name it goes by. */
+export interface Polyhedron extends Mesh {
+  name: string;
+}
+
+const built = new Map<string, Polyhedron>();
+
+/**
+ * The polyhedron Mathcad's Polyhedron(S) draws for S: a uniform polyhedron's name or its dual's (in any case),
+ * "#n" for number n, or its Wythoff symbol written exactly as PolyLookup gives it. Null for anything else, as
+ * Mathcad draws nothing for a symbol outside the 80, such as "2 7|2", or one spaced differently.
+ */
+export function polyhedron(s: string): Polyhedron | null {
+  const lower = s.toLowerCase();
+  const number = /^#\s*(\d+)$/.exec(s.trim());
+  let n = number ? Number(number[1]) - 1 : POLYHEDRA.findIndex(([name, , symbol]) => name === lower || symbol === s);
+  let isDual = false;
+  if (n < 0 && !number) {
+    n = POLYHEDRA.findIndex(([, d]) => d === lower);
+    isDual = n >= 0;
+  }
+  const entry = POLYHEDRA[n];
+  if (!entry) return null;
+  const key = `${n}${isDual ? 'd' : ''}`;
+  let p = built.get(key);
+  if (!p) {
+    const mesh = wythoff(parseSymbol(entry[2])!);
+    p = { ...(isDual ? dual(mesh, 2) : mesh), name: isDual ? entry[1] : entry[0] };
+    built.set(key, p);
+  }
+  return p;
+}

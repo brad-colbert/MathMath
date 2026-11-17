@@ -10,6 +10,37 @@ does, and those changes are noted here.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-16
+
+Mathcad's Polyhedron: the 80 uniform polyhedra and their duals, drawn solid in surface plots.
+
+### Added
+
+- Polyhedron, Mathcad's way to draw the uniform polyhedra: a surface plot of Polyhedron("snub cube") draws it
+  solid and lit, with dark edges, in one blue as Mathcad does, and turns when dragged. It takes what Mathcad takes:
+  a polyhedron's name or its dual's, in any case, "#1" to "#80", or the Wythoff symbol exactly as PolyLookup gives
+  it. All 80 and their 80 duals are built by Wythoff's construction, and each matches Kaleido, the program
+  Mathcad's numbering comes from, in its vertices, edges, faces and the faces round every vertex. The star
+  polyhedra's faces pass through each other as they should. In a colour map from Format → Color map…, each kind of
+  face takes its own colour. MathMath also draws the great retrosnub icosidodecahedron, number 79, which Mathcad 14
+  leaves empty.
+- Mathcad worksheets with a 3D plot of a polyhedron open with it as a MathMath plot, drawn and turnable, in place
+  of Mathcad's stored picture. Other Mathcad 3D plots still open as their pictures.
+- A Help entry for Polyhedron, a part on it in the Plots topic, and a new gallery example: a snub, its dual, a
+  star, and any of the 80 by number.
+
+### Fixed
+
+- The expression under a surface or contour plot sits centred under it, rather than at its right.
+
+### Known limits
+
+- A dual whose polyhedron has faces through the centre, as the hemipolyhedra do, has vertices at infinity; its faces
+  run out as prisms, cut off at a fixed distance from the centre. Mathcad cuts them at the plot's box instead, so
+  they look different there.
+- A polyhedron is drawn as a picture in the plot, at twice the screen's resolution, rather than as lines and
+  shapes, because its faces cross each other; it prints at that resolution.
+
 ## [0.53.0] - 2026-11-16
 
 Colour maps for surface and contour plots, with Mathcad's SaveColormap and LoadColormap.

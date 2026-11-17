@@ -69,6 +69,7 @@ export const RESULTS: Record<string, string[]> = {
   "Odesolve": ["","","","","0.368"],
   "Pdesolve": ["","","","","","","0.373"],
   "PolyLookup": ["\\begin{pmatrix}\\text{\"cube\"}\\\\\\text{\"octahedron\"}\\\\\\text{\"3|2 4\"}\\end{pmatrix}","\\begin{pmatrix}\\text{\"icosahedron\"}\\\\\\text{\"dodecahedron\"}\\\\\\text{\"5|2 3\"}\\end{pmatrix}"],
+  "Polyhedron": ["\\text{\"\\#11\"}","\\begin{pmatrix}\\text{\"snub dodecahedron\"}\\\\\\text{\"pentagonal hexecontahedron\"}\\\\\\text{\"|2 3 5\"}\\end{pmatrix}"],
   "Psi": ["0.703","0.49"],
   "Radau": ["","","","0.368"],
   "Re": ["3","5\\ \\mathrm{V}"],

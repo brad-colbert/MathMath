@@ -2613,6 +2613,107 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Polyhedron: a surface plot of Polyhedron("#80") draws the solid, turns when dragged, and colors its kinds of
+// face apart in a colour map.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.regions = [{ id: 'p', left: 60, top: 60, alignX: 60, alignY: 60, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('\\mathrm{Polyhedron}\\left(\\text{"#80"}\\right)')], markers: false, width: 260, height: 240, view: 'surface',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never }, { id: 'c', left: 360, top: 60, alignX: 360, alignY: 60, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('\\text{"cube"}')], markers: false, width: 200, height: 200, view: 'contour',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never }];
+  await page.evaluate((t) => (window as any).mathmath.load('poly.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(200);
+  // The picture's colours, read back from its image: how many pixels are drawn, and how many distinct hues.
+  const picture = () => page.evaluate(async () => {
+    const img = document.querySelector<SVGImageElement>('.region.plot image.poly3d');
+    if (!img) return null;
+    const href = img.getAttribute('href')!;
+    const el = new Image();
+    el.src = href;
+    await el.decode();
+    const cv = document.createElement('canvas');
+    [cv.width, cv.height] = [el.width, el.height];
+    const ctx = cv.getContext('2d')!;
+    ctx.drawImage(el, 0, 0);
+    const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    let drawn = 0;
+    const hues = new Set<string>();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3]! < 255) continue;
+      drawn++;
+      const [r, g, b] = [d[i]!, d[i + 1]!, d[i + 2]!];
+      const m = Math.max(r, g, b);
+      if (m > 60) hues.add([r, g, b].map((x) => Math.round((x / m) * 4)).join(','));
+    }
+    return { href: href.slice(0, 40) + href.length, drawn, hues: hues.size, title: document.querySelector('.region.plot svg title')?.textContent };
+  });
+  const first = await picture();
+  const problem = await page.evaluate(() => document.querySelector('[data-id="c"] .plot-problem')?.textContent ?? document.querySelector<HTMLElement>('[data-id="c"]')?.title);
+  check('a surface plot of Polyhedron("#80") draws the great dirhombicosidodecahedron in one blue, and a contour plot says it can\'t', !!first && first.drawn > 5000 && first.hues <= 3 && first.title === 'great dirhombicosidodecahedron' && /contour plot can't draw a polyhedron/.test(problem ?? ''), { first, problem });
+  const box = await page.evaluate(() => {
+    const r = document.querySelector<SVGRectElement>('[data-id="p"] .rotate-area')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(box.x, box.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 40, box.y + 10, { steps: 4 });
+  await page.mouse.up();
+  await sleep(150);
+  const turned = await picture();
+  const view = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.view3d);
+  check('dragging turns the polyhedron and redraws it', !!view && view.azimuth !== -55 && !!turned && turned.href !== first?.href && turned.drawn > 5000, { view, turned });
+  await page.evaluate(() => {
+    const doc = (window as any).mathmath.doc;
+    const r = doc.ws.regions.find((x: any) => x.id === 'p');
+    doc.update(r, (c: any) => ({ ...c, colorMap: 'viridis' }));
+  });
+  await sleep(250);
+  const mapped = await picture();
+  check('in a colour map, its triangles, squares and pentagrams each take their own colour', !!mapped && mapped.hues >= 3 && mapped.drawn > 5000, { mapped });
+  // Switched to contour and back: it says it can't, then draws again, calculating nothing either way.
+  const setView = (view: string) => page.evaluate((v) => {
+    const doc = (window as any).mathmath.doc;
+    doc.update(doc.ws.regions.find((x: any) => x.id === 'p'), (c: any) => ({ ...c, view: v }));
+  }, view);
+  await setView('contour');
+  await idle(page);
+  await sleep(150);
+  const asContour = await page.evaluate(() => ({ problem: document.querySelector('[data-id="p"] .plot-problem')?.textContent ?? '', ran: (window as any).mathmath.doc.lastRan }));
+  await setView('surface');
+  await idle(page);
+  await sleep(150);
+  const back = await picture();
+  const ranBack = await page.evaluate(() => (window as any).mathmath.doc.lastRan);
+  check('switched to a contour plot it says it can\'t draw a polyhedron, and back to a surface it draws it, calculating nothing', /can't draw a polyhedron/.test(asContour.problem) && JSON.stringify(asContour.ran) === '[]' && !!back && back.drawn > 5000 && JSON.stringify(ranBack) === '[]', { asContour, back, ranBack });
+  // Typed: a new plot of Polyhedron("cube"), made a surface plot from Format.
+  await clickAt(page, 360, 330);
+  await keys(page, '@');
+  await sleep(80);
+  await keys(page, 'Polyhedron("cube"');
+  await page.keyboard.press('Tab');
+  await sleep(60);
+  await page.keyboard.press('Escape');
+  await sleep(80);
+  const typed = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.content.k === 'plot' && r.id !== 'p' && r.id !== 'c')?.id);
+  const at = await page.evaluate((id) => {
+    const r = document.querySelector<HTMLElement>(`[data-id="${id}"]`)!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  }, typed);
+  await page.mouse.click(at.x, at.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === 'Surface plot (3-D)')!.click());
+  await idle(page);
+  await sleep(200);
+  const cube = await page.evaluate((id) => ({ title: document.querySelector(`[data-id="${id}"] svg title`)?.textContent, image: !!document.querySelector(`[data-id="${id}"] image.poly3d`), ys: (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === id)?.content.ys }), typed);
+  check('typing Polyhedron("cube") into a new plot and making it a surface plot draws a cube', cube.title === 'cube' && cube.image, cube);
+  await page.close();
+}
+
 // statespace, sbval and Jacob, typed against functions already on the sheet.
 {
   const page = await fresh();

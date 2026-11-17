@@ -138,5 +138,10 @@
     "slug": "terrain",
     "title": "Hills in color",
     "summary": "Colour maps for surface and contour plots: a landscape in a map of its own, made with SaveColormap, and the same heights in viridis."
+  },
+  {
+    "slug": "polyhedra",
+    "title": "Uniform polyhedra",
+    "summary": "The 80 uniform polyhedra and their duals, drawn with Polyhedron: a snub, a star, a dual, and any of them by number."
   }
 ]

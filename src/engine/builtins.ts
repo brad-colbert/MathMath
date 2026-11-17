@@ -619,6 +619,13 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       if (!entry) throw new EvalError('runtime', 'PolyLookup takes a polyhedron number from 1 to 80, or a string "#n" with one');
       return fromValues(3, 1, entry.map((t) => str(t)));
     },
+    // Mathcad's Polyhedron gives back its string; a surface plot of a polyhedron's name draws it (see polyhedra.ts).
+    Polyhedron: (s, ...rest) => {
+      if (s === undefined || rest.length > 0 || s.t !== 'str') {
+        throw new EvalError('runtime', 'Polyhedron takes a string: a polyhedron\'s name, "#n" for its number, or its Wythoff symbol');
+      }
+      return s;
+    },
     // Image processing (see image.ts).
     ...withArity({ ...imageFns, writeImage: (n, m) => writeImage(n!, m!, hooks.wrote) }),
     // One channel, counted from ORIGIN like a subscript, so imageChannels(M, 0) is the red of a color image.

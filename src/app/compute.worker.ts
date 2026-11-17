@@ -108,6 +108,8 @@ function inUnits(p: PlotData, c: Plot): PlotData {
   const out: PlotData = { traces, limits, labels: { x: ax.latex, y: ay.latex, xChosen: ax.chosen, yChosen: ay.chosen } };
   // The sheet's colour maps go too, for the page to draw a surface in the one it names.
   if (p.maps) out.maps = p.maps;
+  // A polyhedron goes as it is: its corners have no units.
+  if (p.poly) out.poly = p.poly;
   if (p.surface) {
     // Heights in their default display unit, which the color bar names.
     const zs = axisScale(p.surface.zDim, undefined);
