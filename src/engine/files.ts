@@ -14,6 +14,7 @@
 // see <https://www.gnu.org/licenses/>.
 
 /** Files a worksheet reads, already decoded, so evaluation stays synchronous. */
+import type { MapRows } from './colormaps.js';
 import type { Worksheet } from '../model/ast.js';
 import type { DecodedAudio } from './wav.js';
 
@@ -32,6 +33,8 @@ export interface Files {
   sheet(name: string): Worksheet | undefined;
   /** A WAV file's samples, by `fileKey`, or why it couldn't be read. */
   audio(name: string): DecodedAudio | string | undefined;
+  /** A Mathcad colour map (.cmp) file's rows, by `fileKey`, or why it couldn't be read. */
+  colormap(name: string): MapRows | string | undefined;
 }
 
 export const isWebAddress = (s: string): boolean => /^https?:\/\//i.test(s);
@@ -54,4 +57,4 @@ export const isSheetName = (name: string): boolean => /\.(xmcd|mcd|mathmath)$/i.
 /** Attached worksheets are kept in MathMath's own format, whatever they were loaded from. */
 export const SHEET_MIME = 'application/vnd.mathmath+json';
 
-export const NO_FILES: Files = { image: () => undefined, table: () => undefined, sheet: () => undefined, audio: () => undefined };
+export const NO_FILES: Files = { image: () => undefined, table: () => undefined, sheet: () => undefined, audio: () => undefined, colormap: () => undefined };

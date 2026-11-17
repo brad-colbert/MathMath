@@ -28,11 +28,14 @@ import { startKeypad } from '../ui/keypad.js';
 import { touchScreen } from '../ui/editor.js';
 import { regionLatex } from '../latex/region.js';
 import { toggleTitles } from '../ui/slots.js';
+import { chooseMap, mapChoices, paletteFor } from '../ui/colormap.js';
+import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
 import type { Content, NumberFormat, Worksheet } from '../model/ast.js';
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
+import { isCmpFile } from '../engine/colormaps.js';
 import { Doc } from './document.js';
 
 const pickFiles = (accept: string, multiple: boolean): Promise<File[]> => new Promise((resolve) => {
@@ -57,7 +60,7 @@ const base64 = async (file: File): Promise<string> => {
  * ready for a variable name. A worksheet is kept for references to find, in MathMath's own format.
  */
 async function loadFromComputer(insert = true): Promise<void> {
-  const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.wav,audio/wav,.xmcd,.mathmath', true);
+  const picked = await pickFiles('image/*,.csv,.txt,.dat,.prn,.wav,audio/wav,.cmp,.xmcd,.mathmath', true);
   if (picked.length === 0) return;
   const attached: { name: string; mime: string; data: string }[] = [];
   const carried: { name: string; mime: string; data: string }[] = [];
@@ -80,12 +83,14 @@ async function loadFromComputer(insert = true): Promise<void> {
   // What was picked wins over a copy that came inside a sheet.
   doc.attach([...carried, ...attached]);
   const [only] = picked;
-  if (insert && picked.length === 1 && only && !isSheetName(only.name)) {
+  // A colour map is named, in LoadColormap or Format's Color map…, rather than read into a variable.
+  if (insert && picked.length === 1 && only && !isSheetName(only.name) && !isCmpFile(only.name)) {
     paper.insertReadImage(only.name, only.type.startsWith('image/') ? 'readImage' : 'readTable');
     return;
   }
   const names = picked.map((f) => f.name);
-  doc.onProblem(`Attached ${names.join(', ')}. ${picked.some((f) => isSheetName(f.name)) ? 'References find worksheets by name.' : ''}`);
+  const maps = picked.some((f) => isCmpFile(f.name)) ? 'Colour maps go by name, in LoadColormap or Format → Color map….' : '';
+  doc.onProblem(`Attached ${names.join(', ')}. ${picked.some((f) => isSheetName(f.name)) ? 'References find worksheets by name.' : ''} ${maps}`.trim());
 }
 
 const utf8Base64 = (text: string): string => {
@@ -592,6 +597,32 @@ document.addEventListener('keydown', (e) => {
     }
     help.close();
     tracePanel.open(region);
+  });
+  plotList.appendChild(b);
+}
+{
+  // A surface or contour plot's colour map, from a short list with a swatch of each.
+  const b = document.createElement('button');
+  b.textContent = 'Color map…';
+  b.title = 'How heights are colored in the selected surface or contour plot: MathMath\'s maps, those saved with SaveColormap above it, and attached .cmp files';
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const region = paper.selectedOf('plot');
+    const c = region?.content;
+    if (!region || c?.k !== 'plot' || (c.view !== 'surface' && c.view !== 'contour')) {
+      doc.onProblem('Select a surface or contour plot first');
+      return;
+    }
+    const data = doc.outcomes.get(region.id)?.plot;
+    const names = mapChoices(data, doc.ws.assets);
+    chooseMap(plotSummary, names, c.colorMap, (name) => paletteFor(name, data, doc.ws.assets).rows ?? BUILTIN_MAPS[DEFAULT_MAP], (name) => {
+      doc.update(region, (old) => {
+        if (old.k !== 'plot') return old;
+        const { colorMap: _, ...rest } = old;
+        return name.toLowerCase() === DEFAULT_MAP ? rest : { ...rest, colorMap: name };
+      });
+    });
   });
   plotList.appendChild(b);
 }

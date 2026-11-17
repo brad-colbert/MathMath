@@ -29,7 +29,7 @@ import type { Content, Region, Target, Worksheet } from '../model/ast.js';
 import type { Defs } from '../symbolic/defs.js';
 import type { Files } from './files.js';
 import { NO_FILES } from './files.js';
-import { type OrderKey, type Outcome, Run, SOLVE_BLOCK, Scope, type SymSolver, closesBlock, collectIds, inOrder } from './evaluate.js';
+import { COLORMAPS, type OrderKey, type Outcome, Run, SOLVE_BLOCK, Scope, type SymSolver, closesBlock, collectIds, inOrder } from './evaluate.js';
 import type { Seeded } from './random.js';
 import type { Value } from './values.js';
 
@@ -127,6 +127,8 @@ function readsOf(c: Content): Set<string> {
   if (c.k === 'define' && c.target.k === 'fn' && c.target.file) for (const p of c.target.params.slice(1)) if (!/^-?[\d.]/.test(p)) used.add(p);
   // A solver reads its block, which Given and the constraints above it mark (see SOLVE_BLOCK).
   if (closesBlock(c)) used.add(SOLVE_BLOCK);
+  // The sheet's colour maps, which SaveColormap adds to and LoadColormap and the surface and contour plots read.
+  if (used.has('SaveColormap') || used.has('LoadColormap') || (c.k === 'plot' && (c.view === 'surface' || c.view === 'contour'))) used.add(COLORMAPS);
   return used;
 }
 

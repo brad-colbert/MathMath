@@ -107,4 +107,23 @@ export const GRAPHING: Entry[] = [
     errors: ['A number outside 1 to 80.'],
     example: ['\\mathrm{PolyLookup}\\left(11\\right)=', '\\mathrm{PolyLookup}\\left(\\text{"#27"}\\right)='],
   },
+  {
+    name: 'SaveColormap', group: 'Plots and coordinates', usage: 'SaveColormap("name", M)', mathcad: true,
+    summary: 'Adds M to the worksheet as a colour map called name, for the surface and contour plots below it, and gives its number of rows.',
+    details: [
+      'M has 3 columns, red, green and blue from 0 to 255, and a row for each colour, the lowest heights\' first; between rows the colours blend. Values are cut to whole numbers and held to 0..255, as Mathcad does. Choose the map for a plot with Format → Color map….',
+      'Mathcad keeps a colour map as a file in its own folder; MathMath keeps it in the worksheet, from the region down, and offers it as Mathcad\'s name.cmp file to save, which Mathcad reads.',
+    ],
+    errors: ['A matrix without 3 columns, or with fewer than 2 rows.', 'Values with units, or complex ones.', 'A name with a folder in it.'],
+    example: ['M\\coloneq \\begin{pmatrix}0&0&80\\\\0&160&0\\\\255&255&255\\end{pmatrix}', '\\mathrm{SaveColormap}\\left(\\text{"sea"},M\\right)=', '\\mathrm{LoadColormap}\\left(\\text{"sea"}\\right)='],
+  },
+  {
+    name: 'LoadColormap', group: 'Plots and coordinates', usage: 'LoadColormap("name")', mathcad: true,
+    summary: 'A colour map\'s colours, as a matrix of red, green and blue rows from 0 to 255, lowest heights first.',
+    details: [
+      'The map is one saved above with [[SaveColormap]], an attached Mathcad name.cmp file, or one of MathMath\'s own: ramp (the default, light to dark blue), gray, spectrum, viridis and heat. Names match whatever their case, as Mathcad\'s do. Mathcad\'s own map files, as Fire or Royal, need attaching from a Mathcad installation\'s cmaps folder.',
+    ],
+    errors: ['A name that is none of these: attach name.cmp with Files.'],
+    example: ['\\mathrm{LoadColormap}\\left(\\text{"gray"}\\right)='],
+  },
 ];

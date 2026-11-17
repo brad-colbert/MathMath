@@ -60,6 +60,8 @@ export interface PlotOptions {
   view?: Plot['view'];
   /** The angle a 3D plot is seen from. */
   view3d?: Plot['view3d'];
+  /** A surface or contour plot's colour map, by name. */
+  colorMap?: string;
   logX?: boolean;
   logY?: boolean;
   xUnit?: string;
@@ -236,6 +238,7 @@ export class Sheet {
       xAxis: axis(o.xUnit, o.logX, o.xMin, o.xMax, o.xTitle), yAxis: axis(o.yUnit, o.logY, o.yMin, o.yMax, o.yTitle),
       ...(o.view ? { view: o.view } : {}),
       ...(o.view3d ? { view3d: o.view3d } : {}),
+      ...(o.colorMap ? { colorMap: o.colorMap } : {}),
       ...(o.title !== undefined ? { title: o.title } : {}),
       ...(o.traces ? { traces: o.traces } : {}),
     };

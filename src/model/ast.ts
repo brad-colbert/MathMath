@@ -156,6 +156,8 @@ export type Content =
        * takes each y as complex reflection coefficients Γ; x, if given, is what they're swept over, shown on hover.
        */
       view?: 'polar' | 'surface' | 'contour' | 'smith';
+      /** For a surface or contour plot: the colour map by name, MathMath's ramp when left out (see colormaps.ts). */
+      colorMap?: string;
       /** The angle a surface is seen from, in degrees: round the vertical, and above the horizontal. */
       view3d?: { azimuth: number; elevation: number } }
   /**

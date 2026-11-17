@@ -23,6 +23,8 @@ import { extname, join } from 'node:path';
 import puppeteer, { KnownDevices, type Page } from 'puppeteer-core';
 import { CSP } from '../../vite.config.js';
 import { emptyWorksheet, saveWorksheet } from '../../src/format/native.js';
+import { writeCmp } from '../../src/engine/colormaps.js';
+import { fileKey } from '../../src/engine/files.js';
 import { readTex } from '../../src/latex/latex.js';
 import { readRegion } from '../../src/latex/region.js';
 import { autoAxis } from '../../src/model/ast.js';
@@ -2540,6 +2542,74 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const traced = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region .traced')].map((e) => e.textContent));
   const errors = await page.evaluate(() => document.querySelectorAll('.region.error').length);
   check('typed Seed, until, trace and PolyLookup calculate, the trace printed under its region', has('Seed(7)=', '1') && has('x=', '0149162536'.slice(0, 5)) && has('trace(', '=0') && has('PolyLookup(11)=', 'cube') && traced.length === 1 && traced[0] === 'a 5' && errors === 0, { s, traced, errors });
+  await page.close();
+}
+
+// Colour maps: a surface drawn in a map SaveColormap made, then another chosen from Format → Color map….
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['f\\left(i,j\\right)\\coloneq \\sin \\left(0.3\\cdot i\\right)+\\cos \\left(0.3\\cdot j\\right)', 'H\\coloneq \\mathrm{matrix}\\left(20,20,f\\right)',
+    'T\\coloneq \\begin{pmatrix}0&0&255\\\\0&255&0\\\\255&0&0\\end{pmatrix}', '\\mathrm{SaveColormap}\\left(\\text{"traffic"},T\\right)='];
+  ws.regions = lines.map((l, i) => ({ id: `m${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'p', left: 60, top: 260, alignX: 60, alignY: 260, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('H')], markers: false, width: 260, height: 200, view: 'surface', colorMap: 'traffic',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never });
+  await page.evaluate((t) => (window as any).mathmath.load('maps.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const fills = () => page.evaluate(() => [...document.querySelectorAll<SVGPathElement>('.region.plot .plot-svg path[fill^="rgb"]')].map((p) => p.getAttribute('fill')!));
+  const rgb = (f: string) => f.slice(4, -1).split(',').map(Number) as [number, number, number];
+  const before = (await fills()).map(rgb);
+  const saveButton = await page.evaluate(() => [...document.querySelectorAll('.region .saves button')].map((b) => b.textContent));
+  check('a surface draws in the map SaveColormap made, and SaveColormap offers its .cmp file', before.length > 100 && before.some(([r, g, b]) => g > 200 && r < 60 && b < 60) && before.some(([r, , b]) => r > 200 && b < 60) && saveButton.includes('Save traffic.cmp'), { n: before.length, sample: before.slice(0, 3), saveButton });
+  const b = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  });
+  await page.mouse.click(b.x, b.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Color map…')!.click());
+  await sleep(80);
+  const offered = await page.evaluate(() => [...document.querySelectorAll('.map-chooser button')].map((x) => x.textContent));
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('.map-chooser button')].find((x) => x.textContent === 'gray')!.click());
+  await sleep(150);
+  const after = (await fills()).map(rgb);
+  const stored = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.colorMap);
+  check('Format → Color map… offers MathMath\'s maps and the sheet\'s, and switching to gray redraws in gray', offered.includes('traffic') && offered.includes('viridis') && stored === 'gray' && after.length === before.length && after.every(([r, g, bl]) => r === g && g === bl), { offered, stored, sample: after.slice(0, 3) });
+  await page.close();
+}
+
+// An attached Mathcad colour map file: loaded by name, drawn in, and offered in Color map….
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const bytes = writeCmp([[0, 0, 0], [255, 120, 0], [255, 255, 200]]);
+  ws.assets[fileKey('Fire.cmp')] = { mime: 'application/octet-stream', data: Buffer.from(bytes).toString('base64') };
+  const lines = ['f\\left(i,j\\right)\\coloneq i+j', 'H\\coloneq \\mathrm{matrix}\\left(12,12,f\\right)', '\\mathrm{LoadColormap}\\left(\\text{"fire"}\\right)='];
+  ws.regions = lines.map((l, i) => ({ id: `m${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'p', left: 60, top: 260, alignX: 60, alignY: 260, disabled: false, content: {
+    k: 'plot', x: null, ys: [readTex('H')], markers: false, width: 240, height: 190, view: 'contour', colorMap: 'Fire',
+    xAxis: { min: null, max: null }, yAxis: { min: null, max: null },
+  } as never });
+  await page.evaluate((t) => (window as any).mathmath.load('fire.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const s = (await shown(page)).map((x) => x.replace(/[\s​]/g, ''));
+  const strokes = await page.evaluate(() => [...document.querySelectorAll<SVGPathElement>('.region.plot .plot-svg path[stroke^="rgb"]')].map((p) => p.getAttribute('stroke')!));
+  const b = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('.region.plot')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  });
+  await page.mouse.click(b.x, b.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Color map…')!.click());
+  await sleep(80);
+  const offered = await page.evaluate(() => [...document.querySelectorAll('.map-chooser button')].map((x) => x.textContent));
+  await page.keyboard.press('Escape');
+  const warm = strokes.map((c) => c.slice(4, -1).split(',').map(Number)).filter(([r, , bl]) => r > 200 && bl < 120);
+  check('an attached .cmp file loads by name, a plot draws in it, and Color map… offers it', s.some((x) => x.startsWith('LoadColormap("fire")=') && x.includes('120')) && strokes.length > 3 && warm.length > 0 && offered.some((x) => x?.toLowerCase() === 'fire'), { s, strokes: strokes.slice(0, 4), offered });
   await page.close();
 }
 

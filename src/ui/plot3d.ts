@@ -25,6 +25,7 @@ import type { Content } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
 import { label, ticks } from './plot.js';
 import { pointsPerPixel } from './zoom.js';
+import { type MapRows, mapColor } from '../engine/colormaps.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -37,6 +38,14 @@ export const DEFAULT_VIEW = { azimuth: -55, elevation: 28 };
 
 const hex = (c: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) as [number, number, number];
 const RGB = RAMP.map(hex);
+
+/** How heights become colours: the plot's colour map, or MathMath's ramp when it names none. */
+type Color = (t: number, from?: number) => string;
+
+function colorOf(palette: MapRows | undefined): Color {
+  if (!palette) return rampColor;
+  return (t) => `rgb(${mapColor(palette, t).join(',')})`;
+}
 
 /** A color on the ramp, t from 0 (light) to 1 (dark). `from` keeps lines clear of the page. */
 export function rampColor(t: number, from = 0): string {
@@ -84,8 +93,10 @@ function thinned(s: SurfaceData, limit = 48): SurfaceData {
 }
 
 /** The color bar at the right: the ramp and round values along it. The unit goes above, in `slots`. */
-function colorBar(x: number, top: number, height: number, lo: number, hi: number, id: string, from = 0): string {
-  const stops = Array.from({ length: 9 }, (_, n) => `<stop offset="${n / 8}" stop-color="${rampColor(1 - n / 8, from)}"/>`).join('');
+function colorBar(x: number, top: number, height: number, lo: number, hi: number, id: string, from = 0, color: Color = rampColor, many = false): string {
+  // A map of many colours needs many stops to show them all; the ramp keeps its nine.
+  const n = many ? 32 : 8;
+  const stops = Array.from({ length: n + 1 }, (_, k) => `<stop offset="${k / n}" stop-color="${color(1 - k / n, from)}"/>`).join('');
   const parts = [
     `<defs><linearGradient id="bar-${id}" x1="0" y1="0" x2="0" y2="1">${stops}</linearGradient></defs>`,
     `<rect x="${x}" y="${top}" width="8" height="${height}" fill="url(#bar-${id})" stroke="${SECONDARY}" stroke-width="0.5"/>`,
@@ -141,7 +152,8 @@ function empty(el: HTMLElement, c: Plot, data: PlotData | undefined, message: st
   el.style.height = `${c.height}pt`;
 }
 
-export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
+  const rampColor = colorOf(palette);
   const s0 = data?.surface;
   if (!s0 || problem) {
     empty(el, c, data, problem ?? (c.ys.length ? undefined : undefined));
@@ -217,7 +229,7 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
     segs.sort((p, q) => p.depth - q.depth);
     for (const g of segs) parts.push(`<path class="curve3d" d="${g.d}" stroke="${rampColor(z1 > z0 ? (g.z - z0) / (z1 - z0) : 0.5)}" stroke-width="1.75" stroke-linecap="round" fill="none"/>`);
   }
-  parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 's'));
+  parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 's', 0, rampColor, palette !== undefined));
   // Dragging across the plot turns it.
   parts.push(`<rect class="rotate-area" x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}" fill="transparent"/>`);
   parts.push('</svg>');
@@ -270,7 +282,8 @@ export function contourLines(s: SurfaceData, level: number): [number, number, nu
   return out;
 }
 
-export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined): void {
+export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
+  const rampColor = colorOf(palette);
   const s = data?.surface;
   if (!s || problem) {
     empty(el, c, data, problem);
@@ -302,7 +315,7 @@ export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined
     if (d) parts.push(`<path d="${d}" fill="none" stroke="${rampColor((level - z0) / (z1 - z0), 0.25)}" stroke-width="1.2" stroke-linecap="round"/>`);
   }
   parts.push('</g>');
-  parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 'c', 0.25));
+  parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 'c', 0.25, rampColor, palette !== undefined));
   parts.push('</svg>');
   el.innerHTML = parts.join('') + slots(c, data, area);
   el.style.width = `${c.width}pt`;

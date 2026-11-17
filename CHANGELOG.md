@@ -8,6 +8,36 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [Unreleased]
+
+## [0.53.0] - 2026-11-16
+
+Colour maps for surface and contour plots, with Mathcad's SaveColormap and LoadColormap.
+
+### Added
+
+- Colour maps for surface and contour plots: Format → Color map… chooses how heights are colored, from a list with
+  a swatch of each. MathMath has five of its own: ramp, the light-to-dark blue plots have always used and still use
+  by default, gray, spectrum, viridis and heat. Choosing one only redraws the plot.
+- SaveColormap("name", M), Mathcad's way to make a colour map: M's rows are red, green and blue from 0 to 255,
+  lowest heights first. Where Mathcad keeps the map as a file in its own folder, MathMath keeps it in the worksheet,
+  for the plots below it, and offers it as Mathcad's name.cmp file to save, which Mathcad reads. Values are cut to
+  whole numbers and held to 0..255, and the matrix must be n × 3 with at least two rows, as in Mathcad.
+- LoadColormap("name"): a map's colours as a matrix, from one saved above, an attached Mathcad .cmp file, or
+  MathMath's own. Files now attaches .cmp files, so Mathcad's own maps, as Fire or Royal, work by name.
+- Help entries for both, a part on colour maps in the Plots topic, and a new gallery example: hills in a map made
+  with SaveColormap, beside the same heights in viridis.
+
+### Changed
+
+- The .mathmath format: a surface or contour plot can save the colour map it names. The format's version stays the
+  same; an earlier MathMath opens such a plot in its usual blue ramp.
+
+### Known limits
+
+- A plot naming a map that isn't saved, attached or MathMath's own draws in the blue ramp, saying so only when the
+  pointer rests on it; it doesn't ask for the file as LoadColormap does.
+
 ## [0.52.0] - 2026-11-16
 
 Mathcad's Seed, until, trace, pause and PolyLookup.
