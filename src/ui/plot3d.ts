@@ -24,8 +24,11 @@ import { tex } from '../latex/latex.js';
 import type { Content } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
 import { label, ticks } from './plot.js';
-import { pointsPerPixel } from './zoom.js';
+import { getZoom, pointsPerPixel } from './zoom.js';
 import { type MapRows, mapColor } from '../engine/colormaps.js';
+import type { Polyhedron } from '../engine/polyhedra.js';
+import type { Vec } from '../engine/wythoff.js';
+import { rasterize } from './polyview.js';
 
 type Plot = Extract<Content, { k: 'plot' }>;
 
@@ -124,10 +127,10 @@ function slots(c: Plot, data: PlotData | undefined, area: { x: number; y: number
   const below = area.y + area.h;
   const unit = data?.zLabel ? `<div class="zunit" style="left:${area.x + area.w + 4}pt;top:${area.y - 12}pt">${markup(data.zLabel)}</div>` : '';
   return [
-    slot('ys', c.ys[0] ? markup(tex(c.ys[0])) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + 24}pt;justify-content:center`,
-      'What to plot: a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, or three vectors for a curve, as CreateSpace gives'),
+    slot('ys', c.ys[0] ? markup(tex(c.ys[0])) : '', `left:${area.x}pt;width:${area.w}pt;top:${below + 24}pt;justify-content:center;align-items:center`,
+      'What to plot: a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, three vectors for a curve, as CreateSpace gives, or a polyhedron, as Polyhedron gives'),
     // The limits apply only to a function, so they're left out once the plot is known to show matrices.
-    data?.surface && !data.surface.sampled ? '' : [
+    data?.poly || (data?.surface && !data.surface.sampled) ? '' : [
       `<div class="ranges" style="left:${area.x}pt;width:${area.w}pt;top:${below + 38}pt" title="Where a function of two variables is sampled">x `,
       slot('xmin', lim(c.xAxis.min, -5), 'position:static;display:inline-flex', 'Lowest x a function is sampled at'),
       ' to ', slot('xmax', lim(c.xAxis.max, 5), 'position:static;display:inline-flex', 'Highest x a function is sampled at'),
@@ -153,6 +156,10 @@ function empty(el: HTMLElement, c: Plot, data: PlotData | undefined, message: st
 }
 
 export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
+  if (data?.poly && !problem) {
+    drawPolyhedron(el, c, data, data.poly, palette);
+    return;
+  }
   const rampColor = colorOf(palette);
   const s0 = data?.surface;
   if (!s0 || problem) {
@@ -250,6 +257,71 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
 
 const num = (v: number): string => String(Number(v.toPrecision(6)));
 
+/** Polyhedron pictures drawn lately, by what they show, the oldest dropped first. */
+const pictures = new Map<string, string>();
+
+/** Light from above left and in front, as seen: across, up, towards the reader. */
+const LIGHT: Vec = (() => {
+  const v: Vec = [-0.35, 0.55, 0.76];
+  const l = Math.hypot(...v);
+  return [v[0] / l, v[1] / l, v[2] / l];
+})();
+
+/**
+ * A polyhedron, as Polyhedron gives, drawn solid and lit, with its edges in dark lines, in one blue as Mathcad
+ * draws it; with a colour map, each kind of face takes its own colour from the map. The faces of the star
+ * polyhedra pass through each other, so it's drawn pixel by pixel into an image (see polyview.ts), at twice the
+ * screen's resolution at the paper's zoom, or once while it's being turned.
+ */
+function drawPolyhedron(el: HTMLElement, c: Plot, data: PlotData, poly: Polyhedron, palette: MapRows | undefined): void {
+  // No axes or color bar: the whole width, and the height down to the expression below.
+  const { titled } = frame(c);
+  const top = 8 + (titled ? 13 : 0);
+  const box = { x: 8, y: top, w: Math.max(40, c.width - 16), h: Math.max(40, c.height - top - 38) };
+  const view = c.view3d ?? DEFAULT_VIEW;
+  const [a, e] = [(view.azimuth * Math.PI) / 180, (view.elevation * Math.PI) / 180];
+  const [ca, sa, ce, se] = [Math.cos(a), Math.sin(a), Math.cos(e), Math.sin(e)];
+  // Pixels to a point on screen, at the paper's zoom and the display's density; twice that at rest, for print.
+  const screenPx = PT * getZoom() * (globalThis.devicePixelRatio || 1);
+  const sharp = Math.min(4, (el.classList.contains('rotating') || el.closest('.rotating') ? 1 : 2) * Math.max(0.5, screenPx / PT));
+  const [W, H] = [Math.max(1, Math.round(box.w * PT * sharp)), Math.max(1, Math.round(box.h * PT * sharp))];
+  const reach = Math.max(...poly.vertices.map((v) => Math.hypot(v[0], v[1], v[2])));
+  const k = (Math.min(W, H) / 2 / reach) * 0.94;
+  const project = (v: Vec): [number, number, number] => {
+    const x1r = v[0] * ca - v[1] * sa;
+    const y1r = v[0] * sa + v[1] * ca;
+    return [W / 2 + x1r * k, H / 2 - (v[2] * ce + y1r * se) * k, (-y1r * ce + v[2] * se) * k];
+  };
+  const kinds = poly.kinds.length;
+  const base = RGB[6]!;
+  const color = (face: number): [number, number, number] =>
+    palette ? mapColor(palette, kinds > 1 ? poly.kind[face]! / (kinds - 1) : 0.5) : base;
+  // The same polyhedron, seen the same way at the same size and colours, is the same picture: redraw it only when
+  // something it shows changes, not each time the sheet does.
+  const key = [poly.name, poly.vertices.length, view.azimuth, view.elevation, W, H, palette ? palette.map((r) => r.join(',')).join(';') : ''].join('|');
+  let url = pictures.get(key);
+  if (url === undefined) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext?.('2d');
+    if (ctx) {
+      const r = rasterize(poly, W, H, project, color, LIGHT, Math.max(1, sharp));
+      canvas.width = W;
+      canvas.height = H;
+      ctx.putImageData(new ImageData(r.data as Uint8ClampedArray<ArrayBuffer>, W, H), 0, 0);
+      url = canvas.toDataURL();
+      pictures.set(key, url);
+      if (pictures.size > 64) pictures.delete(pictures.keys().next().value!);
+    }
+  }
+  const image = url ? `<image class="poly3d" href="${url}" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}"/>` : '';
+  el.innerHTML = `<svg class="plot-svg" width="${c.width}pt" height="${c.height}pt" viewBox="0 0 ${c.width} ${c.height}" font-family="system-ui, sans-serif" font-size="8">`
+    + `<title>${esc(poly.name)}</title>${image}`
+    // Dragging across the plot turns it.
+    + `<rect class="rotate-area" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="transparent"/></svg>${slots(c, data, box)}`;
+  el.style.width = `${c.width}pt`;
+  el.style.height = `${c.height}pt`;
+}
+
 /** A contour line at each level: marching squares on the grid, colored by level. */
 export function contourLines(s: SurfaceData, level: number): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
@@ -283,6 +355,10 @@ export function contourLines(s: SurfaceData, level: number): [number, number, nu
 }
 
 export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined, problem: string | undefined, palette?: MapRows): void {
+  if (data?.poly && !problem) {
+    empty(el, c, data, 'A contour plot can\'t draw a polyhedron: make it a surface plot');
+    return;
+  }
   const rampColor = colorOf(palette);
   const s = data?.surface;
   if (!s || problem) {

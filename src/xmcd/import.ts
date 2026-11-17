@@ -17,7 +17,7 @@ import type {
   Content, Expr, NumberFormat, OpaqueRegion, PageModel, Region, Stmt, StoredResult, StoredUnit, StoredValue, Target, TextRegion,
   Worksheet,
 } from '../model/ast.js';
-import { DEFAULT_FORMAT, DEFAULT_PAGE, realFrom } from '../model/ast.js';
+import { DEFAULT_FORMAT, DEFAULT_PAGE, autoAxis, realFrom } from '../model/ast.js';
 import { translateFunction } from './names.js';
 import { gunzip } from './inflate.js';
 import { baseName } from '../engine/files.js';
@@ -33,6 +33,10 @@ export interface XElement {
 
 /** Mathcad's picture components, identified from their stored renderings. */
 const IMAGE_VIEWERS = new Set(['01350071-1122-11db-9380-000d56c6051a', '8442da2d-08d7-45ad-a4a6-f28bee6ae06a']);
+
+/** Mathcad's 3D plot. Only one of a polyhedron is read; the others stay as their stored pictures. */
+const PLOT_3D = '013500e0-1122-11db-9380-000d56c6051a';
+const isPolyhedron = (e: Expr): boolean => e.k === 'str' || (e.k === 'call' && e.fn.k === 'id' && e.fn.name === 'Polyhedron');
 
 /**
  * Mathcad's components that read a data file into a variable: the File Input, the Data Import Wizard, and
@@ -435,6 +439,23 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
       }
       const rendering = kids(r).find((c) => c.localName === 'rendering')?.getAttribute('item-idref');
       const png = rendering ? (binary.get(rendering) ?? null) : null;
+      // A 3D plot of Polyhedron("…") becomes a surface plot of it, at the plot's size.
+      if (name === 'component' && clsid === PLOT_3D) {
+        const input = kids(kids(body).find((c) => c.localName === 'inputs') ?? body)[0];
+        const expr = input ? parseExpr(input) : null;
+        if (expr && isPolyhedron(expr)) {
+          regions.push({
+            id: r.getAttribute('region-id') ?? '',
+            left: num(r, 'left'),
+            top: num(r, 'top'),
+            alignX: num(r, 'left'),
+            alignY: num(r, 'top'),
+            disabled: body.getAttribute('disable-calc') === 'true',
+            content: { k: 'plot', x: null, ys: [expr], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: num(r, 'width'), height: num(r, 'height'), view: 'surface' },
+          });
+          continue;
+        }
+      }
       // Picture viewers become image regions, so they show what their input computes.
       if (name === 'component' && IMAGE_VIEWERS.has((body.getAttribute('clsid-buddy') ?? '').toLowerCase())) {
         const input = kids(kids(body).find((c) => c.localName === 'inputs') ?? body)[0];

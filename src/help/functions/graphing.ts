@@ -102,10 +102,21 @@ export const GRAPHING: Entry[] = [
     name: 'PolyLookup', group: 'Plots and coordinates', usage: 'PolyLookup(n)', mathcad: true,
     summary: 'The name of uniform polyhedron n, the name of its dual and its Wythoff symbol, as a vector of three strings.',
     details: [
-      'n is 1 to 80, or a string "#n", numbered as Mathcad numbers them: 11 is the cube, 27 the icosahedron, 6 the tetrahedron. The names are spelt as Mathcad gives them.',
+      'n is 1 to 80, or a string "#n", numbered as Mathcad numbers them: 11 is the cube, 27 the icosahedron, 6 the tetrahedron. The names are spelt as Mathcad gives them. [[Polyhedron]] draws any of them in a surface plot.',
     ],
     errors: ['A number outside 1 to 80.'],
     example: ['\\mathrm{PolyLookup}\\left(11\\right)=', '\\mathrm{PolyLookup}\\left(\\text{"#27"}\\right)='],
+  },
+  {
+    name: 'Polyhedron', group: 'Plots and coordinates', usage: 'Polyhedron("name")', mathcad: true,
+    summary: 'Draws a uniform polyhedron, or its dual, in a surface plot: put Polyhedron("cube") in the plot\'s placeholder.',
+    details: [
+      'The string is a polyhedron\'s name, in any case, as "snub cube"; its dual\'s name, as "rhombic dodecahedron"; "#n" for number n, 1 to 80, numbered as [[PolyLookup]] numbers them; or its Wythoff symbol written exactly as PolyLookup gives it, as "3|2 4". Mathcad accepts these and nothing else, so a symbol spaced differently, or one outside the 80 such as "2 7|2", draws nothing.',
+      'It is drawn solid and lit, with its edges in dark lines, in one blue as Mathcad draws it; with a colour map from Format → Color map…, each kind of face takes its own colour. Drag it to turn it. The star polyhedra\'s faces pass through each other, as they should. A dual whose polyhedron has faces through the centre has vertices at infinity, so its faces run out as long prisms, cut off.',
+      'Polyhedron itself gives back its string, as Mathcad\'s does; the plot draws the polyhedron the string names, so a variable holding the string, or the string alone, draws it too. It is built by Wythoff\'s construction, and matches Kaleido, the program Mathcad\'s numbering comes from, in every polyhedron\'s vertices, edges, faces and vertex figure.',
+    ],
+    errors: ['A number rather than a string.', 'In a plot, a string that names no polyhedron.', 'In a contour plot.'],
+    example: ['\\mathrm{Polyhedron}\\left(\\text{"#11"}\\right)=', '\\mathrm{PolyLookup}\\left(34\\right)='],
   },
   {
     name: 'SaveColormap', group: 'Plots and coordinates', usage: 'SaveColormap("name", M)', mathcad: true,

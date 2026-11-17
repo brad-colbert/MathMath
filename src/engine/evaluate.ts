@@ -29,6 +29,7 @@ import {
 } from './ops.js';
 import { type Seeded, drawFrom, seeded, stream } from './random.js';
 import { type MapRows, builtinMap, isCmpFile, mapFromMatrix, mapMatrix, writeCmp } from './colormaps.js';
+import { type Polyhedron, polyhedron } from './polyhedra.js';
 import { UNITS } from './units.js';
 import {
   type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
@@ -161,6 +162,8 @@ export interface PlotData {
   zLabel?: string;
   /** The colour maps saved in the sheet above a surface or contour plot, by name. */
   maps?: [string, MapRows][];
+  /** For a surface plot of a polyhedron's name, as Polyhedron gives, in place of a surface. */
+  poly?: Polyhedron;
 }
 
 
@@ -2049,6 +2052,13 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
   const e = c.ys[0];
   if (!e) return { traces: [], limits: {} };
   let v = ev.eval(e, scope);
+  // Polyhedron("cube"), or the string alone, as Mathcad draws either.
+  if (v.t === 'str') {
+    const poly = polyhedron(v.v);
+    if (!poly) throw new EvalError('runtime', `"${v.v}" names no polyhedron: give one of the 80 uniform polyhedra or its dual by name, "#1" to "#80", or a Wythoff symbol written as PolyLookup gives it`);
+    // A contour plot gets it too and says it can't draw it, so switching between the two only redraws.
+    return { traces: [], limits: {}, poly };
+  }
   // CreateMesh and CreateSpace give their three matrices inside a 1 × 1 array, as Mathcad's do.
   if (v.t === 'mat' && v.cells && v.rows * v.cols === 1 && v.cells[0]?.t === 'mat') v = v.cells[0];
   const real = (x: Value, what: string): number => {
@@ -2098,7 +2108,7 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     const z = v.im ? Float64Array.from(v.re, (re, k) => (v.im![k] === 0 ? re : NaN)) : Float64Array.from(v.re);
     return { traces: [], limits: {}, surface: { rows: v.rows, cols: v.cols, x, y, z, regular: true, zDim: v.dim, sampled: false } };
   }
-  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, or three matrices X, Y and Z in a vector, as CreateMesh gives');
+  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, or a polyhedron, as Polyhedron gives');
 }
 
 /** A Smith chart's data: each trace's x and y are the real and imaginary parts of Γ, with no units. */
