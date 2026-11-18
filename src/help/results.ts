@@ -280,6 +280,7 @@ export const RESULTS: Record<string, string[]> = {
   "ln0": ["-1\\times10^{307}","0.693"],
   "lnfit": ["","","\\begin{pmatrix}1.502\\\\1.982\\end{pmatrix}"],
   "lnΓ": ["359.134","1.266-3.142\\mathrm{i}"],
+  "loess": ["","","","-0.863"],
   "log": ["3","3"],
   "logfit": ["","","\\begin{pmatrix}1.734\\\\0.996\\\\1.1\\end{pmatrix}"],
   "logpts": ["\\begin{pmatrix}1\\\\4\\\\7\\end{pmatrix}","\\begin{pmatrix}1\\\\5.5\\\\10\\\\55\\end{pmatrix}"],

@@ -8,6 +8,24 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.56.0] - 2026-11-17
+
+loess, the last missing function on the reference's list.
+
+### Added
+
+- `loess(vx, vy, span)`: a smooth curve, or a surface over up to four variables given as the columns of a matrix,
+  fitted a neighbourhood at a time, for `interp` to read. Near each point a quadratic is fitted to the nearest
+  fraction span of the data, weighted towards the closest, and the fits are blended over a tree of cells. It is a
+  port of Cleveland, Grosse and Shyu's loess program, so the vector it returns, the whole fit with its residual
+  standard error at the end, matches the reference's field for field to about 12 digits, and `interp` gives the
+  same values. As the reference does, `interp` refuses a point outside the data, and `loess` refuses a span too
+  small for the points, a fit that would pass through every point, and three points or fewer. With it, MathMath
+  has every function on the reference's list of built-ins, the file-reading ones by way of Convert.
+- A Help entry for loess, with interp, ksmooth and the Curve fitting topic pointing to it, and a gallery example,
+  "Fitting by neighbourhoods": a noisy curve fitted at two spans, and a surface through scattered points.
+- About links the loess program's AT&T permission notice, which the port carries.
+
 ## [0.55.1] - 2026-11-17
 
 The changelog describes each change on its own terms.

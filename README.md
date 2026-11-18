@@ -92,6 +92,11 @@ copyright the SciPy developers under the BSD 3-Clause license; Amos's routines w
 and approved for unlimited release. Both notices are kept at the top of `amos.ts`, and, since the build drops
 comments, the app serves them as `licenses/amos.txt`, linked from About.
 
+`loess`, `src/engine/loess.ts`, is a TypeScript port of dloess, William S. Cleveland, Eric Grosse and Ming-Jen
+Shyu's loess program from [netlib](https://www.netlib.org/a/dloess), copyright AT&T and used under its permission
+notice, with the LINPACK and BLAS routines it calls. The notice is kept at the top of `loess.ts`, and the app
+serves it as `licenses/loess.txt`, linked from About.
+
 The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
 `examples/assets/README.md`.
 

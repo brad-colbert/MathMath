@@ -82,11 +82,12 @@ export const SOLVING: Entry[] = [
     name: 'interp', group: 'Interpolation and fitting', usage: 'interp(vs, vx, vy, x)', mathcad: true,
     summary: 'The value at x of the spline or regression vs, made from the points (vx, vy).',
     details: [
-      'vs comes from [[lspline]], [[pspline]], [[cspline]], [[bspline]] or [[regress]], and vx and vy must be the same two vectors given to it. x can be a number or a vector. For a 2-D spline, x is a point with two coordinates, as a two-element vector.',
+      'vs comes from [[lspline]], [[pspline]], [[cspline]], [[bspline]], [[regress]] or [[loess]], and vx and vy must be the same two vectors given to it. x can be a number or a vector. For a 2-D spline, x is a point with two coordinates, as a two-element vector.',
       'Beyond the ends of the data the end behaviour of the spline carries on. For straight segments between points use [[linterp]].',
+      'For a loess vector, x is one number, or for several variables a vector with a coordinate for each, and it must lie within vx: loess can\'t extrapolate.',
     ],
     units: 'x is in vx\'s units and the result in vy\'s.',
-    errors: ['A vs that didn\'t come from one of the spline functions or regress.', 'A vs that doesn\'t match vx and vy.', 'A 2-D point without two coordinates.'],
+    errors: ['A vs that didn\'t come from one of the spline functions, regress or loess.', 'A vs that doesn\'t match vx and vy.', 'A 2-D point without two coordinates.', 'For loess, an x outside the range of vx.'],
     example: [XS, YS, 'S\\coloneq \\mathrm{cspline}\\left(x,y\\right)', '\\mathrm{interp}\\left(S,x,y,1.5\\right)='],
   },
   {
@@ -165,6 +166,17 @@ export const SOLVING: Entry[] = [
     ],
     errors: ['x and y of different lengths.', 'A degree that isn\'t a whole number of 1 or more.', 'Fewer points than coefficients.'],
     example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', 'R\\coloneq \\mathrm{regress}\\left(x,y,2\\right)', '\\mathrm{interp}\\left(R,x,y,2.5\\right)='],
+  },
+  {
+    name: 'loess', group: 'Interpolation and fitting', usage: 'loess(vx, vy, span)', mathcad: true,
+    summary: 'A smooth curve or surface through the points (vx, vy), fitted a neighbourhood at a time, as a vector for [[interp]].',
+    details: [
+      'Near each point, loess fits a quadratic to the data around it by weighted least squares, the nearest points counting most. span is the fraction of all the points each fit takes in: 0.75 is a good start. A smaller span follows the data more closely, and a larger one smooths more; a very large span comes close to [[regress]] with degree 2.',
+      'vx can be a matrix with a column for each of up to four variables, for a surface. Give interp the point as a vector with a coordinate for each. Each variable is first divided by its spread, so that they count alike.',
+      'The fit is worked out at the corners of a tree of cells over the data and blended between them, as Cleveland, Grosse and Shyu\'s loess program does; the vector holds the whole fit, as that program leaves it: 1, its length, the fitted values and residuals, the tree, the corners\' values and slopes, and at the end the residual standard error, two degrees-of-freedom terms and the span. interp reads it back, within the range of vx only.',
+    ],
+    errors: ['vx and vy of different lengths, or three points or fewer.', 'More than four variables.', 'A span of 0 or less, or one too small for the points: each fit needs enough of them to be a quadratic, and one that passes through every point is refused too.', 'Data with units.'],
+    example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\\\6\\\\7\\\\8\\\\9\\\\10\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}0.8\\\\1.0\\\\0.1\\\\-0.7\\\\-1.0\\\\-0.2\\\\0.6\\\\1.1\\\\0.4\\\\-0.5\\end{pmatrix}', 'L\\coloneq \\mathrm{loess}\\left(x,y,0.75\\right)', '\\mathrm{interp}\\left(L,x,y,4.5\\right)='],
   },
   {
     name: 'genfit', group: 'Interpolation and fitting', usage: 'genfit(vx, vy, vg, F)', mathcad: true,
