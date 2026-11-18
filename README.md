@@ -119,6 +119,11 @@ The build writes `dist/site/extras.js` and `dist/site/csp.txt`, the full policy 
 `Content-Security-Policy` header. The page carries the same policy in a `<meta>` tag, and both apply. Without
 `MATHMATH_SITE`, a build is exactly as before.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits are signed off under the Developer Certificate of Origin.
+Report security problems privately, as [SECURITY.md](SECURITY.md) describes.
+
 ## License
 
 Copyright (C) 2026 Pelican Labs, LLC.

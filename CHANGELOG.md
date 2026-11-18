@@ -8,6 +8,16 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.56.2] - 2026-11-18
+
+Guides for contributors.
+
+### Added
+
+- Contributor guides: `CONTRIBUTING.md` explains how to build, test and propose a change, and asks for commits
+  signed off under the Developer Certificate of Origin; `SECURITY.md` explains how to report a security problem
+  privately; and `.github/CODEOWNERS` asks the maintainer to review every pull request.
+
 ## [0.56.1] - 2026-11-17
 
 Help describes functions on their own terms.
