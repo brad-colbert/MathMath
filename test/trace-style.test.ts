@@ -43,4 +43,8 @@ describe('trace styles', () => {
     expect(traceLook(withTraceStyle(plot(), 0, { line: 'none' }), 0)).toMatchObject({ line: false });
     expect(traceLook({ ...plot(), markers: true }, 0)).toMatchObject({ line: false, points: 'circle' });
   });
+  test('a style from a file is used only if the trace panel could have made it', () => {
+    const c = { ...plot(), traces: [{ color: '#000" onmouseover="x', weight: '3" x="1' as unknown as number, line: 'zigzag' as 'dot', points: 'star' as 'cross' }] };
+    expect(traceLook(c, 0)).toEqual(traceLook(plot(), 0));
+  });
 });

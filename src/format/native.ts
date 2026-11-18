@@ -44,7 +44,37 @@ export function loadWorksheet(text: string): Worksheet {
   // and saves again unchanged.
   const ws = file.worksheet as unknown as Record<string, unknown>;
   for (const [key, value] of Object.entries(emptyWorksheet())) if (!(key in ws)) ws[key] = value;
+  checkShape(ws);
   return ws as unknown as Worksheet;
+}
+
+/** A region id as MathMath writes them. They name parts of the page's drawing, so nothing else is let through. */
+const SAFE_ID = /^[A-Za-z0-9_.:-]{0,64}$/;
+
+/**
+ * Checks the parts of a file that go into the page's markup as they are: ids, positions and sizes. A worksheet
+ * can come from anyone, by a link, so one that has been tampered with is refused rather than drawn.
+ */
+function checkShape(ws: Record<string, unknown>): void {
+  const damaged = (what: string): Error => new Error(`This file is damaged: ${what}.`);
+  const number = (o: Record<string, unknown>, key: string, where: string): void => {
+    if (key in o && o[key] !== undefined && !(typeof o[key] === 'number' && Number.isFinite(o[key]))) throw damaged(`${where} has a ${key} that isn't a number`);
+  };
+  const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+  const page = ws.page;
+  if (!isObject(page)) throw damaged('it has no page');
+  for (const key of ['width', 'height']) number(page, key, 'the page');
+  if (isObject(page.margins)) for (const key of ['left', 'right', 'top', 'bottom']) number(page.margins, key, 'the page');
+  for (const list of ['regions', 'texts', 'opaque'] as const) {
+    if (!Array.isArray(ws[list])) throw damaged(`its ${list} aren't a list`);
+    for (const r of ws[list] as unknown[]) {
+      if (!isObject(r)) throw damaged(`one of its ${list} isn't a region`);
+      if (typeof r.id !== 'string' || !SAFE_ID.test(r.id)) throw damaged('a region has an unusable id');
+      for (const key of ['left', 'top', 'alignX', 'alignY', 'width', 'height']) number(r, key, 'a region');
+      if ('mime' in r && r.mime !== undefined && !(typeof r.mime === 'string' && /^image\/[A-Za-z0-9.+-]{1,40}$/.test(r.mime))) throw damaged('a picture has an unusable type');
+      if (isObject(r.content)) for (const key of ['width', 'height']) number(r.content, key, 'a region');
+    }
+  }
 }
 
 export function emptyWorksheet(): Worksheet {

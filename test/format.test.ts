@@ -50,6 +50,25 @@ describe('native files', () => {
   });
 });
 
+describe('files from anyone', () => {
+  const file = (change: (ws: Record<string, any>) => void): string => {
+    const ws = JSON.parse(saveWorksheet({ ...emptyWorksheet(), regions: [{ id: '1', left: 0, top: 0, alignX: 0, alignY: 0, disabled: false, content: { k: 'other', tag: 'x' } }] })) as { worksheet: Record<string, any> };
+    change(ws.worksheet);
+    return JSON.stringify(ws);
+  };
+  test('a saved worksheet reads back', () => {
+    expect(() => loadWorksheet(file(() => {}))).not.toThrow();
+  });
+  test('ids, positions and sizes that would go into the page as markup are refused', () => {
+    expect(() => loadWorksheet(file((ws) => { ws.regions[0].id = 'x"><style>'; }))).toThrow(/damaged/);
+    expect(() => loadWorksheet(file((ws) => { ws.regions[0].left = '1" onload="x'; }))).toThrow(/damaged/);
+    expect(() => loadWorksheet(file((ws) => { ws.page.width = '612"'; }))).toThrow(/damaged/);
+    expect(() => loadWorksheet(file((ws) => { ws.regions[0].content = { k: 'plot', width: '9" x', height: 1 }; }))).toThrow(/damaged/);
+    expect(() => loadWorksheet(file((ws) => { ws.opaque = [{ id: '7', kind: 'picture', left: 0, top: 0, width: 1, height: 1, png: '', mime: 'text/html', xml: null, items: {} }]; }))).toThrow(/damaged/);
+    expect(() => loadWorksheet(file((ws) => { ws.regions = {}; }))).toThrow(/damaged/);
+  });
+});
+
 describe('importing page settings', () => {
   test('a landscape page keeps its size and margins', () => {
     const ws = sheet([]);

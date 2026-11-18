@@ -3035,6 +3035,108 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// A loop typed from the toolbar has a body: ] there adds a line to the loop, not to the program around it.
+{
+  const page = await fresh();
+  const button = (t: string) => page.evaluate((t) => {
+    const b = [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === t)!;
+    b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    b.click();
+  }, t);
+  await clickAt(page, 72, 72);
+  await keys(page, 'f(n):]s{0]');
+  await button('for');
+  await keys(page, 'i');
+  await page.keyboard.press('Tab');
+  await keys(page, '1..n');
+  await page.keyboard.press('Tab');
+  await keys(page, 's{s+i]t{s');
+  await page.keyboard.press('Tab');
+  await keys(page, 's');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  await type(page, 72, 200, 'f(4)=');
+  const m = await model(page);
+  const body = m.regions[0].content.value?.body ?? [];
+  check('] in a for loop\'s body adds a line to the loop', body.length === 3 && body[1].k === 'for' && body[1].body.body.length === 2, m.regions[0].content);
+  check('and the loop runs both lines', (await shown(page)).join('|').replace(/[\s​]/g, '').includes('f(4)=10'), await shown(page));
+  await page.close();
+}
+
+// Sharing: a link with a gist opens its worksheet, read from GitHub (stood in for here), and Share makes the link.
+{
+  const ID = 'aa5a315d61ae9438b18d0123456789ab';
+  const ws = emptyWorksheet();
+  const at = (id: string, top: number, latex: string) => ({ id, left: 72, top, alignX: 72, alignY: top + 8, disabled: false, content: readRegion(latex) });
+  ws.regions.push(at('1', 72, 'a\\coloneq 6'), at('2', 100, 'a\\cdot 7='));
+  // A hostile sheet's attempts: markup in a text, a plot title and a trace's style. None may run or reach the network.
+  ws.texts.push({ id: '3', left: 72, top: 140, width: 300, height: 14, text: '<img src=x onerror="window.__pwned=1">' });
+  ws.regions.push({ id: '4', left: 72, top: 180, alignX: 72, alignY: 188, disabled: false,
+    content: { k: 'plot', x: readTex('a'), ys: [readTex('a')], xAxis: autoAxis(), yAxis: autoAxis(), markers: true, width: 200, height: 140,
+      title: '<svg onload="window.__pwned=2">', traces: [{ color: '#000" onmouseover="window.__pwned=3" x="', weight: 2 }] } });
+  const gistBody = JSON.stringify({ owner: { login: 'someone' }, html_url: `https://gist.github.com/someone/${ID}`, files: { 'shared sheet.mathmath': { filename: 'shared sheet.mathmath', content: saveWorksheet(ws), size: 1 } } });
+  const page = await browser.newPage();
+  page.on('pageerror', (e) => problems.push(`page error: ${String((e as Error).stack ?? e).slice(0, 300)}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') problems.push(`console: ${m.text().slice(0, 200)}`);
+  });
+  page.on('dialog', (d) => void d.accept());
+  const away: string[] = [];
+  await page.setRequestInterception(true);
+  page.on('request', (r) => {
+    const u = r.url();
+    if (u.startsWith(url) || u.startsWith('data:') || u.startsWith('blob:')) return void r.continue();
+    if (u === `https://api.github.com/gists/${ID}`) {
+      return void r.respond({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: gistBody });
+    }
+    if (r.method() === 'OPTIONS') return void r.respond({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } });
+    away.push(u);
+    void r.abort();
+  });
+  await page.evaluateOnNewDocument('globalThis.__name = (f) => f;');
+  // The splash is on, as for a first visit: a link opens the worksheet instead.
+  await page.goto(`${url}?gist=${ID}`);
+  await page.waitForFunction('!!window.mathmath');
+  await page.waitForFunction(() => (window as any).mathmath.doc.name === 'shared sheet', { timeout: 5000 }).catch(() => {});
+  await idle(page);
+  // Hover the plot's trace, which a hostile style would have hooked.
+  const trace = await page.$('.region.plot svg path, .region.plot svg circle');
+  if (trace) await trace.hover();
+  await sleep(200);
+  const r = await page.evaluate(() => ({
+    name: (window as any).mathmath.doc.name as string,
+    dirty: (window as any).mathmath.doc.dirty as boolean,
+    splash: !document.getElementById('splash')!.hidden,
+    answer: [...document.querySelectorAll<HTMLElement>('.region')].map((e) => e.innerText.replace(/[\s\u200b]/g, '')).find((t) => t.endsWith('=42')),
+    bar: document.getElementById('shared-bar')!.hidden ? null : document.getElementById('shared-bar')!.innerText.replace(/\s+/g, ' '),
+    link: document.querySelector<HTMLAnchorElement>('#shared-bar a')?.href,
+    pwned: (window as any).__pwned ?? null,
+    injected: document.querySelectorAll('#sheet img[src="x"], #sheet svg svg[onload], #sheet [onmouseover]').length,
+  }));
+  check('a link with a gist opens its worksheet instead of the splash, and calculates', r.name === 'shared sheet' && !r.dirty && !r.splash && r.answer === 'a⋅7=42', r);
+  check('the bar says who shared it and links to the gist', r.bar === 'Shared on GitHub by someone. The gist and its comments' && r.link === `https://gist.github.com/someone/${ID}`, r);
+  check('nothing in a shared worksheet runs or reaches the network', r.pwned === null && r.injected === 0 && away.length === 0, { r, away });
+  // Share: the dialog copies the worksheet and turns a gist's address into the link.
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'Share')!.click());
+  await page.click('#share .copy-sheet');
+  await page.waitForFunction(() => document.querySelector('#share .note')!.textContent !== '', { timeout: 3000 }).catch(() => {});
+  const copied = await page.evaluate(() => ({ note: document.querySelector('#share .note')!.textContent, inside: document.getElementById('share')!.contains(document.activeElement) }));
+  check('Copy the worksheet says it copied, and the keys stay in the dialog', copied.note === 'Copied.' && copied.inside, copied);
+  await page.type('#share .gist', `https://gist.github.com/someone/${ID}`);
+  const link = await page.evaluate(() => ({ shown: !document.querySelector<HTMLElement>('#share .link-row')!.hidden, value: document.querySelector<HTMLInputElement>('#share .link')!.value }));
+  check('Share makes the link from a gist\'s address', link.shown && link.value === `${url}?gist=${ID}`, link);
+  await page.type('#share .address', 'https://example.com/a.mathmath');
+  await page.keyboard.press('Enter');
+  const refused = await page.evaluate(() => ({ open: !document.getElementById('share')!.hidden, status: document.querySelector('#share .status')!.textContent }));
+  check('the open box takes only gists', refused.open && refused.status === 'That isn\'t a gist or a link to one.' && away.length === 0, { refused, away });
+  await page.keyboard.press('Escape');
+  // New replaces it: the bar goes, and the address loses the gist, so reloading doesn't bring it back.
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'New')!.click());
+  const after = await page.evaluate(() => ({ bar: document.getElementById('shared-bar')!.hidden, search: location.search }));
+  check('New drops the shared bar and the gist from the address', after.bar && after.search === '', after);
+  await page.close();
+}
+
 check('no page errors, console errors or policy violations', problems.length === 0, problems);
 console.log(`\n${passed} passed, ${failed} failed`);
 await browser.close();

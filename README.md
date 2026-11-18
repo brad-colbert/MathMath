@@ -13,8 +13,9 @@ All the computing happens on your own computer, in the browser. The server only 
 - **Calculation:** numbers, units, programs and plot data are worked out in a background thread of the page.
   Symbolic algebra runs in a second thread, in Giac compiled to WebAssembly. Plots are drawn in the page.
 - **Your worksheets stay with you:** opening and saving use files on your computer, and nothing is uploaded
-  or kept on the server. The only outside request the app makes is when you load a picture from a web
-  address, which your browser fetches from that site directly.
+  or kept on the server. The app makes outside requests only when you ask: loading a picture from a web
+  address, which your browser fetches from that site directly, or opening a worksheet shared as a GitHub
+  gist, which it reads from GitHub.
 - **Speed depends on your machine, not the server's:** a large sheet calculates as fast as the computer
   running the browser allows, and one small server can serve many people.
 
@@ -104,7 +105,8 @@ The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which i
 
 A build with `MATHMATH_SITE` set to a folder holding `site.json` adds a host's own parts without changing the
 app: extra Content Security Policy sources, a script loaded after the app, and a link to the source code in
-About. The script can fill `#site-slot`, a bar at the left of the desk, clear of the paper and of Help on the right,
+About. When the source is a GitHub repository, Share also points to its Discussions' Show and tell, for people
+to post what they've made. The script can fill `#site-slot`, a bar at the left of the desk, clear of the paper and of Help on the right,
 that otherwise stays hidden and never prints. A tall ad, such as 160 × 600, suits it.
 
 ```json
@@ -121,7 +123,9 @@ The build writes `dist/site/extras.js` and `dist/site/csp.txt`, the full policy 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits are signed off under the Developer Certificate of Origin.
+Questions, ideas and worksheets to show go in the repository's
+[Discussions](https://github.com/brad-colbert/MathMath/discussions); a worksheet is shared there as a link to a
+gist (Share on the toolbar explains how). See [CONTRIBUTING.md](CONTRIBUTING.md) for changes to MathMath itself. Commits are signed off under the Developer Certificate of Origin.
 Report security problems privately, as [SECURITY.md](SECURITY.md) describes.
 
 ## License
