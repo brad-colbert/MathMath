@@ -15,7 +15,7 @@
 
 import { eigenvalues } from './eigen.js';
 import { ELEMENTARY, csgn, signum } from './elementary.js';
-import { FIT_ARITY, fitFns, interpRegress } from './fitting.js';
+import { FIT_ARITY, fitFns, interpLoess, interpRegress } from './fitting.js';
 import { FINANCE_ARITY, financeFns } from './finance.js';
 import { GRAPHING_ARITY, graphingFns } from './graphing.js';
 import { SMOOTHING_ARITY, smoothingFns } from './smoothing.js';
@@ -510,6 +510,9 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     bspline: (vx, vy, u, n) => bsplineValue(vx!, vy!, u!, n!),
     interp: (vs, vx, vy, x) => {
       const s = requireMat(vs!, 'the spline');
+      // A loess vector: its tag, its own length, then the fit's state (see loess.ts).
+      const loessResult = interpLoess(s, vx!, x!);
+      if (loessResult) return loessResult;
       // A regress vector: 3, 3, the degree, then the coefficients.
       if (!s.cells && s.rows > 3 && s.re[0] === 3 && s.re[1] === 3) return interpRegress(s, vx!, x!);
       const xs = requireMat(vx!, 'the x values');

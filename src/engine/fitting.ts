@@ -26,9 +26,11 @@
  *   mean of the medians' intercepts, of the outer two when the middle third is empty.
  * - regress returns 3, 3, the degree, then the coefficients. For one variable they run from the constant up;
  *   for several, in Mathcad's order (`termOrder`).
+ * - loess returns the state of Cleveland's local regression program (see loess.ts), which interp reads back.
  * - genfit's F gives f alone, or f and then its partial derivatives, with its parameters as a vector u or one by
  *   one, as Mathcad 14's Help describes.
  */
+import { loessInterp, loessVector, readLoess } from './loess.js';
 import { leastSquares } from './solve.js';
 import { type Dim, EvalError, type Fn, type Mat, NODIM, type Value, dimDiv, isNoDim, newMat, num, requireMat } from './values.js';
 
@@ -36,7 +38,7 @@ type Impl = (...args: Value[]) => Value;
 
 /** How many arguments each fitting function takes, at least and at most. */
 export const FIT_ARITY: Record<string, [number, number]> = {
-  slope: [2, 2], intercept: [2, 2], line: [2, 2], stderr: [2, 2], medfit: [2, 2], linfit: [3, 3], regress: [3, 3],
+  slope: [2, 2], intercept: [2, 2], line: [2, 2], stderr: [2, 2], medfit: [2, 2], linfit: [3, 3], regress: [3, 3], loess: [3, 3],
   genfit: [4, 4], expfit: [2, 3], lgsfit: [3, 3], logfit: [3, 3], lnfit: [2, 2], pwrfit: [3, 3], sinfit: [3, 3], predict: [3, 3],
 };
 
@@ -279,6 +281,38 @@ export function interpRegress(s: Mat, vx: Value, x: Value): Value {
   return one(x);
 }
 
+/** loess(vx, vy, span): vx is a vector, or a matrix with a column for each of up to four variables. */
+function loess(vx: Value | undefined, vy: Value | undefined, vspan: Value | undefined): Mat {
+  const X = requireMat(vx!, "loess's x values");
+  const y = vector(vy, 'loess', 'y values');
+  if (X.cells || X.im) throw new EvalError('runtime', "loess's x values must hold real numbers");
+  if (!isNoDim(X.dim) || !isNoDim(y.dim)) throw new EvalError('runtime', 'loess takes numbers without units');
+  if (X.rows !== y.re.length) throw new EvalError('runtime', `loess's x values and y vector must have the same number of rows: ${X.rows} and ${y.re.length}`);
+  if (X.cols > 4) throw new EvalError('runtime', 'loess takes at most four x columns');
+  if (X.rows <= 3) throw new EvalError('runtime', 'loess needs more than three data points');
+  const span = vspan?.t === 'num' && vspan.im === 0 && isNoDim(vspan.dim) ? vspan.re : NaN;
+  if (Number.isNaN(span)) throw new EvalError('runtime', "loess's span must be a plain number");
+  if (!(span > 0)) throw new EvalError('runtime', "loess's span must be positive");
+  const columns = Array.from({ length: X.cols }, (_, j) => Float64Array.from(X.re.subarray(j * X.rows, (j + 1) * X.rows)));
+  return column(loessVector(columns, y.re, span));
+}
+
+/**
+ * interp of a loess vector, or null when s is not one. A one-variable fit takes a number (a complex one counts as its real
+ * part, as probed) or a one-element vector; several variables take a vector with one coordinate each.
+ */
+export function interpLoess(s: Mat, vx: Value, x: Value): Value | null {
+  if (s.cells || s.im || s.cols !== 1 || !readLoess(s.re)) return null;
+  const X = requireMat(vx, 'the x values');
+  if (X.cells || X.im) throw new EvalError('runtime', "interp's x values must hold real numbers");
+  const columns = Array.from({ length: X.cols }, (_, j) => X.re.subarray(j * X.rows, (j + 1) * X.rows));
+  let point: ArrayLike<number>;
+  if (x.t === 'num') point = [x.re];
+  else if (x.t === 'mat' && !x.cells) point = x.re;
+  else throw new EvalError('runtime', 'interp takes a number, or a vector with a coordinate for each variable');
+  return num(loessInterp(s.re, columns, point)!);
+}
+
 /** A guess vector of n real numbers. */
 function guess(v: Value | undefined, n: number, fn: string): Float64Array {
   const g = vector(v, fn, 'guess');
@@ -498,6 +532,7 @@ export const fitFns: Record<string, Impl> = {
     return column(qrSolve(Array.from({ length: p }, (_, j) => Float64Array.from(rows, (r) => r[j]!)), d.y, 'linfit'));
   },
   regress,
+  loess,
   predict,
   lnfit: (vx, vy) => {
     const d = data(vx, vy, 'lnfit');

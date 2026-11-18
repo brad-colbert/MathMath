@@ -27,6 +27,8 @@ export const GIAC_HOME = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/gi
 const AMOS_NOTICES = `${import.meta.env.BASE_URL}licenses/amos.txt`;
 /** LAPACK's license, for the ports of its eigenvalue and SVD routines (eigen.ts, qz.ts, svd.ts). */
 const LAPACK_NOTICES = `${import.meta.env.BASE_URL}licenses/lapack.txt`;
+/** The AT&T notice that comes with the port of Cleveland, Grosse and Shyu's loess (src/engine/loess.ts). */
+const LOESS_NOTICES = `${import.meta.env.BASE_URL}licenses/loess.txt`;
 export const GIAC_SOURCE = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz';
 
 /** The viewer's choice, kept in this browser. Storage can be missing or refuse, so it never throws. */
@@ -90,6 +92,8 @@ export class Splash {
           license: <a class="amos-license" href="${AMOS_NOTICES}" target="_blank" rel="noopener">its notices</a>.
           Eigenvalues and singular values are ports of LAPACK routines, under the BSD license:
           <a class="lapack-license" href="${LAPACK_NOTICES}" target="_blank" rel="noopener">its notice</a>.
+          loess is a port of Cleveland, Grosse and Shyu's program, copyright AT&amp;T, used by permission:
+          <a class="loess-license" href="${LOESS_NOTICES}" target="_blank" rel="noopener">its notice</a>.
           Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;

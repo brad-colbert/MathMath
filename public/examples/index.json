@@ -148,5 +148,10 @@
     "slug": "fields",
     "title": "Fields of arrows",
     "summary": "Vector field plots: a whirlpool from a complex matrix, a pendulum's phase portrait, the gradient of a hill, and arrows in space."
+  },
+  {
+    "slug": "neighbourhoods",
+    "title": "Fitting by neighbourhoods",
+    "summary": "loess: a curve through noisy readings at two spans, and a surface through scattered points in two variables."
   }
 ]

@@ -27,7 +27,7 @@ export const SMOOTHING: Entry[] = [
     summary: 'The points vy smoothed by a Gaussian kernel of bandwidth b along vx.',
     details: [
       'Each smoothed point is the average of all of vy, each weighted by a Gaussian of its distance along x, with standard deviation b/2.696756. Mathcad\'s Help rounds that to 0.37·b; MathMath uses the constant Mathcad\'s answers show.',
-      'vx ascends, ties allowed, and vy is the same length. b is in vx\'s units, usually a few times the spacing of the points. See also [[supsmooth]] and [[medsmooth]]; Mathcad\'s loess isn\'t in MathMath yet.',
+      'vx ascends, ties allowed, and vy is the same length. b is in vx\'s units, usually a few times the spacing of the points. See also [[supsmooth]], [[medsmooth]] and [[loess]], which fits a curve a neighbourhood at a time.',
     ],
     units: 'The result is in vy\'s units.',
     errors: ['vx not in ascending order.', 'vx and vy of different lengths.', 'A b of 0 or less, or not in vx\'s units.'],

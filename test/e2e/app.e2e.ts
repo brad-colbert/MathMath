@@ -2139,6 +2139,12 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     return { href: a?.href ?? '', license: text.includes('The University of Tennessee') && text.includes('LAPACK 3.0') };
   });
   check('About links LAPACK\'s license, and it is served', lapack.license, lapack);
+  const loessNotice = await page.evaluate(async () => {
+    const a = document.querySelector<HTMLAnchorElement>('#splash .legal a.loess-license');
+    const text = a ? await (await fetch(a.href)).text() : '';
+    return { href: a?.href ?? '', notice: text.includes('Copyright (c) 1989, 1992 by AT&T') && text.includes('this entire notice') };
+  });
+  check('About links the notice of the loess port, and it is served', loessNotice.notice, loessNotice);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);
