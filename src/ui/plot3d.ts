@@ -23,7 +23,7 @@ import type { PlotData, SurfaceData } from '../engine/evaluate.js';
 import { tex } from '../latex/latex.js';
 import type { Content } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
-import { label, ticks } from './plot.js';
+import { label, svgId, ticks } from './plot.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { type MapRows, mapColor } from '../engine/colormaps.js';
 import type { Polyhedron } from '../engine/polyhedra.js';
@@ -388,7 +388,7 @@ export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined
   }
   // Even levels inside the range; lines use the darker part of the ramp so each clears the page.
   const levels = z1 > z0 ? ticks({ lo: z0, hi: z1, log: false }, 8).filter((v) => v > z0 && v < z1) : [];
-  parts.push(`<clipPath id="clip-${el.dataset.id}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath><g clip-path="url(#clip-${el.dataset.id})">`);
+  parts.push(`<clipPath id="clip-${svgId(el.dataset.id)}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath><g clip-path="url(#clip-${svgId(el.dataset.id)})">`);
   for (const level of levels) {
     const d = contourLines(s, level).map(([ax, ay, bx, by]) => `M${X(ax).toFixed(2)} ${Y(ay).toFixed(2)}L${X(bx).toFixed(2)} ${Y(by).toFixed(2)}`).join('');
     if (d) parts.push(`<path d="${d}" fill="none" stroke="${rampColor((level - z0) / (z1 - z0), 0.25)}" stroke-width="1.2" stroke-linecap="round"/>`);

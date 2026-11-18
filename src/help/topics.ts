@@ -127,6 +127,7 @@ export const TOPICS: Topic[] = [
     body: [
       { p: 'A program is a definition whose value is worked out by steps. Type `]` to start one, and again for each new line; the value is the last line\'s. Inside, `{` makes a local definition ←, which lasts only inside the program.' },
       { p: 'The toolbar has if, otherwise, for, while and return. `}` types if, which applies to the line it ends.' },
+      { p: 'A for or while loop comes with its body: a program of its own, under the loop\'s line. Tab moves into it. `]` in the body adds a line to the loop; `]` on the loop\'s own line adds a line after the loop.' },
       { p: 'To follow what a program does, [[trace]] prints a line under the region each time it runs, as trace("i = {0}, s = {1}", i, s), and gives 0. [[pause]] prints the same way; in the reference it also stops to wait.' },
       { id: 'programs-1', example: [`f\\left(n\\right)\\coloneq ${P('s\\gets 0', `\\mathbf{for}\\ i\\in 1..n\\ ${P('s\\gets s+i')}`, 's')}`, 'f\\left(10\\right)='] },
     ],
@@ -195,6 +196,19 @@ export const TOPICS: Topic[] = [
       { p: 'Save writes a .mathmath file. Open reads those and Mathcad .xmcd worksheets.' },
       { p: 'A Mathcad worksheet reads its files from folders on Mathcad\'s computer, with functions such as [[READRGB]], [[READ_HSV]], [[READWAV]] and [[READPRN]]. Those lines stay as they were, grayed, and their note names the MathMath expression that gives the same numbers from an attached file, the folder dropped: `READ_HSV("a.bmp")` is `rgbToHsv(readImage("a.bmp"), 360)`. A bar above the paper offers to **Convert** them all; Undo puts them back. READWAV and READPRN wait until their file is attached, since how they convert depends on it.' },
       { p: 'Mathcad\'s file writes work as they do there, as definitions: [[WRITEBMP]], [[WRITERGB]], [[WRITE_HLS]], [[WRITE_HSV]], [[WRITEPRN]] and [[WRITEWAV]]. The region then offers the file to save.' },
+    ],
+  },
+  {
+    id: 'sharing', title: 'Sharing worksheets', summary: 'Sharing a worksheet as a link through a GitHub gist, and opening one someone shared.',
+    body: [
+      { p: 'A worksheet is shared as a gist: a small file that GitHub keeps for free, with its own page and comments. Making one needs a GitHub account; opening one needs nothing.' },
+      { h: 'Sharing yours' },
+      { p: 'Choose Share on the toolbar, then Copy the worksheet. On gist.github.com, paste it in, give the file a name ending in `.mathmath`, and create the gist; you can also save the worksheet and drop the file onto that page. A public gist can be found by anyone; a secret one is seen only by people who have its link.' },
+      { p: 'Paste the gist\'s address back into Share, and it gives the link to send: this copy of MathMath\'s address with `?gist=` and the gist\'s id. Whoever opens the link gets the worksheet as the gist has it, so editing the gist changes what the link opens.' },
+      { p: 'The worksheet travels whole, with the files attached to it, so anyone with the link can read them. Leave out anything you wouldn\'t publish.' },
+      { h: 'Opening one' },
+      { p: 'Click the link, or paste a link or a gist\'s address into the box at the bottom of Share. The worksheet replaces the one open, as Open does, and calculates. A bar above the paper says who shared it, and links to the gist, where you can comment. Save keeps your own copy; the gist doesn\'t change.' },
+      { p: 'Opening one reads it from GitHub, and nothing else is contacted: a link can only name a gist. A worksheet can\'t run programs on your computer or reach the network, and a file altered to put its own markup on the page is refused or its styles ignored. Without signing in, GitHub lets each connection open 60 gists an hour.' },
     ],
   },
 ];

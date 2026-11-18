@@ -116,7 +116,9 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 /* Files a sheet needs and doesn't have. */
 #needs-bar, #convert-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #fffbeb; border-bottom: 1px solid #f59e0b;
   color: #78350f; font: 13px system-ui, sans-serif; }
-#needs-bar[hidden], #convert-bar[hidden], #convert-bar button[hidden] { display: none; }
+#needs-bar[hidden], #convert-bar[hidden], #convert-bar button[hidden], #shared-bar[hidden] { display: none; }
+#shared-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #eff6ff; border-bottom: 1px solid #93c5fd; font: 13px system-ui, sans-serif; color: #1e3a8a; }
+#shared-bar a { color: #1d4ed8; }
 #needs-bar button, #convert-bar button { font: inherit; padding: 2px 10px; border: 1px solid #d97706; border-radius: 4px; background: #fff; color: #78350f; cursor: pointer; }
 
 /* Trace styles for the selected plot. */
@@ -135,7 +137,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 
 @media print {
   html, body { display: block; height: auto; background: #fff; }
-  #toolbar, #needs-bar, #convert-bar, #crosshair, #marquee, #editor, .ghost-answer, #trace-panel, #help-panel, .pagebreak, .pagecolumn { display: none; }
+  #toolbar, #needs-bar, #convert-bar, #shared-bar, #crosshair, #marquee, #editor, .ghost-answer, #trace-panel, #help-panel, .pagebreak, .pagecolumn { display: none; }
   #workspace { display: block; }
   #sizer { width: auto !important; height: auto !important; }
   #sheet { transform: none !important; }
@@ -233,6 +235,28 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #examples .summary { color: #4b5563; font-size: 13px; }
 #examples .muted { color: #6b7280; }
 @media print { #examples { display: none; } }
+#share { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: #1f293799; }
+#share[hidden] { display: none; }
+#share .card { width: 600px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; padding: 20px 24px;
+  background: #fff; color: #1f2937; border-radius: 6px; box-shadow: 0 18px 50px #0006; font: 14px/1.45 system-ui, sans-serif; }
+#share .head { display: flex; align-items: center; justify-content: space-between; }
+#share h2 { margin: 0; font-size: 22px; color: #111; }
+#share h3 { margin: 16px 0 4px; font-size: 15px; color: #111; }
+#share .close { font-size: 22px; line-height: 1; padding: 2px 8px; border: none; background: none; color: #4b5563; cursor: pointer; }
+#share .intro { margin: 4px 0 8px; color: #4b5563; }
+#share ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+#share input { font: inherit; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; box-sizing: border-box; }
+#share .gist, #share .link-row { display: block; width: 100%; margin-top: 4px; }
+#share .link-row { display: flex; gap: 6px; }
+#share .link-row[hidden] { display: none; }
+#share .link { flex: 1; min-width: 0; background: #f9fafb; }
+#share .open-row { display: flex; gap: 6px; }
+#share .address { flex: 1; min-width: 0; }
+#share button:not(.close) { font: inherit; padding: 4px 10px; }
+#share .muted, #share .note { color: #6b7280; font-size: 13px; }
+#share .status { margin: 6px 0 0; }
+@media print { #share { display: none; } }
 #toolbar .version { cursor: pointer; }
 
 /* A hosted copy's bar at the left of the desk, for its own content such as an ad: hidden unless its script fills it. */

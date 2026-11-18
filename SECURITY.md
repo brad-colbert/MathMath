@@ -16,12 +16,14 @@ Fixes go into the latest release only.
 
 ## What counts
 
-MathMath runs entirely in the browser, and its server only sends the app's files. The most likely problems
-are:
+MathMath runs entirely in the browser, and its server only sends the app's files. Worksheets can be shared as
+links that open a GitHub gist, so a worksheet should be treated as coming from a stranger. The most likely
+problems are:
 
 - a worksheet file (`.mathmath` or an imported `.xmcd`) that runs script, reaches the network, or escapes the
   page's content security policy when opened;
-- text, results or pictures in a worksheet that inject markup into the page;
+- text, results, plots or pictures in a worksheet that inject markup into the page;
+- a shared link that makes the page fetch anything other than the gist it names;
 - weaknesses in the files in `deploy/` used to serve a copy.
 
 A calculation that is wrong, slow or runs out of memory is a bug, not a security problem: open an issue for it.

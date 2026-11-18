@@ -7,6 +7,8 @@ Thank you for helping. Bug reports, fixes, new functions, Help text and gallery 
 Open an issue with what you typed, what you expected and what MathMath showed. A small `.mathmath` file that
 shows the problem helps most. Don't attach worksheets you aren't free to share.
 
+For questions and ideas, or to show a worksheet you've made, use the repository's Discussions instead.
+
 To report a security problem, don't open an issue: see [SECURITY.md](SECURITY.md).
 
 ## Making a change

@@ -23,6 +23,7 @@ import { KEYWORDS } from '../symbolic/keywords.js';
 import { HelpPanel, nameAt } from '../ui/help-panel.js';
 import { Splash } from '../ui/splash.js';
 import { ExamplesDialog, fetchExample, type ExampleInfo } from '../ui/examples.js';
+import { ShareDialog, communityPage, fetchGist, gistId } from '../ui/share.js';
 import { fitWidth, getZoom, setZoom, startZoom } from '../ui/zoom.js';
 import { startKeypad } from '../ui/keypad.js';
 import { touchScreen } from '../ui/editor.js';
@@ -216,6 +217,34 @@ const showConvertible = (): void => {
     : `This sheet uses Mathcad's file functions, which MathMath does its own way.${pairs.length ? ` Convert changes ${list(pairs)} to MathMath's, with the same numbers; each one's note says to what.` : ''}${waiting.length ? ` Not yet: ${list(waiting)}.` : ''}`;
 };
 
+// Where a worksheet opened from a link came from: who shared it, and the gist's page, where its comments are.
+const sharedBar = document.createElement('div');
+sharedBar.id = 'shared-bar';
+sharedBar.hidden = true;
+sharedBar.setAttribute('role', 'status');
+convertBar.after(sharedBar);
+const showShared = (owner: string | null, page: string | null): void => {
+  sharedBar.replaceChildren(owner ? `Shared on GitHub by ${owner}.` : 'Shared on GitHub.');
+  if (page) {
+    const a = document.createElement('a');
+    a.href = page;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'The gist and its comments';
+    sharedBar.append(a);
+  }
+  sharedBar.hidden = false;
+};
+/** Another worksheet replaced the shared one: the bar goes, and so does the gist in the address. */
+const leaveShared = (): void => {
+  sharedBar.hidden = true;
+  const url = new URL(location.href);
+  if (url.searchParams.has('gist')) {
+    url.searchParams.delete('gist');
+    history.replaceState(history.state, '', url);
+  }
+};
+
 const redraw = doc.onChange;
 doc.onChange = (ids) => {
   redraw(ids);
@@ -266,7 +295,10 @@ const open = async (): Promise<void> => {
   if (doc.dirty && !window.confirm('Discard unsaved changes?')) return;
   try {
     const file = await openFile();
-    if (file) doc.replace(file.ws, file.name);
+    if (file) {
+      doc.replace(file.ws, file.name);
+      leaveShared();
+    }
   } catch (err) {
     fail(err);
   }
@@ -277,6 +309,7 @@ const fresh = (): void => {
   if (doc.dirty && !window.confirm('Discard unsaved changes?')) return;
   forgetFile();
   doc.replace(emptyWorksheet(), 'Untitled');
+  leaveShared();
 };
 
 /** Opens an example in place of the worksheet, as Open would. */
@@ -287,10 +320,38 @@ const openExample = async (example: ExampleInfo): Promise<void> => {
     const text = await fetchExample(example.slug);
     forgetFile();
     doc.replace(readAny(`${example.slug}.mathmath`, text), example.title);
+    leaveShared();
   } catch (err) {
     fail(err);
   }
 };
+
+/** Opens a worksheet shared as a gist, in place of this one, as Open would. Save then asks where to keep it. */
+const openShared = async (id: string): Promise<void> => {
+  paper.commitAll();
+  if (doc.dirty && !window.confirm('Discard unsaved changes?')) return;
+  doc.onProblem('Opening the shared worksheet…');
+  try {
+    const shared = await fetchGist(id);
+    const ws = readAny(shared.file, shared.text);
+    forgetFile();
+    doc.replace(ws, shared.file.replace(/\.mathmath$/i, ''));
+    doc.onProblem('');
+    showShared(shared.owner, shared.page);
+    const url = new URL(location.href);
+    url.searchParams.set('gist', id);
+    history.replaceState(history.state, '', url);
+  } catch (err) {
+    doc.onProblem('');
+    fail(err);
+  }
+};
+const share = new ShareDialog(communityPage(__SOURCE_URL__));
+share.worksheet = () => {
+  paper.commitAll();
+  return saveWorksheet(doc.ws);
+};
+share.onOpen = (id) => void openShared(id);
 const examples = new ExamplesDialog();
 examples.onPick = (example) => void openExample(example);
 const showExamples = (): void => {
@@ -327,6 +388,7 @@ const inEditor = (latex: string) => (): void => {
 button('New', 'New worksheet', fresh);
 button('Open', 'Open a worksheet (Ctrl+O)', () => void open());
 button('Save', 'Save (Ctrl+S)', () => void save());
+button('Share', 'Share this worksheet as a link, or open one someone shared', () => share.open());
 button('Print', 'Print (Ctrl+P)', print);
 button('Help', 'Functions, keywords and topics (F1 on a name)', () => openHelp());
 button('Examples', 'Example worksheets that show what MathMath does', showExamples);
@@ -350,8 +412,10 @@ button('Reroll', 'New random numbers: draw rnd, runif, rnorm and the other rando
 separator();
 button('if', 'Condition on this line (})', inEditor('\\ \\mathbf{if}\\ '));
 button('otherwise', 'Otherwise', inEditor('\\ \\mathbf{otherwise}'));
-button('for', 'For loop', inEditor('\\mathbf{for}\\ #?\\in #?\\ '));
-button('while', 'While loop', inEditor('\\mathbf{while}\\ #?\\ '));
+// A loop comes with its body, a program of its own: Tab moves into it, and ] there adds a line to the loop.
+const LOOP_BODY = '\\begin{array}{|l}#?\\end{array}';
+button('for', 'For loop. Tab moves to the next blank, the loop\'s body last; ] in the body adds a line to it', inEditor(`\\mathbf{for}\\ #?\\in #?\\ ${LOOP_BODY}`));
+button('while', 'While loop. Tab moves to the body; ] in the body adds a line to it', inEditor(`\\mathbf{while}\\ #?\\ ${LOOP_BODY}`));
 button('return', 'Return', inEditor('\\mathbf{return}\\ '));
 separator();
 button('∫', 'Integral (&). Tab moves to the next blank', inEditor(TEMPLATES.integral));
@@ -741,4 +805,11 @@ window.mathmath = { doc, paper, load: (name: string, text: string) => doc.replac
 // What MathMath is, when it opens, unless the viewer has turned that off.
 const splash = new Splash(__APP_VERSION__, __SOURCE_URL__);
 splash.onExamples = showExamples;
-splash.atLaunch();
+// A link to a shared worksheet opens it rather than the splash.
+const launchGist = new URLSearchParams(location.search).get('gist');
+if (launchGist === null) splash.atLaunch();
+else {
+  const id = gistId(launchGist);
+  if (id) void openShared(id);
+  else window.alert('That link doesn\'t name a gist: its address may have been cut short.');
+}

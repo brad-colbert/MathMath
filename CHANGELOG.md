@@ -8,6 +8,36 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.57.0] - 2026-11-18
+
+Sharing worksheets as links through GitHub gists, and loop bodies that take more lines.
+
+### Added
+
+- Sharing worksheets as links. Share on the toolbar copies the worksheet to paste into a GitHub gist, a free
+  file with its own page and comments, and turns the gist's address into a link that opens the worksheet in
+  MathMath; it can also open a link or gist someone else shared. A bar above the paper says who shared the
+  worksheet and links to the gist. A hosted copy whose source is on GitHub also points to its Discussions' Show
+  and tell, for showing worksheets to others. A link can only name a gist, so opening one contacts GitHub and
+  nothing else. Help has a Sharing worksheets page.
+
+### Fixed
+
+- The for and while buttons now give the loop a body of its own, so `]` in the body adds a line to the loop.
+  Before, a typed loop had no body: Tab and `]` went to the program around it, the loop's lines ended up after
+  it, and the region couldn't be read.
+- A worksheet file altered to put its own markup on the page, through a region's id, position or size, or a
+  trace's colour or weight, is now refused as damaged, or its style ignored, rather than drawn. Shared worksheets
+  come from anyone, so this matters more now.
+
+### Known limits
+
+- A shared worksheet calculates as soon as it opens, like any other. One built to take very long, or to use up
+  memory, slows or stops the page until Esc stops the calculation, or, if memory runs out first, until the tab
+  is reloaded.
+- Sharing from inside MathMath, without visiting gist.github.com, would need signing in to GitHub from the app,
+  which a page alone can't do. It isn't offered yet.
+
 ## [0.56.2] - 2026-11-18
 
 Guides for contributors.

@@ -35,9 +35,21 @@ const INK = '#0b0b0b';
 /** The dash patterns a trace's line can be given by name. */
 export const LINE_DASHES: Record<NonNullable<TraceStyle['line']>, string> = { solid: '', dash: '6 3', dot: '1.5 2.5', dashdot: '8 3 2 3', none: '' };
 
+const POINTS: readonly NonNullable<TraceStyle['points']>[] = ['none', 'circle', 'square', 'triangle', 'cross'];
+
+/** A region's id as it can appear in an SVG id and url(#…): ids come from the file. */
+export const svgId = (id: string | undefined): string => (id ?? '').replace(/[^A-Za-z0-9_-]/g, '_');
+
 /** How trace n is drawn: its own style where set, the plot's defaults otherwise. */
 export function traceLook(c: Plot, n: number): { color: string; dash: string; line: boolean; weight: number; points: NonNullable<TraceStyle['points']> } {
-  const s = c.traces?.[n] ?? {};
+  // A file's styles go into the drawing's markup, so only values the trace panel could have made are used.
+  const given = c.traces?.[n] ?? {};
+  const s: { [K in keyof TraceStyle]?: TraceStyle[K] | undefined } = {
+    color: typeof given.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(given.color) ? given.color : undefined,
+    line: given.line && Object.hasOwn(LINE_DASHES, given.line) ? given.line : undefined,
+    weight: typeof given.weight === 'number' && given.weight > 0 && given.weight <= 50 ? given.weight : undefined,
+    points: given.points && POINTS.includes(given.points) ? given.points : undefined,
+  };
   return {
     color: s.color ?? SERIES[n % SERIES.length]!,
     dash: s.line ? LINE_DASHES[s.line] : DASHES[n % DASHES.length]!,
@@ -218,8 +230,8 @@ export function drawPlot(el: HTMLElement, c: Plot, data: PlotData | undefined, p
       parts.push(`<line x1="${area.x}" y1="${y}" x2="${area.x + area.w}" y2="${y}" stroke="${GRID}" stroke-width="0.75"/>`);
       if (inside(y, area.y, area.h)) parts.push(`<text x="${area.x - 3}" y="${y + 2.8}" text-anchor="end" fill="${SECONDARY}">${tickText(t)}</text>`);
     }
-    parts.push(`<clipPath id="clip-${el.dataset.id}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath>`);
-    parts.push(`<g clip-path="url(#clip-${el.dataset.id})">`);
+    parts.push(`<clipPath id="clip-${svgId(el.dataset.id)}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath>`);
+    parts.push(`<g clip-path="url(#clip-${svgId(el.dataset.id)})">`);
     traces.forEach((t, n) => {
       const look = traceLook(c, n);
       const { color, dash } = look;
@@ -362,8 +374,8 @@ function drawPolar(el: HTMLElement, c: Plot, data: PlotData | undefined, problem
       const [lx, ly] = [cx + (R + 7) * Math.cos(th), cy - (R + 7) * Math.sin(th) + 2.8];
       parts.push(`<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="middle" fill="${SECONDARY}">${deg}°</text>`);
     }
-    parts.push(`<clipPath id="clip-${el.dataset.id}"><circle cx="${cx}" cy="${cy}" r="${R + 0.5}"/></clipPath>`);
-    parts.push(`<g clip-path="url(#clip-${el.dataset.id})">`);
+    parts.push(`<clipPath id="clip-${svgId(el.dataset.id)}"><circle cx="${cx}" cy="${cy}" r="${R + 0.5}"/></clipPath>`);
+    parts.push(`<g clip-path="url(#clip-${svgId(el.dataset.id)})">`);
     traces.forEach((t, n) => {
       const look = traceLook(c, n);
       const usable = (i: number): boolean => Number.isFinite(t.x[i]!) && Number.isFinite(t.y[i]!);
@@ -464,7 +476,7 @@ function drawSmith(el: HTMLElement, c: Plot, data: PlotData | undefined, problem
   const at = (re: number, im: number): [number, number] => [cx + re * R, cy - im * R];
   const f = (v: number): string => v.toFixed(2);
   const parts: string[] = [`<svg class="plot-svg" width="${w}pt" height="${h}pt" viewBox="0 0 ${w} ${h}" font-family="system-ui, sans-serif" font-size="7">`];
-  const clip = `smith-${el.dataset.id}`;
+  const clip = `smith-${svgId(el.dataset.id)}`;
   parts.push(`<clipPath id="${clip}"><circle cx="${cx}" cy="${cy}" r="${R}"/></clipPath>`, `<g clip-path="url(#${clip})">`);
   for (const r of SMITH_GRID) {
     // Constant resistance r: centre r/(1 + r), radius 1/(1 + r).
