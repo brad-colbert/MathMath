@@ -38,7 +38,7 @@ export const SYMBOLIC: Entry[] = [
   }),
   kw({
     name: 'float', usage: 'expr float, [n] →', summary: 'The expression as a decimal number, to 20 significant digits, or to n with `float, n`.',
-    details: ['As in Mathcad, the last digit is rounded, and an answer between 10⁻⁶ and 10⁶ is written out in full, as 0.083333333333333333333; outside that it has an exponent, as 1.0×10⁷. Trailing zeros are dropped, but a whole number keeps .0, as 2.0, to show it is a decimal. A complex answer shows as 2.0 + 3.0i.'],
+    details: ['The last digit is rounded, and an answer between 10⁻⁶ and 10⁶ is written out in full, as 0.083333333333333333333; outside that it has an exponent, as 1.0×10⁷. Trailing zeros are dropped, but a whole number keeps .0, as 2.0, to show it is a decimal. A complex answer shows as 2.0 + 3.0i.'],
     example: ['\\pi \\ \\mathbf{float}\\to '], answer: '3.1415926535897932385',
   }),
   kw({
@@ -48,7 +48,7 @@ export const SYMBOLIC: Entry[] = [
   }),
   kw({
     name: 'collect', usage: 'expr collect, x →', summary: 'The expression with the terms in x gathered together.',
-    details: ['The answer is a polynomial in x, highest power first, as in Mathcad. Terms in anything else, as sin(x), are left as they are.'],
+    details: ['The answer is a polynomial in x, highest power first. Terms in anything else, as sin(x), are left as they are.'],
     example: ['\\left(x+a\\right)\\cdot \\left(x+b\\right)\\ \\mathbf{collect},x\\to '], answer: 'x^{2}+\\left(a+b\\right)\\cdot x+a\\cdot b',
   }),
   kw({

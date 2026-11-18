@@ -134,7 +134,7 @@ export function bsplineFit(xs: ArrayLike<number>, ys: ArrayLike<number>, u: Arra
   if (!Number.isInteger(deg) || deg < 1 || deg > 3) throw new EvalError('runtime', 'bspline degree must be 1, 2 or 3');
   const m = u.length - 1;
   if (m < 1 || xs.length !== m + deg) {
-    throw new EvalError('runtime', `bspline needs ${deg - 1} fewer break points than data points, as Mathcad does`);
+    throw new EvalError('runtime', `bspline needs ${deg - 1} fewer break points than data points`);
   }
   for (let j = 0; j < m; j++) if (!(u[j + 1]! > u[j]!)) throw new EvalError('runtime', 'bspline break points must be strictly increasing');
   const k = deg + 1;

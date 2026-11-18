@@ -55,7 +55,7 @@ export const CORE: Entry[] = [
     summary: 'The cosecant of an angle: 1 / sin(x).',
     details: ['Takes radians, or an angle written with `deg`. Element by element for a vector or matrix. A complex argument gives a complex answer. See [[sin]].'],
     units: 'The argument has no units, apart from angles.',
-    errors: ['A value with units other than an angle.', '0, where it\'s infinite. At other multiples of π, as in Mathcad, rounding gives a very large number instead.'],
+    errors: ['A value with units other than an angle.', '0, where it\'s infinite. At other multiples of π, rounding gives a very large number instead.'],
     example: ['\\mathrm{csc}\\left(30\\cdot \\mathrm{deg}\\right)=', '\\mathrm{csc}\\left(\\frac{\\pi}{2}\\right)='],
   },
   {
@@ -63,7 +63,7 @@ export const CORE: Entry[] = [
     summary: 'The cotangent of an angle: 1 / tan(x).',
     details: ['Takes radians, or an angle written with `deg`. Element by element for a vector or matrix. A complex argument gives a complex answer. See [[tan]].'],
     units: 'The argument has no units, apart from angles.',
-    errors: ['A value with units other than an angle.', '0, where it\'s infinite. At other multiples of π, as in Mathcad, rounding gives a very large number instead.'],
+    errors: ['A value with units other than an angle.', '0, where it\'s infinite. At other multiples of π, rounding gives a very large number instead.'],
     example: ['\\mathrm{cot}\\left(45\\cdot \\mathrm{deg}\\right)=', '\\mathrm{cot}\\left(\\frac{\\pi}{2}\\right)='],
   },
   {
@@ -71,7 +71,7 @@ export const CORE: Entry[] = [
     summary: 'The angle, in radians from −π/2 to π/2, whose sine is x.',
     details: [
       'Element by element for a vector or matrix. Divide by `deg` to see the answer in degrees. [[sin]] goes back.',
-      'Outside −1 to 1, or for a complex x, the answer is complex, as Mathcad\'s: `asin(2)` is π/2 − 1.317i.',
+      'Outside −1 to 1, or for a complex x, the answer is complex: `asin(2)` is π/2 − 1.317i.',
     ],
     units: 'The argument has no units.',
     example: ['\\mathrm{asin}\\left(0.5\\right)=', '\\frac{\\mathrm{asin}\\left(0.5\\right)}{\\mathrm{deg}}='],
@@ -81,7 +81,7 @@ export const CORE: Entry[] = [
     summary: 'The angle, in radians from 0 to π, whose cosine is x.',
     details: [
       'Element by element for a vector or matrix. Divide by `deg` to see the answer in degrees. [[cos]] goes back.',
-      'Outside −1 to 1, or for a complex x, the answer is complex, as Mathcad\'s: `acos(2)` is 1.317i.',
+      'Outside −1 to 1, or for a complex x, the answer is complex: `acos(2)` is 1.317i.',
     ],
     units: 'The argument has no units.',
     example: ['\\mathrm{acos}\\left(0.5\\right)=', '\\frac{\\mathrm{acos}\\left(0.5\\right)}{\\mathrm{deg}}='],
@@ -148,7 +148,7 @@ export const CORE: Entry[] = [
   {
     name: 'acot', group: A, usage: 'acot(x)', mathcad: true,
     summary: 'The angle, in radians between 0 and π, whose cotangent is x.',
-    details: ['Element by element for a vector or matrix. A complex argument gives a complex answer. acot(0) is π/2, and a negative x gives an angle above π/2, as Mathcad\'s: `acot(−1)` is 3π/4. [[cot]] goes back.'],
+    details: ['Element by element for a vector or matrix. A complex argument gives a complex answer. acot(0) is π/2, and a negative x gives an angle above π/2: `acot(−1)` is 3π/4. [[cot]] goes back.'],
     units: 'The argument has no units.',
     example: ['\\mathrm{acot}\\left(1\\right)=', '\\mathrm{acot}\\left(-1\\right)='],
   },
@@ -185,7 +185,7 @@ export const CORE: Entry[] = [
   {
     name: 'atanh', group: A, usage: 'atanh(x)', mathcad: true,
     summary: 'The inverse hyperbolic tangent: the number whose tanh is x.',
-    details: ['Element by element for a vector or matrix. A complex argument gives a complex answer. Outside −1 to 1 the answer is complex, as Mathcad\'s: `atanh(2)` is 0.549 − 1.571i. [[tanh]] goes back.'],
+    details: ['Element by element for a vector or matrix. A complex argument gives a complex answer. Outside −1 to 1 the answer is complex: `atanh(2)` is 0.549 − 1.571i. [[tanh]] goes back.'],
     units: 'The argument has no units.',
     errors: ['1 or −1, where it\'s infinite.'],
     example: ['\\mathrm{atanh}\\left(0.5\\right)=', '\\mathrm{atanh}\\left(2\\right)='],
@@ -224,7 +224,7 @@ export const CORE: Entry[] = [
   {
     name: 'signum', group: 'Complex numbers', usage: 'signum(z)', mathcad: true,
     summary: 'z divided by its magnitude: the point on the unit circle in the direction of z.',
-    details: ['signum(0) is 1, as in Mathcad. For a real number it is 1 or −1. Element by element for a vector or matrix. See also [[csgn]] and [[sign]].'],
+    details: ['signum(0) is 1. For a real number it is 1 or −1. Element by element for a vector or matrix. See also [[csgn]] and [[sign]].'],
     units: 'Any units: the answer has none.',
     example: ['\\mathrm{signum}\\left(3+4\\mathrm{i}\\right)=', '\\mathrm{signum}\\left(-2\\right)='],
   },
@@ -375,8 +375,8 @@ export const CORE: Entry[] = [
   {
     name: 'num2str', group: 'Strings', usage: 'num2str(z)', mathcad: true,
     summary: 'The number z written as a string.',
-    details: ['To 15 significant digits, as Mathcad writes it, not the displayed ones: 1/3 is "0.333333333333333", and 1e−5 is "1e-05". A complex number comes out as "2 + 3i". Join strings with [[concat]]; [[str2num]] goes back.'],
-    units: 'z has no units, as in Mathcad: divide by the unit first.',
+    details: ['To 15 significant digits, not the displayed ones: 1/3 is "0.333333333333333", and 1e−5 is "1e-05". A complex number comes out as "2 + 3i". Join strings with [[concat]]; [[str2num]] goes back.'],
+    units: 'z has no units: divide by the unit first.',
     errors: ['A value with units.'],
     example: ['\\mathrm{num2str}\\left(2.5\\right)=', '\\mathrm{concat}\\left(\\text{"R = "},\\mathrm{num2str}\\left(47\\right)\\right)='],
   },
@@ -414,7 +414,7 @@ export const CORE: Entry[] = [
     name: 'str2num', group: 'Strings', usage: 'str2num(S)', mathcad: true,
     summary: 'The number written in the string S.',
     details: [
-      'S uses Mathcad\'s way of writing numbers: 3.25, 1e3 or 1.5E−3, complex numbers as 3+4i or 2j, and hexadecimal, octal and binary as 0FFh, 17o and 101b (hexadecimal starts with a digit). Spaces at the ends don\'t matter. [[num2str]] goes the other way.',
+      'S takes numbers written as 3.25, 1e3 or 1.5E−3, complex numbers as 3+4i or 2j, and hexadecimal, octal and binary as 0FFh, 17o and 101b (hexadecimal starts with a digit). Spaces at the ends don\'t matter. [[num2str]] goes the other way.',
     ],
     errors: ['A string that isn\'t a number, such as "12abc" or "0x1F".'],
     example: ['\\mathrm{str2num}\\left(\\text{"3.25"}\\right)=', '\\mathrm{str2num}\\left(\\text{"0FFh"}\\right)=', '\\mathrm{str2num}\\left(\\text{"3+4i"}\\right)='],
@@ -497,7 +497,7 @@ export const CORE: Entry[] = [
     name: 'UnitsOf', group: A, usage: 'UnitsOf(x)', mathcad: true,
     summary: 'The units of x, as 1 of its SI unit: the same as [[SIUnitsOf]].',
     details: [
-      'Mathcad\'s older name for SIUnitsOf, kept so older worksheets calculate.',
+      'An older name for SIUnitsOf, kept so older worksheets calculate.',
     ],
     example: ['\\mathrm{UnitsOf}\\left(2\\cdot \\frac{\\mathrm{m}}{\\mathrm{s}}\\right)='],
   },
@@ -505,7 +505,7 @@ export const CORE: Entry[] = [
     name: 'IsPrime', group: A, usage: 'IsPrime(n)', mathcad: true,
     summary: '1 if n is a prime number, 0 if not.',
     details: [
-      'Numbers below 2 aren\'t prime. In Mathcad 14 it works only symbolically, with →; MathMath gives its value with = too, for whole numbers up to 2⁵³, and with → for any size.',
+      'Numbers below 2 aren\'t prime. In the reference it works only symbolically, with →; MathMath gives its value with = too, for whole numbers up to 2⁵³, and with → for any size.',
     ],
     errors: ['A fraction, a complex number or one with units.'],
     example: ['\\mathrm{IsPrime}\\left(97\\right)=', '\\mathrm{IsPrime}\\left(91\\right)='],
@@ -515,16 +515,16 @@ export const CORE: Entry[] = [
     summary: 'In a definition over a range variable: e for each k, until c is negative, where the vector stops.',
     details: [
       'Like if, it works out e only while c is 0 or more. It may stand inside a larger expression, as 2·until(c, e), and in a recurrence, as w_(k+1) := until(100 − w_k, 2·w_k), which doubles w until it passes 100. If c is negative from the start, the vector keeps what it had, or it\'s an error if there was nothing.',
-      'c may have units, as T_k − 60 K; only its sign counts. With two range variables, it stops at the first negative c, leaving the rest 0; Mathcad 14 exits when it opens such a sheet. Inside a program, it ends the whole definition the program stands in.',
+      'c may have units, as T_k − 60 K; only its sign counts. With two range variables, it stops at the first negative c, leaving the rest 0; the reference exits when it opens such a sheet. Inside a program, it ends the whole definition the program stands in.',
     ],
-    errors: ['until anywhere but a definition over a range variable, as Mathcad refuses it.', 'A c that isn\'t a real number.'],
+    errors: ['until anywhere but a definition over a range variable.', 'A c that isn\'t a real number.'],
     example: ['k\\coloneq 0..10', 'x_{k}\\coloneq \\mathrm{until}\\left(5-k,k^{2}\\right)', 'x='],
   },
   {
     name: 'trace', group: A, usage: 'trace(S, x, y, …)', mathcad: true,
     summary: 'Prints a line under the region, as x = 2, and gives 0: for following what a program does.',
     details: [
-      'S is the text, with {0}, {1} … where the values go: trace("x = {0}, y = {1}", x, y). With one value and no text, the value alone prints. A vector prints as vector{n} [v0, v1, …] and a matrix as matrix{m, n} [[…], …], as Mathcad\'s Help describes; a value with units prints in base SI units, without them. In a loop each pass prints a line, up to 200. The lines aren\'t printed with the sheet. See also [[pause]].',
+      'S is the text, with {0}, {1} … where the values go: trace("x = {0}, y = {1}", x, y). With one value and no text, the value alone prints. A vector prints as vector{n} [v0, v1, …] and a matrix as matrix{m, n} [[…], …]; a value with units prints in base SI units, without them. In a loop each pass prints a line, up to 200. The lines aren\'t printed with the sheet. See also [[pause]].',
     ],
     example: ['\\mathrm{trace}\\left(\\text{"x = {0}"},2\\right)='],
   },
@@ -532,7 +532,7 @@ export const CORE: Entry[] = [
     name: 'pause', group: A, usage: 'pause(S, x, y, …)', mathcad: true,
     summary: 'Prints a line under the region, as [[trace]] does, and gives 0.',
     details: [
-      'In Mathcad it also stops the calculation until you carry on. A browser calculates without stopping, so here it prints and carries on, the same as trace.',
+      'In the reference it also stops the calculation until you carry on. A browser calculates without stopping, so here it prints and carries on, the same as trace.',
     ],
     example: ['\\mathrm{pause}\\left(\\text{"step {0}"},1\\right)='],
   },
@@ -542,7 +542,7 @@ export const CORE: Entry[] = [
     details: [
       'Takes positive whole numbers, or vectors and matrices of them. See also [[lcm]].',
     ],
-    errors: ['0, a negative number or a fraction, as in Mathcad.'],
+    errors: ['0, a negative number or a fraction.'],
     example: ['\\mathrm{gcd}\\left(12,18\\right)=', '\\mathrm{gcd}\\left(\\begin{pmatrix}12\\\\18\\\\8\\end{pmatrix}\\right)='],
   },
   {
@@ -567,7 +567,7 @@ export const CORE: Entry[] = [
     name: 'permut', group: A, usage: 'permut(n, k)', mathcad: true,
     summary: 'The number of ways to arrange k things chosen from n, in order: n! / (n − k)!.',
     details: [
-      'Mathcad 14 gives 0 once the answer is very large, as permut(60, 30); MathMath gives the number. See also [[combin]].',
+      'The reference gives 0 once the answer is very large, as permut(60, 30); MathMath gives the number. See also [[combin]].',
     ],
     errors: ['n or k negative or not whole, or k more than n.'],
     example: ['\\mathrm{permut}\\left(5,2\\right)=', '\\mathrm{permut}\\left(10,3\\right)='],
@@ -576,7 +576,7 @@ export const CORE: Entry[] = [
     name: 'Ceil', group: A, usage: 'Ceil(z, y)', mathcad: true,
     summary: 'z rounded up to a multiple of y, in z\'s units.',
     details: [
-      'For a value with units, y is in the same kind of unit: Ceil(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+      'For a value with units, y is in the same kind of unit: Ceil(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
     ],
     units: 'z and y have the same units, and the answer is in them.',
     errors: ['A y of 0.', 'A y in different units from z.'],
@@ -586,7 +586,7 @@ export const CORE: Entry[] = [
     name: 'Floor', group: A, usage: 'Floor(z, y)', mathcad: true,
     summary: 'z rounded down to a multiple of y, in z\'s units.',
     details: [
-      'For a value with units, y is in the same kind of unit: Floor(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+      'For a value with units, y is in the same kind of unit: Floor(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
     ],
     units: 'z and y have the same units, and the answer is in them.',
     errors: ['A y of 0.', 'A y in different units from z.'],
@@ -596,7 +596,7 @@ export const CORE: Entry[] = [
     name: 'Round', group: A, usage: 'Round(z, y)', mathcad: true,
     summary: 'z rounded to the nearest a multiple of y, in z\'s units.',
     details: [
-      'For a value with units, y is in the same kind of unit: Round(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+      'For a value with units, y is in the same kind of unit: Round(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
     ],
     units: 'z and y have the same units, and the answer is in them.',
     errors: ['A y of 0.', 'A y in different units from z.'],
@@ -606,7 +606,7 @@ export const CORE: Entry[] = [
     name: 'Trunc', group: A, usage: 'Trunc(z, y)', mathcad: true,
     summary: 'z cut toward 0 to a multiple of y, in z\'s units.',
     details: [
-      'For a value with units, y is in the same kind of unit: Trunc(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, as in Mathcad, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
+      'For a value with units, y is in the same kind of unit: Trunc(x, ft) for a length. The step is |y|. z/y is taken to 15 significant digits first, so Floor(0.3, 0.1) is 0.3, though 0.3/0.1 is just under 3 in binary. Element by element for arrays, and part by part for a complex z.',
     ],
     units: 'z and y have the same units, and the answer is in them.',
     errors: ['A y of 0.', 'A y in different units from z.'],
@@ -679,9 +679,9 @@ export const CORE: Entry[] = [
     name: 'Seed', group: 'Random numbers', usage: 'Seed(x)', mathcad: true,
     summary: 'Starts the random numbers below it from seed x, and gives the seed that was in effect.',
     details: [
-      'Before any Seed, each region draws from its own stream, from the worksheet\'s seed. After Seed(x), the regions below draw one after another from a single stream started at x, as in Mathcad, so seeding again with the same x draws the same numbers again. Seed gives the seed in effect before it: the worksheet\'s, 1 unless Reroll changed it, or the last Seed\'s. Reroll doesn\'t change the numbers below a Seed: they come from x. Mathcad gives its generator\'s position instead once numbers have been drawn, and its numbers differ from MathMath\'s.',
+      'Before any Seed, each region draws from its own stream, from the worksheet\'s seed. After Seed(x), the regions below draw one after another from a single stream started at x, so seeding again with the same x draws the same numbers again. Seed gives the seed in effect before it: the worksheet\'s, 1 unless Reroll changed it, or the last Seed\'s. Reroll doesn\'t change the numbers below a Seed: they come from x. The reference gives its generator\'s position instead once numbers have been drawn, and its numbers differ from MathMath\'s.',
     ],
-    errors: ['Anything but a whole number from 1 to 2147483647, as in Mathcad.'],
+    errors: ['Anything but a whole number from 1 to 2147483647.'],
     example: ['\\mathrm{Seed}\\left(5\\right)=', 'a\\coloneq \\mathrm{rnd}\\left(1\\right)', '\\mathrm{Seed}\\left(5\\right)=', 'a-\\mathrm{rnd}\\left(1\\right)='],
   },
   {

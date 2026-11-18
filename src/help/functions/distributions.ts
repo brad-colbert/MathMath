@@ -40,7 +40,7 @@ const DISTS: Dist[] = [
   { name: 'chisq', what: 'the chi-squared distribution', params: 'd', meaning: 'd is its degrees of freedom, above 0.', discrete: false, at: '2.5', ps: '3' },
   { name: 'exp', what: 'the exponential distribution', params: 'r', meaning: 'r is its rate, above 0; the mean is 1/r.', discrete: false, at: '0.7', ps: '2' },
   { name: 'F', what: 'the F distribution', params: 'd1, d2', meaning: 'd1 and d2 are its degrees of freedom, above 0.', discrete: false, at: '1.5', ps: '4,7' },
-  { name: 'gamma', what: 'the gamma distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1, as in Mathcad. For a scale θ, divide x by θ (and the density by θ).', discrete: false, at: '2.5', ps: '3' },
+  { name: 'gamma', what: 'the gamma distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1. For a scale θ, divide x by θ (and the density by θ).', discrete: false, at: '2.5', ps: '3' },
   { name: 'geom', what: 'the geometric distribution', params: 'p', meaning: 'the number of failures before the first success, each trial a success with probability p.', discrete: true, at: '2', ps: '0.3' },
   { name: 'hypergeom', what: 'the hypergeometric distribution', params: 'a, b, n', meaning: 'the number of successes in a sample of n, drawn without replacement from a successes and b failures.', discrete: true, at: '2', ps: '5,8,6' },
   { name: 'lnorm', what: 'the lognormal distribution', params: 'μ, σ', meaning: 'μ and σ are the mean and standard deviation of its logarithm; σ is above 0.', discrete: false, at: '1.5', ps: '0.2,0.8' },
@@ -50,7 +50,7 @@ const DISTS: Dist[] = [
   { name: 'pois', what: 'the Poisson distribution', params: 'λ', meaning: 'the number of events in an interval where λ, above 0, are expected.', discrete: true, at: '2', ps: '3.5' },
   { name: 't', what: "Student's t distribution", params: 'd', meaning: 'd is its degrees of freedom, above 0.', discrete: false, at: '1.5', ps: '4' },
   { name: 'unif', what: 'the uniform distribution', params: 'a, b', meaning: 'every value from a to b is equally likely; b is above a.', discrete: false, at: '1.5', ps: '1,4' },
-  { name: 'weibull', what: 'the Weibull distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1, as in Mathcad. For a scale λ, divide x by λ (and the density by λ).', discrete: false, at: '1.5', ps: '2' },
+  { name: 'weibull', what: 'the Weibull distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1. For a scale λ, divide x by λ (and the density by λ).', discrete: false, at: '1.5', ps: '2' },
 ];
 
 const call = (fn: string, args: string): string => `\\mathrm{${fn}}\\left(${args}\\right)=`;
@@ -111,7 +111,7 @@ export const DISTRIBUTIONS: Entry[] = [
   {
     name: 'cnorm', group: 'Probability distributions', usage: 'cnorm(x)', mathcad: true,
     summary: 'The cumulative probability of the standard normal distribution at x, as pnorm(x, 0, 1).',
-    details: ['Kept from older Mathcad versions. [[pnorm]] takes a mean and standard deviation too.'],
+    details: ['Kept from older versions. [[pnorm]] takes a mean and standard deviation too.'],
     example: ['\\mathrm{cnorm}\\left(1\\right)='],
   },
   {
@@ -138,7 +138,7 @@ export const DISTRIBUTIONS: Entry[] = [
   {
     name: 'mode', group: 'Statistics', usage: 'mode(A, …)', mathcad: true,
     summary: 'The value that appears most often among all the elements.',
-    errors: ['No value appearing more than once, or two values tied for most often, as in Mathcad.'],
+    errors: ['No value appearing more than once, or two values tied for most often.'],
     example: ['\\mathrm{mode}\\left(\\begin{pmatrix}2\\\\4\\\\4\\\\5\\\\9\\end{pmatrix}\\right)='],
   },
   {
@@ -156,14 +156,14 @@ export const DISTRIBUTIONS: Entry[] = [
   {
     name: 'skew', group: 'Statistics', usage: 'skew(A, …)', mathcad: true,
     summary: 'The sample skewness of all the elements: how lopsided they are, positive when the long tail is above the mean.',
-    details: ['n/((n − 1)(n − 2))·Σ((x − mean)/s)³, with s the sample standard deviation, as in Mathcad.'],
+    details: ['n/((n − 1)(n − 2))·Σ((x − mean)/s)³, with s the sample standard deviation.'],
     errors: ['Fewer than three values.'],
     example: ['\\mathrm{skew}\\left(\\begin{pmatrix}2\\\\4\\\\4\\\\5\\\\9\\end{pmatrix}\\right)='],
   },
   {
     name: 'kurt', group: 'Statistics', usage: 'kurt(A, …)', mathcad: true,
     summary: 'The sample kurtosis of all the elements, in excess of a normal distribution\'s: positive for heavy tails.',
-    details: ['Mathcad\'s formula, with the sample standard deviation and the n − 1, n − 2, n − 3 corrections.'],
+    details: ['With the sample standard deviation and the n − 1, n − 2, n − 3 corrections.'],
     errors: ['Fewer than four values.'],
     example: ['\\mathrm{kurt}\\left(\\begin{pmatrix}2\\\\4\\\\4\\\\5\\\\9\\end{pmatrix}\\right)='],
   },

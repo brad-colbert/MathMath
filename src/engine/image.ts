@@ -659,7 +659,7 @@ export function mathcadWrite(fn: string, path: string, v: Value, extra: number[]
 function wavWrite(name: string, v: Value, extra: number[]): Written {
   const [rate, bits] = extra;
   if (rate === undefined || bits === undefined || extra.length !== 2) throw new EvalError('runtime', 'WRITEWAV needs a file name, a sample rate and bits per sample: WRITEWAV("name", 8000, 16) := M');
-  if (!(bits >= 1 && bits <= 16)) throw new EvalError('runtime', "WRITEWAV's bits per sample must be between 1 and 16, as in Mathcad");
+  if (!(bits >= 1 && bits <= 16)) throw new EvalError('runtime', "WRITEWAV's bits per sample must be between 1 and 16");
   if (!(rate > 0) || !Number.isInteger(rate)) throw new EvalError('runtime', "WRITEWAV's sample rate must be a whole number of samples a second");
   if (v.t !== 'mat' || v.cells || v.im?.some((x) => x !== 0) || !isNoDim(v.dim)) throw new EvalError('runtime', 'WRITEWAV writes a matrix of real numbers without units: a column per channel');
   const width = bits <= 8 ? 1 : 2;

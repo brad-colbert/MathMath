@@ -16,15 +16,15 @@
 import type { Entry } from '../types.js';
 
 const A = 'Arithmetic and functions';
-const SHOW = 'To show a result in the format, type the name in the result\'s unit placeholder, the blank after the answer, as Mathcad\'s /';
+const SHOW = 'To show a result in the format, type its name in the result\'s unit placeholder, the blank after the answer. ';
 
 export const FORMATS: Entry[] = [
   {
     name: 'DMS', group: A, usage: 'DMS(v), DMS(d, m, s)', mathcad: true,
     summary: 'An angle given in degrees, minutes and seconds, in radians.',
     details: [
-      'v is a vector of degrees, minutes and seconds, or the three are given as separate numbers: the angle is d + m/60 + s/3600 degrees. Each part keeps its own sign, as in Mathcad, so DMS(−10, 30, 0) is −9.5°; give all three negative for −10° 30′.',
-      `${SHOW}DMS: the answer then shows as a vector of degrees, minutes and seconds, each with the angle's sign.`,
+      'v is a vector of degrees, minutes and seconds, or the three are given as separate numbers: the angle is d + m/60 + s/3600 degrees. Each part keeps its own sign, so DMS(−10, 30, 0) is −9.5°; give all three negative for −10° 30′.',
+      `${SHOW}The answer then shows as a vector of degrees, minutes and seconds, each with the angle's sign.`,
     ],
     units: 'The parts have no units; the answer is in radians, which have none.',
     errors: ['A vector of more than three elements.', 'Parts with units.'],
@@ -35,7 +35,7 @@ export const FORMATS: Entry[] = [
     summary: 'A length given in feet, inches and a fraction of an inch.',
     details: [
       'The string is as a builder writes it: "9\' 6-1/4\\"" is 9 feet 6¼ inches. Any part may be left out, as "6-1/4" or "9\'"; a space can stand for the dash, the closing " is optional, and a − in front negates the whole. Numbers in the string are whole: write 9\' 6" rather than 9.5\'. Or give feet, inches and the fraction of an inch as three numbers.',
-      `${SHOW}FIF: the answer then shows as a string of feet and inches, with the nearest fraction of an inch whose denominator is 256 or less, as Mathcad shows it: 3.14159 inches is 0' 3-16/113".`,
+      `${SHOW}The answer then shows as a string of feet and inches, with the nearest fraction of an inch whose denominator is 256 or less: 3.14159 inches is 0' 3-16/113".`,
     ],
     units: 'The answer is a length. The three numbers have no units.',
     errors: ['A string not in the form n\' n-n/n", as one with a decimal point.', 'Numbers with units.'],
@@ -46,7 +46,7 @@ export const FORMATS: Entry[] = [
     summary: 'A time given in hours, minutes and seconds.',
     details: [
       'The string needs all three parts, separated by colons, as "1:02:03.5"; the parts may run over, as "0:90:00" for an hour and a half, and a − in front negates the whole. Or give the three as numbers, which are added as they are.',
-      `${SHOW}hhmmss: the answer then shows as a string, the seconds to 3 decimals: 3723.5 s is "1:2:3.5".`,
+      `${SHOW}The answer then shows as a string, the seconds to 3 decimals: 3723.5 s is "1:2:3.5".`,
     ],
     units: 'The answer is a time. The three numbers have no units.',
     errors: ['A string without exactly three parts, or with spaces.', 'Numbers with units.'],
@@ -57,9 +57,9 @@ export const FORMATS: Entry[] = [
     summary: 'The time on the computer\'s clock, in seconds since 1970, for timing a calculation.',
     details: [
       'z can be anything: it only makes time wait for what it depends on. Take time before and after a long calculation, and subtract. The clock reads to the millisecond.',
-      'A region with time calculates again only when something it depends on changes, as in Mathcad.',
+      'A region with time calculates again only when something it depends on changes.',
     ],
-    units: 'The answer has no units, as in Mathcad: multiply by s for a time.',
+    units: 'The answer has no units: multiply by s for a time.',
     example: ['t_{0}\\coloneq \\mathrm{time}\\left(0\\right)'],
   },
 ];

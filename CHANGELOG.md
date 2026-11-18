@@ -8,6 +8,17 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.56.1] - 2026-11-17
+
+Help describes functions on their own terms.
+
+### Changed
+
+- Help describes each function on its own terms. Asides that only said a function behaves the way the reference
+  does are gone, and the places where MathMath deliberately differs now say "the reference". Four error
+  messages lose the same aside. The Help badge, opening imported worksheets, Convert and the file functions keep
+  the name, since they're about those files.
+
 ## [0.56.0] - 2026-11-17
 
 loess, the last missing function on the reference's list.
