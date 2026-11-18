@@ -437,7 +437,7 @@ function plain(v: Value | undefined, fn: string, what: string): Cx {
 /** A real argument or order, as Mathcad 14 asks for the orders and for ber and bei. */
 function realX(v: Value | undefined, fn: string, what = 'argument'): number {
   const [re, im] = plain(v, fn, what);
-  if (im !== 0) throw new EvalError('runtime', `${fn}'s ${what} must be real, as in Mathcad`);
+  if (im !== 0) throw new EvalError('runtime', `${fn}'s ${what} must be real`);
   return re;
 }
 

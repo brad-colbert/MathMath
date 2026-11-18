@@ -1348,7 +1348,7 @@ export class Evaluator implements Host {
     if (!point) throw new EvalError('runtime', `Jacob works out the Jacobian at the vector ${name}: define ${name} above`);
     const xs = point.t === 'num' ? [point] : point.t === 'mat' && !point.cells && (point.cols === 1 || point.rows === 1) ? Array.from(point.re, (_, i) => getEl(point, point.cols === 1 ? i : 0, point.cols === 1 ? 0 : i) as Num) : null;
     if (!xs || xs.some((x) => x.im !== 0)) throw new EvalError('runtime', `Jacob: ${name} must be a vector of real numbers`);
-    if (xs.some((x) => !isNoDim(x.dim))) throw new EvalError('runtime', `Jacob: ${name} must be without units, as in Mathcad`);
+    if (xs.some((x) => !isNoDim(x.dim))) throw new EvalError('runtime', `Jacob: ${name} must be without units`);
     // F at x with its jth element moved to t, each point worked out once for all of F's elements.
     const seen = new Map<string, Num[]>();
     const at = (j: number, t: number): Num[] => {

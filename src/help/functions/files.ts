@@ -51,7 +51,7 @@ export const FILES: Entry[] = [
     name: 'readTable', group: 'Files', usage: 'readTable("name")', mathcad: false, results: 'files',
     summary: 'An attached data file, such as a CSV, as a matrix, one row for each line.',
     details: [
-      ATTACH + ' Loading a data file with Files writes the `readTable` line for you; a Mathcad data-reading component in an imported sheet becomes one too.',
+      ATTACH + ' Loading a data file with Files writes the `readTable` line for you; a data-reading component in an imported sheet becomes one too.',
       'Each line is split at commas, or if there are none at tabs, or else at spaces. If every cell is a number the answer is a matrix of numbers. If any isn\'t, a cell that is a number stays one and the rest become strings, so a header row can come along with the data. An empty cell is 0. Text in double quotes keeps its commas.',
     ],
     errors: ['A name that isn\'t in quotes.', 'A folder path: only the name of an attached file.', 'A file that isn\'t attached.', 'A spreadsheet, .xls or .xlsx: save it as CSV and load that.', 'An empty file.'],
@@ -93,8 +93,8 @@ export const FILES: Entry[] = [
   },
   {
     name: 'WRITEPRN', group: 'Files', usage: 'WRITEPRN("name") := M', mathcad: true, results: 'files',
-    summary: 'Writes a matrix of numbers to a text data file, a line for each row, as Mathcad does.',
-    details: ['As in Mathcad, it\'s written as a definition: `WRITEPRN("out.prn") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'Numbers are written as Mathcad writes them by default: 4 significant figures, very large and small ones with an exponent, as 1.235e+005, each right-aligned in a column 8 characters wide. Values with units are written in base SI units. [[readTable]] reads such a file back.'],
+    summary: 'Writes a matrix of numbers to a text data file, a line for each row.',
+    details: ['It\'s written as a definition: `WRITEPRN("out.prn") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'By default numbers are written with 4 significant figures, very large and small ones with an exponent, as 1.235e+005, each right-aligned in a column 8 characters wide. Values with units are written in base SI units. [[readTable]] reads such a file back.'],
     errors: ['A matrix of strings, nested arrays or complex numbers.'],
     example: ['M\\coloneq \\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}', '\\mathrm{WRITEPRN}\\left(\\text{"out.prn"}\\right)\\coloneq M'],
   },
@@ -154,28 +154,28 @@ export const FILES: Entry[] = [
   {
     name: 'READ_IMAGE', group: 'Files', usage: 'READ_IMAGE("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader of a picture as one matrix of gray levels: recognized here, but refused; use [[readImage]] and [[toGray]].',
-    details: [...MATHCAD_ONLY('reads a picture file into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers as Mathcad\'s are. ${CONVERT}`)],
+    details: [...MATHCAD_ONLY('reads a picture file into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers. ${CONVERT}`)],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['G\\coloneq \\mathrm{READ\\_IMAGE}\\left(\\text{"photo.bmp"}\\right)', 'G='],
   },
   {
     name: 'READBMP', group: 'Files', usage: 'READBMP("path")', mathcad: true, results: 'files',
     summary: 'Mathcad\'s reader of a bitmap file as a matrix of gray levels: recognized here, but refused; use [[readImage]] and [[toGray]].',
-    details: [...MATHCAD_ONLY('reads a bitmap picture into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers as Mathcad\'s are. ${CONVERT}`)],
+    details: [...MATHCAD_ONLY('reads a bitmap picture into a matrix of gray values', `Attach the picture with Files: round(toGray(readImage("name"))) gives the same gray levels, rounded to whole numbers. ${CONVERT}`)],
     errors: ['Any call: it always gives the note about Files and doesn\'t read anything.'],
     example: ['G\\coloneq \\mathrm{READBMP}\\left(\\text{"photo.bmp"}\\right)', 'G='],
   },
   {
     name: 'WRITEBMP', group: 'Files', usage: 'WRITEBMP("name") := M', mathcad: true, results: 'files',
-    summary: 'Writes a matrix of gray levels, 0 to 255, as a picture file, as Mathcad does.',
-    details: ['As in Mathcad, it\'s written as a definition: `WRITEBMP("out.bmp") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'A .bmp name gives a bitmap, as Mathcad writes; .png, .jpg and .webp give those. Any other kind, such as .gif, is saved as PNG. [[writeImage]] does the same as a function.'],
+    summary: 'Writes a matrix of gray levels, 0 to 255, as a picture file.',
+    details: ['It\'s written as a definition: `WRITEBMP("out.bmp") := M`. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'A .bmp name gives a bitmap; .png, .jpg and .webp give those. Any other kind, such as .gif, is saved as PNG. [[writeImage]] does the same as a function.'],
     errors: ['Something that isn\'t a matrix of numbers.'],
     example: ['M\\coloneq \\begin{pmatrix}0&255\\\\255&0\\end{pmatrix}', '\\mathrm{WRITEBMP}\\left(\\text{"out.bmp"}\\right)\\coloneq M'],
   },
   {
     name: 'WRITERGB', group: 'Files', usage: 'WRITERGB("name") := M', mathcad: true, results: 'files',
-    summary: 'Writes a color picture file from one matrix with its red, green and blue blocks side by side, as Mathcad does.',
-    details: ['As in Mathcad, it\'s written as a definition: `WRITERGB("out.bmp") := M`, where M is three times as wide as the picture, as [[READRGB]] and [[readImage]] give. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'A .bmp name gives a bitmap; .png, .jpg and .webp give those; any other kind, such as .gif, is saved as PNG. For three separate matrices, use [[writeImage]].'],
+    summary: 'Writes a color picture file from one matrix with its red, green and blue blocks side by side.',
+    details: ['It\'s written as a definition: `WRITERGB("out.bmp") := M`, where M is three times as wide as the picture, as [[READRGB]] and [[readImage]] give. The region shows a **Save** button that downloads the file, named without the folder in its path: a web page can\'t write to a folder on your computer, so the browser asks where it goes. The button saves the latest result, after any recalculation.', 'A .bmp name gives a bitmap; .png, .jpg and .webp give those; any other kind, such as .gif, is saved as PNG. For three separate matrices, use [[writeImage]].'],
     errors: ['A matrix whose width isn\'t a multiple of 3.'],
     example: ['C\\coloneq \\begin{pmatrix}255&0&0\\end{pmatrix}', '\\mathrm{WRITERGB}\\left(\\text{"red.bmp"}\\right)\\coloneq C'],
   },
@@ -227,10 +227,10 @@ export const FILES: Entry[] = [
   },
   {
     name: 'WRITEWAV', group: 'Files', usage: 'WRITEWAV("name", s, b) := M', mathcad: true, results: 'files',
-    summary: 'Writes a matrix of samples as a WAV sound file, a column per channel, s samples a second and b bits a sample, as Mathcad does.',
+    summary: 'Writes a matrix of samples as a WAV sound file, a column per channel, s samples a second and b bits a sample.',
     details: [
-      'As in Mathcad, it\'s written as a definition: `WRITEWAV("out.wav", 8000, 16) := M`. The region shows a **Save** button that downloads the file, named without the folder in its path.',
-      'The samples are Mathcad\'s raw numbers, as [[READWAV]] gives them: b from 1 to 8 writes bytes, 0 to 255, and 9 to 16 writes words, −32768 to 32767. Each value is cut to a whole number toward 0, and one out of range wraps round rather than stopping at the end, as in Mathcad: 40000 is written as −25536. For samples from −1 to 1, as [[readWav]] gives, multiply by 32767 first.',
+      'It\'s written as a definition: `WRITEWAV("out.wav", 8000, 16) := M`. The region shows a **Save** button that downloads the file, named without the folder in its path.',
+      'The samples are Mathcad\'s raw numbers, as [[READWAV]] gives them: b from 1 to 8 writes bytes, 0 to 255, and 9 to 16 writes words, −32768 to 32767. Each value is cut to a whole number toward 0, and one out of range wraps round rather than stopping at the end: 40000 is written as −25536. For samples from −1 to 1, as [[readWav]] gives, multiply by 32767 first.',
     ],
     errors: ['b outside 1 to 16.', 'A sample rate that isn\'t a whole number above 0.', 'Complex numbers, units or nested arrays.'],
     example: ['k\\coloneq 0..799', 'S_{k}\\coloneq 10000\\cdot \\sin \\left(2\\cdot \\pi \\cdot 440\\cdot \\frac{k}{8000}\\right)', '\\mathrm{WRITEWAV}\\left(\\text{"tone.wav"},8000,16\\right)\\coloneq S'],
@@ -239,8 +239,8 @@ export const FILES: Entry[] = [
     const [model, fn] = name === 'WRITE_HLS' ? ['hue, lightness and saturation', 'hlsToRgb'] : ['hue, saturation and value', 'hsvToRgb'];
     return {
       name, group: 'Files', usage: `${name}("name") := M`, mathcad: true, results: 'files',
-      summary: `Writes a color picture file from ${model}, as Mathcad does.`,
-      details: [`As in Mathcad, it\'s written as a definition: \`${name}("out.bmp") := M\`, where M has three blocks side by side, the hue in degrees and the others 0 to 255, as [[${name.replace('WRITE', 'READ')}]] reads them. It writes what [[WRITERGB]] would of ${fn}(M, 360). The region shows a **Save** button that downloads the file.`],
+      summary: `Writes a color picture file from ${model}.`,
+      details: [`It\'s written as a definition: \`${name}("out.bmp") := M\`, where M has three blocks side by side, the hue in degrees and the others 0 to 255, as [[${name.replace('WRITE', 'READ')}]] reads them. It writes what [[WRITERGB]] would of ${fn}(M, 360). The region shows a **Save** button that downloads the file.`],
       errors: ['A matrix whose width isn\'t a multiple of 3.'],
       example: ['M\\coloneq \\begin{pmatrix}0&128&255\\end{pmatrix}', `\\mathrm{${name.replace('_', '\\_')}}\\left(\\text{"red.bmp"}\\right)\\coloneq M`],
     };

@@ -73,7 +73,7 @@ export const SOLVING: Entry[] = [
     summary: 'A piecewise polynomial of degree n through the points (vx, vy), with its pieces joined at the break points u, for use with interp.',
     details: [
       'n is the degree: 1, 2 or 3. u holds the break points, in increasing order, spanning the data. It has n−1 fewer entries than vx, so for degree 1 it is vx itself, and for degree 2 it has one fewer. ' + SAME_SPLINE,
-      'The result holds the degree code, each piece\'s coefficients and each piece\'s ends, in the form Mathcad stores them.',
+      'The result holds the degree code, each piece\'s coefficients and each piece\'s ends.',
     ],
     errors: ['A degree other than 1, 2 or 3.', 'A u with the wrong number of entries.', 'Break points that don\'t increase.', 'vx and vy of different lengths.'],
     example: [XS, YS, 'S\\coloneq \\mathrm{bspline}\\left(x,y,x,1\\right)', '\\mathrm{interp}\\left(S,x,y,2.5\\right)='],
@@ -94,7 +94,7 @@ export const SOLVING: Entry[] = [
     name: 'predict', group: 'Interpolation and fitting', usage: 'predict(v, m, n)', mathcad: true,
     summary: 'n values past the end of the data v, by linear prediction from the m values before each.',
     details: [
-      'The coefficients come from Burg\'s method over the whole of v, as Mathcad\'s do; each new value then comes from the m before it, so once n is more than m, predictions build on predictions. Suited to smooth, oscillating data sampled evenly. Reverse v to predict backwards.',
+      'The coefficients come from Burg\'s method over the whole of v; each new value then comes from the m before it, so once n is more than m, predictions build on predictions. Suited to smooth, oscillating data sampled evenly. Reverse v to predict backwards.',
     ],
     errors: ['An m not less than the number of values less 1.', 'An m or n that isn\'t a whole number of 1 or more.'],
     example: ['v\\coloneq \\begin{pmatrix}0\\\\0.59\\\\0.95\\\\0.95\\\\0.59\\\\0\\\\-0.59\\\\-0.95\\\\-0.95\\\\-0.59\\end{pmatrix}', '\\mathrm{predict}\\left(v,2,3\\right)='],
@@ -143,7 +143,7 @@ export const SOLVING: Entry[] = [
     name: 'medfit', group: 'Interpolation and fitting', usage: 'medfit(vx, vy)', mathcad: true,
     summary: 'A straight line that resists outliers, the median-median line: a vector of its intercept and slope.',
     details: [
-      'The points are split into thirds by x: x up to a third of the way across the range, the last third, and the middle. The slope joins the median points of the outer thirds, and the intercept is the mean of the three medians\' intercepts, as in Mathcad.',
+      'The points are split into thirds by x: x up to a third of the way across the range, the last third, and the middle. The slope joins the median points of the outer thirds, and the intercept is the mean of the three medians\' intercepts.',
     ],
     errors: ['x and y of different lengths.', 'No points in the first or last third of the x range.'],
     example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', '\\mathrm{medfit}\\left(x,y\\right)='],
@@ -161,8 +161,8 @@ export const SOLVING: Entry[] = [
     name: 'regress', group: 'Interpolation and fitting', usage: 'regress(vx, vy, k)', mathcad: true,
     summary: 'A polynomial of degree k fitted to the points (vx, vy), as a vector for [[interp]].',
     details: [
-      'The vector is 3, 3, k, then the coefficients from the constant term up, as Mathcad\'s: take them out with submatrix(…, 3, k + 3, 0, 0). interp(v, vx, vy, x) gives the polynomial\'s value at x. The least-squares fit: it makes the sum of the squared differences in y as small as it can.',
-      'With several variables, vx is a matrix with a column for each, and the terms come in Mathcad\'s order (for two variables of degree 2: xy, y², y, 1, x, x²).',
+      'The vector is 3, 3, k, then the coefficients from the constant term up: take them out with submatrix(…, 3, k + 3, 0, 0). interp(v, vx, vy, x) gives the polynomial\'s value at x. The least-squares fit: it makes the sum of the squared differences in y as small as it can.',
+      'With several variables, vx is a matrix with a column for each, and the terms come in this order (for two variables of degree 2: xy, y², y, 1, x, x²).',
     ],
     errors: ['x and y of different lengths.', 'A degree that isn\'t a whole number of 1 or more.', 'Fewer points than coefficients.'],
     example: ['x\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.1\\\\3.9\\\\6.2\\\\7.8\\\\10.1\\end{pmatrix}', 'R\\coloneq \\mathrm{regress}\\left(x,y,2\\right)', '\\mathrm{interp}\\left(R,x,y,2.5\\right)='],
@@ -236,7 +236,7 @@ export const SOLVING: Entry[] = [
     name: 'sinfit', group: 'Interpolation and fitting', usage: 'sinfit(vx, vy, vg)', mathcad: true,
     summary: 'The sine wave a·sin(x + b) + c fitted to the points (vx, vy), from the guess vg: the vector (a, b, c).',
     details: [
-      'x is in radians, and the wave has a period of 2π, as Mathcad\'s. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
+      'x is in radians, and the wave has a period of 2π. The least-squares fit: it makes the sum of the squared differences in y as small as it can. It starts from the guess and improves it until it can\'t: a guess near the answer helps, and one too far off can find another answer or fail.',
     ],
     errors: ['x and y of different lengths.', 'A guess it can\'t improve from.'],
     example: ['x\\coloneq \\begin{pmatrix}0\\\\1\\\\2\\\\3\\\\4\\end{pmatrix}', 'y\\coloneq \\begin{pmatrix}2.44\\\\3.99\\\\2.80\\\\0.37\\\\-1.12\\end{pmatrix}', '\\mathrm{sinfit}\\left(x,y,\\begin{pmatrix}2\\\\0\\\\0\\end{pmatrix}\\right)='],
@@ -302,7 +302,7 @@ export const SOLVING: Entry[] = [
     summary: 'A value of x that makes the expression f(x) equal to 0.',
     details: [
       'There are two forms. With a guess, `root(f(x), x)`, x must have a value defined above, and the search runs from there. With a bracket, `root(f(x), x, a, b)`, the search stays between a and b, and f must have opposite signs at the two ends, so a root lies between them.',
-      'With a bracket, x belongs to root, so it can share its name with a range variable, as Mathcad allows: root(J0(x), x, 2, 3) is one answer even after x := 0, 0.1 .. 20. With a guess, x is the guess, and a range variable x gives a root from each of its values, as a vector.',
+      'With a bracket, x belongs to root, so it can share its name with a range variable: root(J0(x), x, 2, 3) is one answer even after x := 0, 0.1 .. 20. With a guess, x is the guess, and a range variable x gives a root from each of its values, as a vector.',
       'root finds real roots of real expressions. It is not part of a solve block. For polynomials, [[polyroots]] gives all the roots at once.',
     ],
     units: 'The answer is in the units of the guess, or of a and b.',
@@ -391,9 +391,9 @@ export const SOLVING: Entry[] = [
     summary: "The solution of a linear system x′ = A(t)·x + B(t)·u(t), at npoints + 1 equal steps from t1 to t2.",
     details: [
       'init is the column of starting values at t1. A(t) is a function you define giving an n × n matrix, so the system is x′ = A(t)·x; with B(t), an n × m matrix (or a column, with u a number), and u(t), a vector of m inputs, it is driven: x′ = A·x + B·u. The answer is a table as [[rkfixed]] gives: t in the first column, then each state. t2 can be below t1.',
-      "Mathcad integrates to the worksheet's TOL, so at the default 0.001 its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is, and agree with Mathcad's at a TOL of 1e−10.",
+      "The reference integrates to the worksheet's TOL, so at the default 0.001 its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is, and agree with the reference's at a TOL of 1e−10.",
     ],
-    units: 'The starting values, A, B and u have no units, as in Mathcad.',
+    units: 'The starting values, A, B and u have no units.',
     errors: ['A, B or u given as values rather than functions of t.', 'B without u.', 'A(t) not n × n for n starting values, or B(t) and u(t) of sizes that don\'t fit.', 'A number of points that isn\'t a positive whole number.'],
     example: ['A\\left(t\\right)\\coloneq \\begin{pmatrix}0&1\\\\-4&-0.2\\end{pmatrix}', 'X\\coloneq \\mathrm{statespace}\\left(\\begin{pmatrix}1\\\\0\\end{pmatrix},0,1,4,A\\right)', 'X='],
   },
@@ -402,9 +402,9 @@ export const SOLVING: Entry[] = [
     summary: 'The starting values at x1 that make a boundary-value problem\'s solution meet its conditions at x2, by shooting.',
     details: [
       'For y′ = D(x, y) with some values known at x1 and the rest at x2. v holds guesses for the unknown starting values. load(x1, v) gives the full starting vector, the known values and v\'s; score(x2, y) gives one value for each guess, each 0 when the condition at x2 is met, as y₀ − 1 for y(x2) = 1. sbval solves from x1 to x2 again and again, adjusting v by Newton\'s method until the score is 0.',
-      'Pass load(x1, sbval(…)) to [[rkfixed]] or another solver for the whole solution. Different guesses can find different solutions, as in Mathcad. For conditions at both ends and a meeting point between, see [[bvalfit]].',
+      'Pass load(x1, sbval(…)) to [[rkfixed]] or another solver for the whole solution. Different guesses can find different solutions. For conditions at both ends and a meeting point between, see [[bvalfit]].',
     ],
-    errors: ['A score with a different number of values than guesses.', 'A problem the guesses can\'t solve, with no solution near them: Mathcad returns a number regardless.'],
+    errors: ['A score with a different number of values than guesses.', 'A problem the guesses can\'t solve, with no solution near them: the reference returns a number regardless.'],
     example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'L\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y_{0}-1', '\\mathrm{sbval}\\left(\\begin{pmatrix}1\\end{pmatrix},0,1,D,L,S\\right)='],
   },
   {
@@ -412,7 +412,7 @@ export const SOLVING: Entry[] = [
     summary: 'The unknown starting values at both ends of a boundary-value problem, shooting from each end to meet at xf.',
     details: [
       'As [[sbval]], but from both ends: load1(x1, v1) and load2(x2, v2) give the values at each end, with guesses v1 and v2 for the unknown ones, and score(xf, y) gives what must agree where the two solutions meet, usually score(xf, y) := y. It suits a D that jumps at xf, since neither solution crosses it.',
-      'The answer is v1 and v2 side by side, the shorter padded with zeros, as Mathcad gives them.',
+      'The answer is v1 and v2 side by side, the shorter padded with zeros.',
     ],
     errors: ['A score with a different number of values than v1 and v2 together.', 'An xf outside x1 to x2.', 'Guesses with no solution near them.'],
     example: ['D\\left(x,y\\right)\\coloneq \\begin{pmatrix}y_{1}\\\\-y_{0}\\end{pmatrix}', 'La\\left(x,v\\right)\\coloneq \\begin{pmatrix}0\\\\v_{0}\\end{pmatrix}', 'Lb\\left(x,v\\right)\\coloneq \\begin{pmatrix}1\\\\v_{0}\\end{pmatrix}', 'S\\left(x,y\\right)\\coloneq y', '\\mathrm{bvalfit}\\left(\\begin{pmatrix}1\\end{pmatrix},\\begin{pmatrix}1\\end{pmatrix},0,1,0.5,D,La,Lb,S\\right)='],
@@ -422,7 +422,7 @@ export const SOLVING: Entry[] = [
     summary: 'The solution of partial differential equations u_t = F(x, t, u, u_x, u_xx) on a line, by the method of lines.',
     details: [
       'xrange and trange are vectors of two ends; xpts and tpts the numbers of points across and in time; npde the number of equations (npae, algebraic equations, must be 0 here). F(x, t, u, ux, uxx) is a function you define giving each equation\'s u_t, with u, ux and uxx vectors of the functions and their first and second x derivatives, so ux₀ is ∂u₀/∂x. init(x) gives the functions at the first time.',
-      'bc(t) gives an npde × 3 matrix, a row per equation: the left and right boundary values and "D", for values, or "N", for slopes ∂u/∂x. An equation with only a first derivative in x takes one condition, the other end "NA". The answer has xpts rows and tpts columns per function, the functions side by side. Space is differenced as Mathcad does, to fourth order, so the answers agree with Mathcad\'s to about 1e−6; use more points across for more accuracy. [[Pdesolve]] takes the same problem written as equations.',
+      'bc(t) gives an npde × 3 matrix, a row per equation: the left and right boundary values and "D", for values, or "N", for slopes ∂u/∂x. An equation with only a first derivative in x takes one condition, the other end "NA". The answer has xpts rows and tpts columns per function, the functions side by side. Space is differenced to fourth order; use more points across for more accuracy. [[Pdesolve]] takes the same problem written as equations.',
     ],
     errors: ['Ends not in increasing order.', 'Fewer than 6 points across.', 'A bc row without "D" or "N", or with "NA" for an equation of second order.', 'Algebraic equations (npae above 0).'],
     example: ['F\\left(x,t,u,ux,uxx\\right)\\coloneq \\begin{pmatrix}uxx_{0}\\end{pmatrix}', 'P\\left(x\\right)\\coloneq \\begin{pmatrix}\\sin \\left(\\pi \\cdot x\\right)\\end{pmatrix}', 'B\\left(t\\right)\\coloneq \\begin{pmatrix}0&0&\\text{"D"}\\end{pmatrix}', 'U\\coloneq \\mathrm{numol}\\left(\\begin{pmatrix}0\\\\1\\end{pmatrix},11,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},3,1,0,F,P,B\\right)', 'U_{5,2}='],
@@ -432,7 +432,7 @@ export const SOLVING: Entry[] = [
     summary: 'Ends a solve block of partial differential equations, giving the unknown function u(x, t), or a vector of them.',
     details: [
       'Between Given and Pdesolve: each equation as u.t(x, t) = …, using u(x, t), u.x(x, t) and u.xx(x, t), the partial derivatives typed as literal subscripts (u, then . then t); an initial condition u(x, 0) = …; and the boundary conditions the order needs, u(0, t) = … for a value or u.x(1, t) = … for a slope, at the ends of xrange. A system names its functions as a vector, Pdesolve((u; v), x, …).',
-      'It is solved as [[numol]] solves it, on xpts × tpts points, 10 × 10 if left out, as in Mathcad; the answer is a function of x and t, interpolated linearly between the points. Use more points for a smoother, more accurate answer.',
+      'It is solved as [[numol]] solves it, on xpts × tpts points, 10 × 10 if left out; the answer is a function of x and t, interpolated linearly between the points. Use more points for a smoother, more accurate answer.',
     ],
     errors: ['A missing equation, initial condition or boundary condition, or one too many.', 'A boundary condition not at an end of xrange.', 'A point outside the ranges solved.'],
     example: ['\\mathrm{Given}', 'u_{\\text{t}}\\left(x,t\\right)=u_{\\text{xx}}\\left(x,t\\right)', 'u\\left(x,0\\right)=\\sin \\left(\\pi \\cdot x\\right)', 'u\\left(0,t\\right)=0', 'u\\left(1,t\\right)=0', 'u\\coloneq \\mathrm{Pdesolve}\\left(u,x,\\begin{pmatrix}0\\\\1\\end{pmatrix},t,\\begin{pmatrix}0\\\\0.1\\end{pmatrix},21,11\\right)', 'u\\left(0.5,0.1\\right)='],
@@ -442,7 +442,7 @@ export const SOLVING: Entry[] = [
     summary: 'The solution of Poisson\'s equation on a square grid, by successive over-relaxation.',
     details: [
       'The equation at each inner point (i, j) is a·u(i+1, j) + b·u(i−1, j) + c·u(i, j+1) + d·u(i, j−1) + e·u(i, j) = f, with a to f square matrices of its coefficients, all the same size; for ∇²u = ρ on a grid of spacing h, a to d are 1, e is −4 and f is h²·ρ. u holds the boundary values on its edges, which stay, and a first guess inside. rjac, between 0 and 1, sets the over-relaxation: 1 − π²/(2n²) suits an n × n grid.',
-      'The method is Numerical Recipes\' sor, as Mathcad\'s is, so the answers are Mathcad\'s to the last digit. For zero boundaries and a 2ⁿ + 1 grid, [[multigrid]] is quicker.',
+      'The method is Numerical Recipes\' sor. For zero boundaries and a 2ⁿ + 1 grid, [[multigrid]] is quicker.',
     ],
     errors: ['Matrices of different sizes, or not square.', 'An rjac outside 0 to 1.', 'No convergence in 1000 sweeps.'],
     example: ['o\\left(i,j\\right)\\coloneq 1', 'A\\coloneq \\mathrm{matrix}\\left(5,5,o\\right)', 'g\\left(i,j\\right)\\coloneq \\mathrm{if}\\left(i=0,1,0\\right)', 'U\\coloneq \\mathrm{matrix}\\left(5,5,g\\right)', '\\mathrm{relax}\\left(A,A,A,A,-4\\cdot A,0\\cdot A,U,0.6\\right)='],
@@ -451,7 +451,7 @@ export const SOLVING: Entry[] = [
     name: 'multigrid', group: 'Differential equations', usage: 'multigrid(M, ncycle)', mathcad: true,
     summary: 'The solution of Poisson\'s equation ∇²u = M on the unit square, zero on its edges, by the multigrid method.',
     details: [
-      'M is the source at each point of a 2ⁿ + 1 square grid (5, 9, 17, 33 …) over the unit square, so the spacing is 1/(rows − 1); ncycle, usually 2, is the number of cycles at each level. The method is Numerical Recipes\' full multigrid, mglin, as Mathcad\'s is, so the answers are Mathcad\'s to the last digit.',
+      'M is the source at each point of a 2ⁿ + 1 square grid (5, 9, 17, 33 …) over the unit square, so the spacing is 1/(rows − 1); ncycle, usually 2, is the number of cycles at each level. The method is Numerical Recipes\' full multigrid, mglin.',
       'For other boundary values, subtract a function that takes them, or use [[relax]].',
     ],
     errors: ['A matrix whose rows less one isn\'t a power of 2.', 'An ncycle that isn\'t a whole number, 1 or more.'],
@@ -461,8 +461,8 @@ export const SOLVING: Entry[] = [
     name: 'Jacob', group: 'Differential equations', usage: 'Jacob(F(x), x, [k])', mathcad: true,
     summary: 'The Jacobian of the vector function F at the vector x: a row for each element of F, a column for each of x.',
     details: [
-      'x must have a value above, a vector of real numbers. Element (i, j) is ∂Fᵢ/∂xⱼ there, worked out numerically as Mathcad does, to about 13 digits. A single F gives a row, its gradient. k, the number of variables, changes nothing once x has a value; the Jacobian has a column for each element of x.',
-      'Its use in Mathcad is the Jacobian the stiff solvers take: J(x, y) := augment(∂D/∂x, Jacob(D(x, y), y)) for [[Stiffb]], [[Stiffr]] or [[Radau]].',
+      'x must have a value above, a vector of real numbers. Element (i, j) is ∂Fᵢ/∂xⱼ there, worked out numerically to about 13 digits. A single F gives a row, its gradient. k, the number of variables, changes nothing once x has a value; the Jacobian has a column for each element of x.',
+      'It makes the Jacobian the stiff solvers take: J(x, y) := augment(∂D/∂x, Jacob(D(x, y), y)) for [[Stiffb]], [[Stiffr]] or [[Radau]].',
     ],
     errors: ['An x with no value above, or with units.'],
     example: ['F\\left(x\\right)\\coloneq \\begin{pmatrix}x_{0}^{2}\\cdot x_{1}\\\\5\\cdot x_{0}+\\sin \\left(x_{1}\\right)\\end{pmatrix}', 'x\\coloneq \\begin{pmatrix}1\\\\2\\end{pmatrix}', '\\mathrm{Jacob}\\left(F\\left(x\\right),x\\right)='],

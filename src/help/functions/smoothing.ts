@@ -26,7 +26,7 @@ export const SMOOTHING: Entry[] = [
     name: 'ksmooth', group: S, usage: 'ksmooth(vx, vy, b)', mathcad: true,
     summary: 'The points vy smoothed by a Gaussian kernel of bandwidth b along vx.',
     details: [
-      'Each smoothed point is the average of all of vy, each weighted by a Gaussian of its distance along x, with standard deviation b/2.696756. Mathcad\'s Help rounds that to 0.37·b; MathMath uses the constant Mathcad\'s answers show.',
+      'Each smoothed point is the average of all of vy, each weighted by a Gaussian of its distance along x, with standard deviation b/2.696756. The reference\'s Help rounds that to 0.37·b; MathMath uses the constant the reference\'s answers show.',
       'vx ascends, ties allowed, and vy is the same length. b is in vx\'s units, usually a few times the spacing of the points. See also [[supsmooth]], [[medsmooth]] and [[loess]], which fits a curve a neighbourhood at a time.',
     ],
     units: 'The result is in vy\'s units.',
@@ -37,8 +37,8 @@ export const SMOOTHING: Entry[] = [
     name: 'supsmooth', group: S, usage: 'supsmooth(vx, vy)', mathcad: true,
     summary: 'The points vy smoothed adaptively: Friedman\'s super smoother, which chooses its span at each point.',
     details: [
-      'Running least-squares lines through the nearest 5%, 20% and 50% of the points, blended at each point by whichever span predicts the points left out best, as Friedman\'s supsmu does without bass enhancement. Its answers agree with Mathcad\'s to 15 digits.',
-      'vx strictly ascends, and vy is the same length. Three points or fewer come back as they are, as in Mathcad. See also [[ksmooth]].',
+      'Running least-squares lines through the nearest 5%, 20% and 50% of the points, blended at each point by whichever span predicts the points left out best, as Friedman\'s supsmu does without bass enhancement.',
+      'vx strictly ascends, and vy is the same length. Three points or fewer come back as they are. See also [[ksmooth]].',
     ],
     units: 'The result is in vy\'s units.',
     errors: ['vx not strictly ascending: no two the same.', 'vx and vy of different lengths.'],
@@ -46,7 +46,7 @@ export const SMOOTHING: Entry[] = [
   },
   {
     name: 'correl', group: S, usage: 'correl(vx, vy)', mathcad: true,
-    summary: 'The correlation of two vectors at every shift, as Mathcad orders it: a vector of length(vx) + length(vy) − 1.',
+    summary: 'The correlation of two vectors at every shift: a vector of length(vx) + length(vy) − 1.',
     details: [
       'Element m is the sum of vx_(n+m)·conj(vy_n), the indices taken round the combined length with zeros beyond each vector. So the first element is the overlap at no shift, the next ones shifts with vx ahead, and the last ones shifts with vy ahead. For the lags in order, see [[correlate]].',
       'The vectors are columns of numbers without units, and can be complex.',
@@ -68,7 +68,7 @@ export const SMOOTHING: Entry[] = [
     name: 'wave', group: 'Fourier transforms', usage: 'wave(v)', mathcad: true,
     summary: 'The discrete wavelet transform of v, with Daubechies\' four-coefficient filter.',
     details: [
-      'The pyramid of Numerical Recipes\' wt1 with daub4: the smooth coefficients first, then the details of each level from coarsest to finest. Within each level the detail that wraps round the end comes first, as in Mathcad. [[iwave]] goes back.',
+      'The pyramid of Numerical Recipes\' wt1 with daub4: the smooth coefficients first, then the details of each level from coarsest to finest. Within each level the detail that wraps round the end comes first. [[iwave]] goes back.',
       'v is a real column with a power of 2 elements, without units; two elements come back as they are.',
     ],
     errors: ['A length that isn\'t a power of 2, or 1.', 'Complex values, or values with units.'],

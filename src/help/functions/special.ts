@@ -29,7 +29,7 @@ export const SPECIAL: Entry[] = [
     name: 'lnΓ', group: 'Special functions', usage: 'lnΓ(z)', mathcad: true,
     summary: 'The natural logarithm of the gamma function, for when Γ(z) itself is too large.',
     details: [
-      'It\'s the analytic log-gamma, as Mathcad\'s: continuous for complex z, so lnΓ(−0.5) is 1.2655 − iπ, not ln of Γ(−0.5). Mathcad 14 overflows at lnΓ(1e5); MathMath gives the value.',
+      'It\'s the analytic log-gamma: continuous for complex z, so lnΓ(−0.5) is 1.2655 − iπ, not ln of Γ(−0.5). The reference overflows at lnΓ(1e5); MathMath gives the value.',
     ],
     errors: ['0 or a negative whole number.'],
     example: ['\\mathrm{lnΓ}\\left(100\\right)=', '\\mathrm{lnΓ}\\left(-0.5\\right)='],
@@ -101,7 +101,7 @@ export const SPECIAL: Entry[] = [
     name: 'mhyper', group: 'Special functions', usage: 'mhyper(a, b, x)', mathcad: true,
     summary: 'The confluent hypergeometric function ₁F₁(a; b; x), also written M(a, b, x).',
     details: [
-      'exp(x) = mhyper(1, 1, x). For negative x it uses Kummer\'s transformation, which keeps the digits a plain series loses; Mathcad 14 gives mhyper(0.5, 1, 100) as 0, where it is 1.52·10⁴².',
+      'exp(x) = mhyper(1, 1, x). For negative x it uses Kummer\'s transformation, which keeps the digits a plain series loses; the reference gives mhyper(0.5, 1, 100) as 0, where it is 1.52·10⁴².',
     ],
     errors: ['b a negative whole number or 0.', 'Values where the series would cancel and lose its digits, as mhyper(−50.5, 1, 30).'],
     example: ['\\mathrm{mhyper}\\left(1,1,1\\right)=', '\\mathrm{mhyper}\\left(1,2,-50\\right)='],
@@ -164,10 +164,10 @@ export const SPECIAL: Entry[] = [
     name: 'Jn', also: ['Jn.sc'], group: 'Special functions', usage: 'Jn(m, x)', mathcad: true,
     summary: 'The Bessel function of the first kind, of order m.',
     details: [
-      'm can be any real number, fractional or negative. At a negative x, a fractional order gives a complex answer, as it should; Mathcad 14 keeps only its real part there. x can be complex.',
-      'Jn.sc, typed Jn then . then sc, is the scaled form: multiplied by e^(−|Im z|), which for a real x leaves it unchanged. It stays in range where the plain function would overflow or underflow. A negative order works here too, where Mathcad 14 calls it undefined.',
+      'm can be any real number, fractional or negative. At a negative x, a fractional order gives a complex answer, as it should; the reference keeps only its real part there. x can be complex.',
+      'Jn.sc, typed Jn then . then sc, is the scaled form: multiplied by e^(−|Im z|), which for a real x leaves it unchanged. It stays in range where the plain function would overflow or underflow. A negative order works here too, where the reference calls it undefined.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as Jn(2, 800i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as Jn(2, 800i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{Jn}\\left(2,3\\right)=', '\\mathrm{Jn}\\left(0.5,3\\right)='],
   },
   {
@@ -184,7 +184,7 @@ export const SPECIAL: Entry[] = [
     name: 'Y1', also: ['Y1.sc'], group: 'Special functions', usage: 'Y1(x)', mathcad: true,
     summary: 'The Bessel function of the second kind, order 1.',
     details: [
-      'Infinite at 0; complex for a negative x, where Mathcad 14 gives NaN. x can be complex.',
+      'Infinite at 0; complex for a negative x, where the reference gives NaN. x can be complex.',
       'Y1.sc, typed Y1 then . then sc, is the scaled form: multiplied by e^(−|Im z|), which for a real x leaves it unchanged. It stays in range where the plain function would overflow or underflow.',
     ],
     errors: ['A value too large to hold, over 10³⁰⁷, as Y1(800i): its .sc form stays in range.'],
@@ -194,10 +194,10 @@ export const SPECIAL: Entry[] = [
     name: 'Yn', also: ['Yn.sc'], group: 'Special functions', usage: 'Yn(m, x)', mathcad: true,
     summary: 'The Bessel function of the second kind, of order m.',
     details: [
-      'm can be any real number. At a negative x, a fractional order gives a complex answer, as it should; Mathcad 14 keeps only its real part there. x can be complex.',
-      'Yn.sc, typed Yn then . then sc, is the scaled form: multiplied by e^(−|Im z|), which for a real x leaves it unchanged. It stays in range where the plain function would overflow or underflow. A negative order works here too, where Mathcad 14 calls it undefined.',
+      'm can be any real number. At a negative x, a fractional order gives a complex answer, as it should; the reference keeps only its real part there. x can be complex.',
+      'Yn.sc, typed Yn then . then sc, is the scaled form: multiplied by e^(−|Im z|), which for a real x leaves it unchanged. It stays in range where the plain function would overflow or underflow. A negative order works here too, where the reference calls it undefined.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as Yn(2, 800i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as Yn(2, 800i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{Yn}\\left(2,3\\right)='],
   },
   {
@@ -224,10 +224,10 @@ export const SPECIAL: Entry[] = [
     name: 'In', also: ['In.sc'], group: 'Special functions', usage: 'In(m, x)', mathcad: true,
     summary: 'The modified Bessel function of the first kind, of order m.',
     details: [
-      'm can be any real number. At a negative x, a fractional order gives a complex answer, as it should; Mathcad 14 keeps only its real part there. x can be complex.',
-      'In.sc, typed In then . then sc, is the scaled form: multiplied by e^(−|Re z|), which for a real x is e^(−|x|). It stays in range where the plain function would overflow or underflow. A negative order works here too, where Mathcad 14 calls it undefined.',
+      'm can be any real number. At a negative x, a fractional order gives a complex answer, as it should; the reference keeps only its real part there. x can be complex.',
+      'In.sc, typed In then . then sc, is the scaled form: multiplied by e^(−|Re z|), which for a real x is e^(−|x|). It stays in range where the plain function would overflow or underflow. A negative order works here too, where the reference calls it undefined.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as In(2, 800 + i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as In(2, 800 + i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{In}\\left(2,3\\right)='],
   },
   {
@@ -255,9 +255,9 @@ export const SPECIAL: Entry[] = [
     summary: 'The modified Bessel function of the second kind, of order m.',
     details: [
       'm can be any real number; K of −m is K of m. x can be complex.',
-      'Kn.sc, typed Kn then . then sc, is the scaled form: multiplied by e^z. It stays in range where the plain function would overflow or underflow. A negative order works here too, where Mathcad 14 calls it undefined.',
+      'Kn.sc, typed Kn then . then sc, is the scaled form: multiplied by e^z. It stays in range where the plain function would overflow or underflow. A negative order works here too, where the reference calls it undefined.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as Kn(2, −800 + i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as Kn(2, −800 + i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{Kn}\\left(2,3\\right)='],
   },
   {
@@ -267,7 +267,7 @@ export const SPECIAL: Entry[] = [
       'x can be complex.',
       'H1.sc, typed H1 then . then sc, is the scaled form: multiplied by e^(−iz). It stays in range where the plain function would overflow or underflow.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as H1(0, −800i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as H1(0, −800i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{H1}\\left(0,1\\right)='],
   },
   {
@@ -277,7 +277,7 @@ export const SPECIAL: Entry[] = [
       'x can be complex.',
       'H2.sc, typed H2 then . then sc, is the scaled form: multiplied by e^(iz). It stays in range where the plain function would overflow or underflow.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as H2(0, 800i): its .sc form stays in range.', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as H2(0, 800i): its .sc form stays in range.', 'A complex order: the order must be real.'],
     example: ['\\mathrm{H2}\\left(0,1\\right)='],
   },
   {
@@ -285,7 +285,7 @@ export const SPECIAL: Entry[] = [
     summary: 'The Airy function of the first kind.',
     details: [
       'x can be complex.',
-      'Ai.sc, typed Ai then . then sc, is the scaled form: for x ≥ 0, multiplied by e^(2/3·x^(3/2)); for x < 0, by cos(2/3·|x|^(3/2)), as Mathcad\'s Help gives it; and for a complex z, by e^ζ, where ζ = 2/3·z^(3/2). It stays in range where the plain function would overflow or underflow.',
+      'Ai.sc, typed Ai then . then sc, is the scaled form: for x ≥ 0, multiplied by e^(2/3·x^(3/2)); for x < 0, by cos(2/3·|x|^(3/2)); and for a complex z, by e^ζ, where ζ = 2/3·z^(3/2). It stays in range where the plain function would overflow or underflow.',
     ],
     errors: ['A value too large to hold, over 10³⁰⁷, as Ai(−100 + 100i): its .sc form stays in range.'],
     example: ['\\mathrm{Ai}\\left(0\\right)=', '\\mathrm{Ai}\\left(-2\\right)='],
@@ -324,43 +324,43 @@ export const SPECIAL: Entry[] = [
     name: 'ber', group: 'Special functions', usage: 'ber(m, x)', mathcad: true,
     summary: 'The Kelvin function ber of order m: the real part of J_m(x·e^(3πi/4)).',
     details: [
-      'm is a whole number, 0 or more, and x is real, as in Mathcad. See also [[bei]].',
+      'm is a whole number, 0 or more, and x is real. See also [[bei]].',
     ],
-    errors: ['An order that isn\'t a whole number, 0 or more.', 'A complex argument: it must be real, as in Mathcad.'],
+    errors: ['An order that isn\'t a whole number, 0 or more.', 'A complex argument: it must be real.'],
     example: ['\\mathrm{ber}\\left(0,1\\right)=', '\\mathrm{ber}\\left(1,5\\right)='],
   },
   {
     name: 'bei', group: 'Special functions', usage: 'bei(m, x)', mathcad: true,
     summary: 'The Kelvin function bei of order m: the imaginary part of J_m(x·e^(3πi/4)).',
     details: [
-      'm is a whole number, 0 or more, and x is real, as in Mathcad. See also [[ber]].',
+      'm is a whole number, 0 or more, and x is real. See also [[ber]].',
     ],
-    errors: ['An order that isn\'t a whole number, 0 or more.', 'A complex argument: it must be real, as in Mathcad.'],
+    errors: ['An order that isn\'t a whole number, 0 or more.', 'A complex argument: it must be real.'],
     example: ['\\mathrm{bei}\\left(0,1\\right)=', '\\mathrm{bei}\\left(1,5\\right)='],
   },
   {
     name: 'js', group: 'Special functions', usage: 'js(m, x)', mathcad: true,
     summary: 'The spherical Bessel function of the first kind, of order m: √(π/(2x))·J of order m + ½.',
     details: [
-      'js(0, x) = sin(x)/x. At a negative x a whole order gives the true values, js(m, −x) = (−1)^m·js(m, x), where Mathcad 14 gives 0. x can be complex; on the imaginary axis, as js(0, 2i), Mathcad 14\'s values are 1/√2 of the true ones.',
+      'js(0, x) = sin(x)/x. At a negative x a whole order gives the true values, js(m, −x) = (−1)^m·js(m, x), where the reference gives 0. x can be complex; on the imaginary axis, as js(0, 2i), the reference\'s values are 1/√2 of the true ones.',
     ],
-    errors: ['A value too large to hold, over 10³⁰⁷, as js(0, 800i).', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['A value too large to hold, over 10³⁰⁷, as js(0, 800i).', 'A complex order: the order must be real.'],
     example: ['\\mathrm{js}\\left(0,1\\right)=', '\\mathrm{js}\\left(1,2\\right)='],
   },
   {
     name: 'ys', group: 'Special functions', usage: 'ys(m, x)', mathcad: true,
     summary: 'The spherical Bessel function of the second kind, of order m: √(π/(2x))·Y of order m + ½.',
     details: [
-      'ys(0, x) = −cos(x)/x. Infinite at 0. At a negative x a whole order gives the true values, where Mathcad 14 gives the opposite sign. x can be complex; on the imaginary axis, as ys(0, 2i), Mathcad 14\'s values are 1/√2 of the true ones.',
+      'ys(0, x) = −cos(x)/x. Infinite at 0. At a negative x a whole order gives the true values, where the reference gives the opposite sign. x can be complex; on the imaginary axis, as ys(0, 2i), the reference\'s values are 1/√2 of the true ones.',
     ],
-    errors: ['0, where it is infinite.', 'A value too large to hold, over 10³⁰⁷, as ys(0, 800i).', 'A complex order: the order must be real, as in Mathcad.'],
+    errors: ['0, where it is infinite.', 'A value too large to hold, over 10³⁰⁷, as ys(0, 800i).', 'A complex order: the order must be real.'],
     example: ['\\mathrm{ys}\\left(0,1\\right)='],
   },
   {
     name: 'Si', group: 'Special functions', usage: 'Si(x)', mathcad: true,
     summary: 'The sine integral, ∫₀ˣ sin(t)/t dt.',
     details: [
-      'Si is odd, and approaches π/2 as x grows. With →, its derivative is sin(x)/x, and ∫₀ˣ sin(t)/t dt gives Si(x). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'Si is odd, and approaches π/2 as x grows. With →, its derivative is sin(x)/x, and ∫₀ˣ sin(t)/t dt gives Si(x). In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['A complex x, or one with units.'],
     example: ['\\mathrm{Si}\\left(2\\right)=', '\\mathrm{Si}\\left(100\\right)='],
@@ -369,7 +369,7 @@ export const SPECIAL: Entry[] = [
     name: 'Ci', group: 'Special functions', usage: 'Ci(x)', mathcad: true,
     summary: 'The cosine integral, γ + ln(x) + ∫₀ˣ (cos(t) − 1)/t dt.',
     details: [
-      'Ci(x) tends to 0 as x grows, and to −∞ at 0. For a negative x it is complex, Ci(|x|) + iπ, as Mathcad gives it. Its derivative is cos(x)/x. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'Ci(x) tends to 0 as x grows, and to −∞ at 0. For a negative x it is complex, Ci(|x|) + iπ. Its derivative is cos(x)/x. In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['0, where Ci is infinite.', 'A complex x, or one with units.'],
     example: ['\\mathrm{Ci}\\left(2\\right)=', '\\mathrm{Ci}\\left(-2\\right)='],
@@ -378,7 +378,7 @@ export const SPECIAL: Entry[] = [
     name: 'Shi', group: 'Special functions', usage: 'Shi(x)', mathcad: true,
     summary: 'The hyperbolic sine integral, ∫₀ˣ sinh(t)/t dt.',
     details: [
-      'Shi is odd and grows like eˣ/(2x). Its derivative, with →, is sinh(x)/x. Mathcad 14 knows the name but leaves Shi(2) unevaluated even with float; MathMath gives the value, with = or float.',
+      'Shi is odd and grows like eˣ/(2x). Its derivative, with →, is sinh(x)/x. The reference knows the name but leaves Shi(2) unevaluated even with float; MathMath gives the value, with = or float.',
     ],
     errors: ['A complex x, or one with units.', 'A value too large to hold, beyond x of about 717.'],
     example: ['\\mathrm{Shi}\\left(2\\right)='],
@@ -387,7 +387,7 @@ export const SPECIAL: Entry[] = [
     name: 'Chi', group: 'Special functions', usage: 'Chi(x)', mathcad: true,
     summary: 'The hyperbolic cosine integral, γ + ln(x) + ∫₀ˣ (cosh(t) − 1)/t dt.',
     details: [
-      'For a negative x it is complex, Chi(|x|) + iπ, as Ci is. Its derivative is cosh(x)/x. As with [[Shi]], Mathcad 14 leaves it unevaluated; MathMath gives the value.',
+      'For a negative x it is complex, Chi(|x|) + iπ, as Ci is. Its derivative is cosh(x)/x. As with [[Shi]], the reference leaves it unevaluated; MathMath gives the value.',
     ],
     errors: ['0, where Chi is infinite.', 'A complex x, or one with units.'],
     example: ['\\mathrm{Chi}\\left(2\\right)='],
@@ -396,7 +396,7 @@ export const SPECIAL: Entry[] = [
     name: 'Ei', group: 'Special functions', usage: 'Ei(x) or Ei(n, x)', mathcad: true,
     summary: 'The exponential integral, the principal value of ∫ eᵗ/t dt from −∞ to x; with two arguments, Eₙ(x) = ∫₁^∞ e^(−xt)/tⁿ dt.',
     details: [
-      'Ei(−x) = −E₁(x) for x above 0, so Ei(1, x) = −Ei(−x). Its derivative is eˣ/x. n is a whole number, 0 or more. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'Ei(−x) = −E₁(x) for x above 0, so Ei(1, x) = −Ei(−x). Its derivative is eˣ/x. n is a whole number, 0 or more. In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['Ei(0), which is −∞.', 'Ei(n, x) with x below 0, or at 0 with n of 0 or 1.', 'A complex x, or one with units.'],
     example: ['\\mathrm{Ei}\\left(1\\right)=', '\\mathrm{Ei}\\left(2,1\\right)='],
@@ -405,7 +405,7 @@ export const SPECIAL: Entry[] = [
     name: 'FresnelS', group: 'Special functions', usage: 'FresnelS(x)', mathcad: true,
     summary: 'The Fresnel sine integral, ∫₀ˣ sin(πt²/2) dt.',
     details: [
-      'It approaches ½ as x grows, and is odd. Its derivative is sin(πx²/2). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'It approaches ½ as x grows, and is odd. Its derivative is sin(πx²/2). In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['A complex x, or one with units.'],
     example: ['\\mathrm{FresnelS}\\left(1\\right)='],
@@ -414,7 +414,7 @@ export const SPECIAL: Entry[] = [
     name: 'FresnelC', group: 'Special functions', usage: 'FresnelC(x)', mathcad: true,
     summary: 'The Fresnel cosine integral, ∫₀ˣ cos(πt²/2) dt.',
     details: [
-      'It approaches ½ as x grows, and is odd. Plotting FresnelC(x) against [[FresnelS]](x) draws the Cornu spiral. Its derivative is cos(πx²/2). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'It approaches ½ as x grows, and is odd. Plotting FresnelC(x) against [[FresnelS]](x) draws the Cornu spiral. Its derivative is cos(πx²/2). In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['A complex x, or one with units.'],
     example: ['\\mathrm{FresnelC}\\left(1\\right)='],
@@ -423,7 +423,7 @@ export const SPECIAL: Entry[] = [
     name: 'dilog', group: 'Special functions', usage: 'dilog(x)', mathcad: true,
     summary: 'The dilogarithm, ∫₁ˣ ln(t)/(1 − t) dt, which is Li₂(1 − x).',
     details: [
-      'dilog(1) = 0, dilog(0) = π²/6 and dilog(2) = −π²/12. Below 0 it is complex, as dilog(−1) = π²/4 − iπ·ln 2. Its derivative is −ln(x)/(x − 1). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'dilog(1) = 0, dilog(0) = π²/6 and dilog(2) = −π²/12. Below 0 it is complex, as dilog(−1) = π²/4 − iπ·ln 2. Its derivative is −ln(x)/(x − 1). In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['A complex x, or one with units.'],
     example: ['\\mathrm{dilog}\\left(0.5\\right)=', '\\mathrm{dilog}\\left(-1\\right)='],
@@ -432,7 +432,7 @@ export const SPECIAL: Entry[] = [
     name: 'Zeta', group: 'Special functions', usage: 'Zeta(s)', mathcad: true,
     summary: 'Riemann\'s zeta function, the sum of 1/kˢ over k = 1, 2, 3, … and its continuation.',
     details: [
-      'With →, even whole numbers give exact forms, as Zeta(2) → π²/6. It is 0 at the negative even numbers, and Zeta(0) = −½. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'With →, even whole numbers give exact forms, as Zeta(2) → π²/6. It is 0 at the negative even numbers, and Zeta(0) = −½. In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['1, where Zeta is infinite.', 'A complex s, or one with units.'],
     example: ['\\mathrm{Zeta}\\left(3\\right)=', '\\mathrm{Zeta}\\left(0.5\\right)='],
@@ -441,7 +441,7 @@ export const SPECIAL: Entry[] = [
     name: 'Psi', group: 'Special functions', usage: 'Psi(x) or Psi(n, x)', mathcad: true,
     summary: 'The digamma function, the derivative of ln Γ(x); with two arguments, its nth derivative, the polygamma function.',
     details: [
-      'Psi(1) → −γ, Euler\'s constant, and Psi(x + 1) = Psi(x) + 1/x. n is a whole number, 0 or more. In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'Psi(1) → −γ, Euler\'s constant, and Psi(x + 1) = Psi(x) + 1/x. n is a whole number, 0 or more. In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
     ],
     errors: ['0 or a negative whole number, where Psi is infinite.', 'A complex x, or one with units.'],
     example: ['\\mathrm{Psi}\\left(2.5\\right)=', '\\mathrm{Psi}\\left(1,2.5\\right)='],
@@ -450,8 +450,8 @@ export const SPECIAL: Entry[] = [
     name: 'LambertW', group: 'Special functions', usage: 'LambertW(x) or LambertW(n, x)', mathcad: true,
     summary: 'Lambert\'s W: the w for which w·eʷ = x, on the principal branch, or on branch n.',
     details: [
-      'It is real on the principal branch for x from −1/e up, and on branch −1 for x from −1/e to 0; elsewhere, and on the other branches, it is complex. x can be complex. Its derivative is W/(x·(W + 1)). In Mathcad 14 it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
-      'Mathcad 14 gives LambertW(−0.2) as 0 with float, which is wrong: the value is −0.2592, as MathMath gives.',
+      'It is real on the principal branch for x from −1/e up, and on branch −1 for x from −1/e to 0; elsewhere, and on the other branches, it is complex. x can be complex. Its derivative is W/(x·(W + 1)). In the reference it works only symbolically, with → or the float keyword; MathMath gives its value with = too.',
+      'The reference gives LambertW(−0.2) as 0 with float, which is wrong: the value is −0.2592, as MathMath gives.',
     ],
     errors: ['LambertW(n, 0) on any branch but 0, which is −∞.', 'A branch that isn\'t a whole number.'],
     example: ['\\mathrm{LambertW}\\left(1\\right)=', '\\mathrm{LambertW}\\left(-1,-0.2\\right)='],
