@@ -8,24 +8,33 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.55.1] - 2026-11-17
+
+The changelog describes each change on its own terms.
+
+### Changed
+
+- The changelog no longer names the program MathMath's behaviour was checked against; it says "the reference"
+  instead. The facts recorded are unchanged.
+
 ## [0.55.0] - 2026-11-17
 
-Vector field plots, as Mathcad 14 draws them, with functions and arrows in space besides.
+Vector field plots, as the reference draws them, with functions and arrows in space besides.
 
 ### Added
 
 - Vector field plots, from Format → Vector field plot: an arrow at each point, its length in proportion, the
-  longest reaching the next point. As in Mathcad 14, a plot takes a matrix of complex numbers, the real part across
-  and the imaginary part up, with row i at x = i and column j at y = j counted from ORIGIN, or two matrices of the
-  same size typed X, Y with a comma; units are dropped and arrows of length 0 are dots, as Mathcad draws them.
-  Arrows are dark, as Mathcad's are; Format → Color map… colors each by its length, and ink puts them back. Hovering
-  reads an arrow's point and parts. A matrix over 40 rows or columns draws every second, third… row and column, and
-  says so above the plot.
-- Beyond Mathcad, which refuses both: a function of x and y giving two parts or a complex number, sampled 15 points
-  a side over the plot's limits; and arrows in space from six arrays typed X, Y, Z, U, V, W, the points and then the
-  arrows' parts, drawn in a box that turns when dragged, up to 4,000 arrows.
-- Mathcad worksheets with a vector field plot of two matrices, (X, Y), open with it as a MathMath plot. Other
-  Mathcad 3D plots still open as their pictures.
+  longest reaching the next point. As in the reference, a plot takes a matrix of complex numbers, the real part
+  across and the imaginary part up, with row i at x = i and column j at y = j counted from ORIGIN, or two matrices
+  of the same size typed X, Y with a comma; units are dropped and arrows of length 0 are dots, as the reference
+  draws them. Arrows are dark, as the reference's are; Format → Color map… colors each by its length, and ink puts
+  them back. Hovering reads an arrow's point and parts. A matrix over 40 rows or columns draws every second, third…
+  row and column, and says so above the plot.
+- Beyond the reference, which refuses both: a function of x and y giving two parts or a complex number, sampled 15
+  points a side over the plot's limits; and arrows in space from six arrays typed X, Y, Z, U, V, W, the points and
+  then the arrows' parts, drawn in a box that turns when dragged, up to 4,000 arrows.
+- Imported worksheets with a vector field plot of two matrices, (X, Y), open with it as a MathMath plot. Other 3D
+  plots in imported worksheets still open as their pictures.
 - A part on vector field plots in the Plots topic, and a new gallery example: a whirlpool from a complex matrix, a
   pendulum's phase portrait, the gradient of a hill beside its contours, and arrows out of a sphere.
 
@@ -35,8 +44,9 @@ Vector field plots, as Mathcad 14 draws them, with functions and arrows in space
 
 ### Known limits
 
-- A vector field plot draws x and y to one scale, so each arrow points the way its vector does; Mathcad 14 scales
-  them separately, so its arrows lean when the grid isn't square, and a long, thin range draws as a thin strip here.
+- A vector field plot draws x and y to one scale, so each arrow points the way its vector does; the reference
+  scales them separately, so its arrows lean when the grid isn't square, and a long, thin range draws as a thin
+  strip here.
 - One 3D plot holds one kind of plot, so an arrow can't be drawn on a surface; and a function of x, y and z can't be
   sampled in a box, since a plot has no z limits. Arrows in space need their points as arrays.
 - The .mathmath format: a plot can be a vector field. The format's version stays the same; MathMath 0.54.0 and
@@ -44,20 +54,20 @@ Vector field plots, as Mathcad 14 draws them, with functions and arrows in space
 
 ## [0.54.0] - 2026-11-16
 
-Mathcad's Polyhedron: the 80 uniform polyhedra and their duals, drawn solid in surface plots.
+Polyhedron: the 80 uniform polyhedra and their duals, drawn solid in surface plots.
 
 ### Added
 
-- Polyhedron, Mathcad's way to draw the uniform polyhedra: a surface plot of Polyhedron("snub cube") draws it
-  solid and lit, with dark edges, in one blue as Mathcad does, and turns when dragged. It takes what Mathcad takes:
-  a polyhedron's name or its dual's, in any case, "#1" to "#80", or the Wythoff symbol exactly as PolyLookup gives
-  it. All 80 and their 80 duals are built by Wythoff's construction, and each matches Kaleido, the program
-  Mathcad's numbering comes from, in its vertices, edges, faces and the faces round every vertex. The star
+- Polyhedron, the way to draw the uniform polyhedra: a surface plot of Polyhedron("snub cube") draws it solid and
+  lit, with dark edges, in one blue as the reference does, and turns when dragged. It takes what the reference
+  takes: a polyhedron's name or its dual's, in any case, "#1" to "#80", or the Wythoff symbol exactly as PolyLookup
+  gives it. All 80 and their 80 duals are built by Wythoff's construction, and each matches Kaleido, the program
+  the reference's numbering comes from, in its vertices, edges, faces and the faces round every vertex. The star
   polyhedra's faces pass through each other as they should. In a colour map from Format → Color map…, each kind of
-  face takes its own colour. MathMath also draws the great retrosnub icosidodecahedron, number 79, which Mathcad 14
-  leaves empty.
-- Mathcad worksheets with a 3D plot of a polyhedron open with it as a MathMath plot, drawn and turnable, in place
-  of Mathcad's stored picture. Other Mathcad 3D plots still open as their pictures.
+  face takes its own colour. MathMath also draws the great retrosnub icosidodecahedron, number 79, which the
+  reference leaves empty.
+- Imported worksheets with a 3D plot of a polyhedron open with it as a MathMath plot, drawn and turnable, in place
+  of the stored picture. Other 3D plots in imported worksheets still open as their pictures.
 - A Help entry for Polyhedron, a part on it in the Plots topic, and a new gallery example: a snub, its dual, a
   star, and any of the 80 by number.
 
@@ -67,27 +77,27 @@ Mathcad's Polyhedron: the 80 uniform polyhedra and their duals, drawn solid in s
 
 ### Known limits
 
-- A dual whose polyhedron has faces through the centre, as the hemipolyhedra do, has vertices at infinity; its faces
-  run out as prisms, cut off at a fixed distance from the centre. Mathcad cuts them at the plot's box instead, so
-  they look different there.
+- A dual whose polyhedron has faces through the centre, as the hemipolyhedra do, has vertices at infinity; its
+  faces run out as prisms, cut off at a fixed distance from the centre. The reference cuts them at the plot's box
+  instead, so they look different there.
 - A polyhedron is drawn as a picture in the plot, at twice the screen's resolution, rather than as lines and
   shapes, because its faces cross each other; it prints at that resolution.
 
 ## [0.53.0] - 2026-11-16
 
-Colour maps for surface and contour plots, with Mathcad's SaveColormap and LoadColormap.
+Colour maps for surface and contour plots, with SaveColormap and LoadColormap.
 
 ### Added
 
 - Colour maps for surface and contour plots: Format → Color map… chooses how heights are colored, from a list with
   a swatch of each. MathMath has five of its own: ramp, the light-to-dark blue plots have always used and still use
   by default, gray, spectrum, viridis and heat. Choosing one only redraws the plot.
-- SaveColormap("name", M), Mathcad's way to make a colour map: M's rows are red, green and blue from 0 to 255,
-  lowest heights first. Where Mathcad keeps the map as a file in its own folder, MathMath keeps it in the worksheet,
-  for the plots below it, and offers it as Mathcad's name.cmp file to save, which Mathcad reads. Values are cut to
-  whole numbers and held to 0..255, and the matrix must be n × 3 with at least two rows, as in Mathcad.
-- LoadColormap("name"): a map's colours as a matrix, from one saved above, an attached Mathcad .cmp file, or
-  MathMath's own. Files now attaches .cmp files, so Mathcad's own maps, as Fire or Royal, work by name.
+- SaveColormap("name", M), the way to make a colour map: M's rows are red, green and blue from 0 to 255, lowest
+  heights first. Where the reference keeps the map as a file in its own folder, MathMath keeps it in the worksheet,
+  for the plots below it, and offers it as a name.cmp file to save, which the reference reads. Values are cut to
+  whole numbers and held to 0..255, and the matrix must be n × 3 with at least two rows, as in the reference.
+- LoadColormap("name"): a map's colours as a matrix, from one saved above, an attached .cmp file, or MathMath's
+  own. Files now attaches .cmp files, so the reference's own maps, as Fire or Royal, work by name.
 - Help entries for both, a part on colour maps in the Plots topic, and a new gallery example: hills in a map made
   with SaveColormap, beside the same heights in viridis.
 
@@ -103,69 +113,71 @@ Colour maps for surface and contour plots, with Mathcad's SaveColormap and LoadC
 
 ## [0.52.0] - 2026-11-16
 
-Mathcad's Seed, until, trace, pause and PolyLookup.
+Seed, until, trace, pause and PolyLookup.
 
 ### Added
 
-- Seed, Mathcad's way to repeat random numbers: after Seed(x), the regions below draw one after another from a
-  single stream started at x, so Seed(x) again draws the same numbers again. It takes 1 to 2147483647, as
-  Mathcad does, and gives the seed in effect before. Sheets without Seed draw exactly as before, and
-  recalculating only what changed still gives the same numbers as a full run.
-- until, which stops a definition over a range variable at the first value where its condition turns negative:
-  x_k := until(c, e). It works inside larger expressions and in recurrences, as w_(k+1) := until(100 − w_k,
-  2·w_k), and refuses use anywhere else, as Mathcad does.
-- trace and pause, Mathcad's debugging prints: trace("x = {0}", x) prints a line in a small box under the
-  region, a line a pass in a loop, and gives 0. The box isn't printed with the sheet. pause prints the same way;
-  a browser can't stop a calculation to wait, as Mathcad's pause does.
-- PolyLookup, the names, duals and Wythoff symbols of the 80 uniform polyhedra, numbered as Mathcad numbers them.
+- Seed, the way to repeat random numbers: after Seed(x), the regions below draw one after another from a single
+  stream started at x, so Seed(x) again draws the same numbers again. It takes 1 to 2147483647, as the reference
+  does, and gives the seed in effect before. Sheets without Seed draw exactly as before, and recalculating only
+  what changed still gives the same numbers as a full run.
+- until, which stops a definition over a range variable at the first value where its condition turns negative: x_k
+  := until(c, e). It works inside larger expressions and in recurrences, as w_(k+1) := until(100 − w_k, 2·w_k), and
+  refuses use anywhere else, as the reference does.
+- trace and pause, the debugging prints: trace("x = {0}", x) prints a line in a small box under the region, a line
+  a pass in a loop, and gives 0. The box isn't printed with the sheet. pause prints the same way; a browser can't
+  stop a calculation to wait, as the reference's pause does.
+- PolyLookup, the names, duals and Wythoff symbols of the 80 uniform polyhedra, numbered as the reference numbers
+  them.
 - Help entries for each, parts on them in the Random numbers, Ranges, Programs and Plots topics, and a new gallery
   example: estimating π by darts with a repeatable seed, a cooling cup stopped by until, and Newton's method
   followed with trace.
 
 ### Known limits
 
-- Seed's numbers differ from Mathcad's, whose generator isn't public, and once numbers have been drawn Mathcad's
-  Seed gives its generator's position, where MathMath gives the seed in effect.
+- Seed's numbers differ from the reference's, whose generator isn't public, and once numbers have been drawn the
+  reference's Seed gives its generator's position, where MathMath gives the seed in effect.
 - Polyhedron, LoadColormap and SaveColormap aren't in MathMath yet: they need polyhedra and colour maps in 3D
   plots, which come in later releases.
 
 ## [0.51.1] - 2026-11-11
 
-Answers from → laid out as Mathcad 14 lays them out: decimals, imaginary numbers and equations.
+Answers from → laid out as the reference lays them out: decimals, imaginary numbers and equations.
 
 ### Fixed
 
-- Decimal answers from → are laid out as Mathcad 14 lays them out: written out in full between 10⁻⁶ and 10⁶, as
+- Decimal answers from → are laid out as the reference lays them out: written out in full between 10⁻⁶ and 10⁶, as
   1/12 float → 0.083333333333333333333, where it showed 0.83333333333333333333×10⁻¹, and with an exponent outside,
   as 1.0×10⁷; trailing zeros are dropped, as 1/2 float → 0.5, and a whole number keeps .0, as 2.0.
-- The last of 20 digits is rounded, as Mathcad rounds it: 2·10⁶/3 float → 666666.66666666666667, where the
+- The last of 20 digits is rounded, as the reference rounds it: 2·10⁶/3 float → 666666.66666666666667, where the
   algebra engine cut it off at …666.
-- An imaginary part shows as one number, as 2.0 + 3.0i and 1.4142135623730950488i, where it showed 3.0·1i; i on
-  its own shows as i, as x² + 1 = 0 solve → ±i, and i·x as x·i, as Mathcad writes them. An upright i written
+- An imaginary part shows as one number, as 2.0 + 3.0i and 1.4142135623730950488i, where it showed 3.0·1i; i on its
+  own shows as i, as x² + 1 = 0 solve → ±i, and i·x as x·i, as the reference writes them. An upright i written
   without a number, as in the impedance example, shows as i too.
 - An exact complex answer no longer shows the engine's rough decimal after it: 3i/4 → 3i/4, where it showed
   3i/4 = 0.75i.
 - A number typed with more digits than a double holds keeps them all under →: 12345678901234567890123 float →
   1.234567890123456789×10²², where the last digits were lost.
 - An equation under → keeps its right-hand side: x = 3 → x = 3, where it showed x alone.
-- A Mathcad sheet whose → has a keyword with an argument, as float, 5 or solve, x, opens with it: Mathcad saves
-  these as a sequence, which was read as one unknown keyword.
+- An imported worksheet whose → has a keyword with an argument, as float, 5 or solve, x, opens with it: the
+  reference saves these as a sequence, which was read as one unknown keyword.
 - The float Help entry and the Symbolic evaluation topic say how answers are laid out.
 
 ## [0.51.0] - 2026-11-11
 
-Mathcad's symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dilog, Zeta, Psi, LambertW, IsPrime, numer and denom.
+Symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dilog, Zeta, Psi, LambertW, IsPrime, numer and
+denom.
 
 ### Added
 
-- Mathcad's symbolic-only functions: the sine and cosine integrals Si and Ci, their hyperbolic forms Shi and Chi,
-  the exponential integral Ei and Eₙ as Ei(n, x), the Fresnel integrals FresnelS and FresnelC, the dilogarithm
-  dilog, Riemann's Zeta, the digamma and polygamma functions Psi(x) and Psi(n, x), Lambert's W as LambertW(x) and
+- Symbolic-only functions: the sine and cosine integrals Si and Ci, their hyperbolic forms Shi and Chi, the
+  exponential integral Ei and Eₙ as Ei(n, x), the Fresnel integrals FresnelS and FresnelC, the dilogarithm dilog,
+  Riemann's Zeta, the digamma and polygamma functions Psi(x) and Psi(n, x), Lambert's W as LambertW(x) and
   LambertW(n, x) on any branch, IsPrime, and numer and denom. With →, Giac keeps them exact where it can, as
-  Zeta(2) → π²/6 and Psi(1) → −γ, and their derivatives come out as Mathcad gives them, as d/dx FresnelS(x) →
-  sin(πx²/2). The float keyword gives their decimals, and MathMath gives their values with = too, which Mathcad
-  14 can't. The values agree with Mathcad 14's float answers and with mpmath, at over 600 points, to about 1e−12
-  or better.
+  Zeta(2) → π²/6 and Psi(1) → −γ, and their derivatives come out as the reference gives them, as d/dx FresnelS(x) →
+  sin(πx²/2). The float keyword gives their decimals, and MathMath gives their values with = too, which the
+  reference can't. The values agree with the reference's float answers and with mpmath, at over 600 points, to
+  about 1e−12 or better.
 - A derivative of a function of your own with no definition, as d/dx g(x²), now shows as having no closed form,
   where it was an error about reading Giac's answer.
 - Help entries for each, a part on them in the Special functions topic, and a new gallery example: light bending
@@ -173,15 +185,15 @@ Mathcad's symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dil
 
 ### Changed
 
-- Psi typed as a call, Psi(x), is now Mathcad's digamma function; Psi on its own is still Ψ, and Ψ typed with
-  Ctrl+G is still Ψ, as a function of your own or not.
+- Psi typed as a call, Psi(x), is now the digamma function; Psi on its own is still Ψ, and Ψ typed with Ctrl+G is
+  still Ψ, as a function of your own or not.
 
 ### Known limits
 
 - The values MathMath works out itself have a double's 16 significant digits, so float shows those, not 20,
   for Shi, Chi, FresnelS, FresnelC, dilog, Psi(n, x), Ci of a negative number, and any of them with a decimal
   argument. With whole-number arguments, Si, Ci, Ei, Zeta, Psi(x) and LambertW keep all 20 digits.
-- Mathcad 14 gives LambertW(−0.2) as 0, which is wrong; MathMath gives the true value, −0.2592. Mathcad 14
+- The reference gives LambertW(−0.2) as 0, which is wrong; MathMath gives the true value, −0.2592. The reference
   leaves Shi and Chi unevaluated, even with float; MathMath gives their values.
 - Their arguments must be real, apart from LambertW's. Giac doesn't know Shi, Chi, FresnelS, FresnelC or dilog,
   so MathMath writes their derivatives in itself, of any order; but their integrals and series aren't found, and
@@ -189,77 +201,78 @@ Mathcad's symbolic-only functions: Si, Ci, Shi, Chi, Ei, FresnelS, FresnelC, dil
 
 ## [0.50.0] - 2026-11-11
 
-Mathcad's partial differential equation solvers: Pdesolve, numol, relax and multigrid.
+Partial differential equation solvers: Pdesolve, numol, relax and multigrid.
 
 ### Added
 
-- Pdesolve, Mathcad's solve block for partial differential equations in one space dimension and time: the
-  equations written as u.t(x, t) = …, with u.x and u.xx for the space derivatives, an initial condition and
-  boundary conditions, giving u(x, t) as a function. And numol, the same problem given as functions. Both use
-  Mathcad's method of lines, differenced to fourth order in space as Mathcad does, and agree with Mathcad 14 to
+- Pdesolve, the solve block for partial differential equations in one space dimension and time: the equations
+  written as u.t(x, t) = …, with u.x and u.xx for the space derivatives, an initial condition and boundary
+  conditions, giving u(x, t) as a function. And numol, the same problem given as functions. Both use the
+  reference's method of lines, differenced to fourth order in space as it does, and agree with the reference to
   about 1e−6 on every problem probed with fixed-value or open ends (the heat, advection and wave equations, and
-  systems), Pdesolve on its default 10 × 10 grid and with its linear interpolation between points; Mathcad's own
-  blocks, opened from its files, give the same answers. A problem of 101 points across takes a fraction of a second.
-- relax and multigrid, Mathcad's solvers for Poisson's and Laplace's equations on a square: Numerical Recipes'
-  successive over-relaxation and full multigrid, as Mathcad's are, giving Mathcad's answers to the last digit.
+  systems), Pdesolve on its default 10 × 10 grid and with its linear interpolation between points; the reference's
+  own blocks, opened from its files, give the same answers. A problem of 101 points across takes a fraction of a
+  second.
+- relax and multigrid, the solvers for Poisson's and Laplace's equations on a square: Numerical Recipes' successive
+  over-relaxation and full multigrid, as the reference's are, giving its answers to the last digit.
 - Help entries for the four, a part on them in the Differential equations topic, and a new gallery example: a
   rod cooling and a plate heated at one edge.
 
 ### Known limits
 
-- With a slope (Neumann) boundary condition, Mathcad 14's answers aren't consistent: numol drifts away from u = x
-  with a slope of 1 at both ends, which should stay as it is, and both numol and Pdesolve gain heat through an
+- With a slope (Neumann) boundary condition, the reference's answers aren't consistent: numol drifts away from u =
+  x with a slope of 1 at both ends, which should stay as it is, and both numol and Pdesolve gain heat through an
   insulated end, rising above the starting temperature. MathMath's follow the exact solutions, so they differ from
-  Mathcad's there.
+  the reference's there.
 - numol's algebraic equations (num_pae above 0), and Pdesolve's algebraic constraints, aren't supported yet.
-- Mathcad offers four ways to difference space, chosen by right-clicking Pdesolve; MathMath uses its default, and
-  opens a sheet saved with another as if it used the default.
-- Where a boundary value changes with time, Mathcad 14's numol shows that boundary's value at the in-between
+- The reference offers four ways to difference space, chosen by right-clicking Pdesolve; MathMath uses its default,
+  and opens a sheet saved with another as if it used the default.
+- Where a boundary value changes with time, the reference's numol shows that boundary's value at the in-between
   times slightly wrong (its interior values are right); MathMath's are the boundary condition's.
 
 ## [0.49.0] - 2026-11-11
 
-Mathcad's statespace, sbval, bvalfit and Jacob, and a Help topic on differential equations.
+statespace, sbval, bvalfit and Jacob, and a Help topic on differential equations.
 
 ### Added
 
-- statespace, Mathcad's solver for linear systems x′ = A(t)·x + B(t)·u(t), with A, B and the input u as functions of
-  time, giving the same kind of table as rkfixed. Mathcad 14 integrates it to the worksheet's TOL, so at the default
-  its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is, and agree
-  with Mathcad's at a TOL of 1e−10 to better than 1e−9. A stiff system, with rates far apart, is solved quickly by
-  an implicit method.
-- sbval and bvalfit, Mathcad's shooting solvers for boundary-value problems: the unknown starting values that make
-  a solution meet conditions at the far end, or from both ends at a point between, by Newton's method on the
-  solution. They agree with Mathcad 14 to 1e−10 or better on every problem probed, linear and nonlinear, finding the
-  same one of two solutions from the same guesses, near or far; on one linear problem Mathcad stops 6e−9 short of the exact
-  answer, which MathMath reaches. Where Mathcad returns a number regardless, for a problem with no solution or a
-  score of the wrong length, MathMath says what is wrong.
-- Jacob(F(x), x), the Jacobian of a vector function at the vector x, worked out numerically as Mathcad does and
-  agreeing with it to about 1e−13; it gives the stiff solvers their Jacobian, as J(t, y) := augment(…, Jacob(D(t, y), y)).
+- statespace, the solver for linear systems x′ = A(t)·x + B(t)·u(t), with A, B and the input u as functions of
+  time, giving the same kind of table as rkfixed. The reference integrates it to the worksheet's TOL, so at the
+  default its answers are about 1e−5 from the true ones; MathMath's are accurate to about 1e−12 whatever TOL is,
+  and agree with the reference's at a TOL of 1e−10 to better than 1e−9. A stiff system, with rates far apart, is
+  solved quickly by an implicit method.
+- sbval and bvalfit, the shooting solvers for boundary-value problems: the unknown starting values that make a
+  solution meet conditions at the far end, or from both ends at a point between, by Newton's method on the
+  solution. They agree with the reference to 1e−10 or better on every problem probed, linear and nonlinear, finding
+  the same one of two solutions from the same guesses, near or far; on one linear problem the reference stops 6e−9
+  short of the exact answer, which MathMath reaches. Where the reference returns a number regardless, for a problem
+  with no solution or a score of the wrong length, MathMath says what is wrong.
+- Jacob(F(x), x), the Jacobian of a vector function at the vector x, worked out numerically as the reference does
+  and agreeing with it to about 1e−13; it gives the stiff solvers their Jacobian, as J(t, y) := augment(…,
+  Jacob(D(t, y), y)).
 - Help entries for the four, a new Help topic on differential equations, and a new gallery example: a circuit
   with statespace, a beam by shooting, and a stiff reaction with Jacob.
 
 ## [0.48.0] - 2026-11-11
 
-Convert for Mathcad's file functions, Mathcad's WAV and HLS/HSV writes, and hue, lightness and saturation.
+Convert for imported worksheets' file functions, the WAV and HLS/HSV writes, and hue, lightness and saturation.
 
 ### Added
 
-- Convert, for Mathcad worksheets that read files: Mathcad's READRGB, READBMP, READ_IMAGE, READ_RED, READ_GREEN,
-  READ_BLUE, READ_HLS, READ_HSV and their hue, lightness, saturation and value readers, READWAV, GETWAVINFO and
-  READPRN stay grayed, as before, and a bar above the paper now offers to change them to the MathMath expressions
-  that give the same numbers from the attached file, any folder dropped: READ_HSV("a.bmp") becomes
-  rgbToHsv(readImage("a.bmp"), 360). Undo puts them back. READWAV and READPRN wait until their file is attached,
-  since how they convert depends on it. Every conversion is checked against Mathcad 14's own answers on the same
-  files.
-- Each grayed Mathcad file function's note now names that exact expression, and READWAV and GETWAVINFO, which
-  before showed as unknown, are recognized.
-- Mathcad's WRITEWAV, WRITE_HLS and WRITE_HSV work as its other file writes do, as definitions such as
-  WRITEWAV("tone.wav", 8000, 16) := M, offering the file to save. WRITEWAV writes as Mathcad 14 does: 1 to 16
-  bits, each sample cut toward zero and wrapped rather than clipped, the bits as given in the header.
-- rgbToHls and hlsToRgb, the hue, lightness and saturation model Mathcad's READ_HLS uses; wavInfo, a WAV file's
-  channels, rate, bits and bytes a second; a full turn of hue for rgbToHsv and hsvToRgb, so 360 gives degrees as
-  Mathcad's do; and a channel number for imageChannels, counted from ORIGIN, as imageChannels(M, 0) for red.
+- Convert, for imported worksheets that read files: READRGB, READBMP, READ_IMAGE, READ_RED, READ_GREEN, READ_BLUE,
+  READ_HLS, READ_HSV and their hue, lightness, saturation and value readers, READWAV, GETWAVINFO and READPRN stay
+  grayed, as before, and a bar above the paper now offers to change them to the MathMath expressions that give the
+  same numbers from the attached file, any folder dropped: READ_HSV("a.bmp") becomes rgbToHsv(readImage("a.bmp"),
+  360). Undo puts them back. READWAV and READPRN wait until their file is attached, since how they convert depends
+  on it. Every conversion is checked against the reference's own answers on the same files.
+- Each grayed file function's note now names that exact expression, and READWAV and GETWAVINFO, which before showed
+  as unknown, are recognized.
+- WRITEWAV, WRITE_HLS and WRITE_HSV work as its other file writes do, as definitions such as WRITEWAV("tone.wav",
+  8000, 16) := M, offering the file to save. WRITEWAV writes as the reference does: 1 to 16 bits, each sample cut
+  toward zero and wrapped rather than clipped, the bits as given in the header.
+- rgbToHls and hlsToRgb, the hue, lightness and saturation model READ_HLS uses; wavInfo, a WAV file's channels,
+  rate, bits and bytes a second; a full turn of hue for rgbToHsv and hsvToRgb, so 360 gives degrees as the
+  reference's do; and a channel number for imageChannels, counted from ORIGIN, as imageChannels(M, 0) for red.
 - Help entries for all of these, and the Files and images topic explains Convert.
 
 ### Changed
@@ -269,79 +282,83 @@ Convert for Mathcad's file functions, Mathcad's WAV and HLS/HSV writes, and hue,
 
 ### Known limits
 
-- Convert doesn't move regions, so a converted line, longer than the Mathcad call, can run into one to its right.
-- The conversions are checked on bitmap pictures. A JPEG may differ from Mathcad's by a level here and there,
+- Convert doesn't move regions, so a converted line, longer than the original call, can run into one to its right.
+- The conversions are checked on bitmap pictures. A JPEG may differ from the reference's by a level here and there,
   where the browser decodes it differently.
-- WRITEBMP("name", M) and the other writes on the right of a definition, which Mathcad also allows, are still
+- WRITEBMP("name", M) and the other writes on the right of a definition, which the reference also allows, are still
   refused: write them as WRITEBMP("name") := M.
 
 ## [0.47.0] - 2026-11-10
 
-Mathcad's feet-and-inches, time and angle formats, generalized eigenvalues and svd2, and keys for comparisons and logic.
+Feet-and-inches, time and angle formats, generalized eigenvalues and svd2, and keys for comparisons and logic.
 
 ### Added
 
-- Mathcad's scaling functions for builders' and surveyors' formats. FIF reads a length in feet, inches and a fraction
-  of an inch, as "9' 6-1/4\"" or three numbers; hhmmss reads a time as "1:02:03.5" or three numbers; DMS reads an
-  angle in degrees, minutes and seconds. Each also works in a result's unit placeholder, as in Mathcad: FIF shows a
-  length as "9' 6-1/4\"", with the closest fraction of an inch whose denominator is 256 or less; hhmmss shows a time
-  as "1:2:3.5", the seconds to 3 decimals; and DMS shows an angle as a vector of degrees, minutes and seconds. Their
-  answers match Mathcad 14's on more than 100 cases probed, including how each handles signs and what it refuses.
-- time(z), Mathcad's clock for timing a calculation: seconds since 1970, to the millisecond.
+- Scaling functions for builders' and surveyors' formats. FIF reads a length in feet, inches and a fraction of an
+  inch, as "9' 6-1/4\"" or three numbers; hhmmss reads a time as "1:02:03.5" or three numbers; DMS reads an angle
+  in degrees, minutes and seconds. Each also works in a result's unit placeholder, as in the reference: FIF shows a
+  length as "9' 6-1/4\"", with the closest fraction of an inch whose denominator is 256 or less; hhmmss shows a
+  time as "1:2:3.5", the seconds to 3 decimals; and DMS shows an angle as a vector of degrees, minutes and seconds.
+  Their answers match the reference's on more than 100 cases probed, including how each handles signs and what it
+  refuses.
+- time(z), a clock for timing a calculation: seconds since 1970, to the millisecond.
 - Help has entries for the four, and a new example in the gallery, a staircase in feet and inches: risers and
   treads from a builder's tape, the stringer's angle in degrees and minutes, and the time to build it.
-- Mathcad's genvals and genvecs, the eigenvalues and eigenvectors of M·x = λ·N·x, the problem of vibration and
-  buckling, and svd2, the singular value decomposition as three arrays: the singular values, U and Vᵀ. They follow
-  LAPACK 3.0's methods, the ones Mathcad 14 uses, so the eigenvalues come in Mathcad's order and the vectors with
-  its signs: they match Mathcad 14 on all 34 matrix pairs and 21 matrices probed, real and complex, where a newer
-  LAPACK (3.12) gives another order or other signs on more than a dozen of them. An infinite eigenvalue, from a
-  singular N, is the largest number, signed, for real matrices and NaN for complex ones, as in Mathcad. Help entries for the three, and a new gallery example: how a three-storey building sways.
+- genvals and genvecs, the eigenvalues and eigenvectors of M·x = λ·N·x, the problem of vibration and buckling, and
+  svd2, the singular value decomposition as three arrays: the singular values, U and Vᵀ. They follow LAPACK 3.0's
+  methods, the ones the reference uses, so the eigenvalues come in its order and the vectors with its signs: they
+  match the reference on all 34 matrix pairs and 21 matrices probed, real and complex, where a newer LAPACK (3.12)
+  gives another order or other signs on more than a dozen of them. An infinite eigenvalue, from a singular N, is
+  the largest number, signed, for real matrices and NaN for complex ones, as in the reference. Help entries for the
+  three, and a new gallery example: how a three-storey building sways.
 - About links LAPACK's license, which covers these and the existing eigenvalue functions.
-- Keys for comparisons and logic, as in Mathcad: Ctrl+Shift+7 for ∧ (and), Ctrl+Shift+6 for ∨ (or), Ctrl+Shift+5 for
-  ⊕ (exclusive or), Ctrl+Shift+1 for ¬ (not) and Ctrl+0 for ≥. A new Boolean menu on the toolbar has all of them,
-  with ≤ and ≠, whose keys Ctrl+9 and Ctrl+3 the browser keeps for switching tabs. Before, none of these could be
-  typed except ≤ on the touch keypad.
+- Keys for comparisons and logic, as in the reference: Ctrl+Shift+7 for ∧ (and), Ctrl+Shift+6 for ∨ (or),
+  Ctrl+Shift+5 for ⊕ (exclusive or), Ctrl+Shift+1 for ¬ (not) and Ctrl+0 for ≥. A new Boolean menu on the toolbar
+  has all of them, with ≤ and ≠, whose keys Ctrl+9 and Ctrl+3 the browser keeps for switching tabs. Before, none of
+  these could be typed except ≤ on the touch keypad.
 
 ### Known limits
 
-- svd2 gives the singular values A's units and U and Vᵀ none, since U and V are rotations; Mathcad 14 gives all
+- svd2 gives the singular values A's units and U and Vᵀ none, since U and V are rotations; the reference gives all
   three parts A's units.
-- The older svd is still MathMath's own method: its columns can differ in sign from Mathcad's svd. svd2 matches.
+- The older svd is still MathMath's own method: its columns can differ in sign from the reference's svd. svd2
+  matches.
 
 ## [0.46.0] - 2026-11-10
 
-Mathcad's smoothing, correlation and wavelet functions, and ∧ and ∨ read with Mathcad's precedence.
+Smoothing, correlation and wavelet functions, and ∧ and ∨ read with the reference's precedence.
 
 ### Added
 
-- Mathcad's smoothing, correlation and wavelet functions: ksmooth, a Gaussian kernel smoother; supsmooth,
-  Friedman's super smoother; correl and correl2d; and wave and iwave, the Daubechies wavelet transform. Their
-  answers agree with Mathcad 14's to within 6e−15 at every point probed, supsmooth exactly on 128 points. ksmooth's kernel is b/2.696756 wide, the
-  constant Mathcad's answers show, which its Help rounds to 0.37·b; correl orders its lags as Mathcad does, no
-  shift first; supsmooth returns three points or fewer as they are, as Mathcad does.
+- Smoothing, correlation and wavelet functions: ksmooth, a Gaussian kernel smoother; supsmooth, Friedman's super
+  smoother; correl and correl2d; and wave and iwave, the Daubechies wavelet transform. Their answers agree with the
+  reference's to within 6e−15 at every point probed, supsmooth exactly on 128 points. ksmooth's kernel is
+  b/2.696756 wide, the constant the reference's answers show, which its Help rounds to 0.37·b; correl orders its
+  lags as the reference does, no shift first; supsmooth returns three points or fewer as they are, as the reference
+  does.
 - Help has entries for the six, and Curve fitting has a part on smoothing.
 - A new example in the gallery, cleaning up a noisy signal: three smoothers compared, an echo's delay found by
   correlation, a signal kept in a tenth of its wavelet coefficients, and a picture blurred with a kernel.
 
 ### Fixed
 
-- ∧ binds more loosely than comparisons and ∨ more loosely than ∧, as Mathcad 14 reads them, so x > 1 ∧ x < 5
+- ∧ binds more loosely than comparisons and ∨ more loosely than ∧, as the reference reads them, so x > 1 ∧ x < 5
   means (x > 1) ∧ (x < 5), and a ∨ b ∧ c means a ∨ (b ∧ c). Before, they bound as tightly as comparisons, so the
-  first was read as ((x > 1) ∧ x) < 5. The editor has no key for ∧ and ∨, so this affected math from Mathcad
-  files and pasted LaTeX once it was edited; a sheet saved earlier keeps the grouping it was saved with.
+  first was read as ((x > 1) ∧ x) < 5. The editor has no key for ∧ and ∨, so this affected math from imported
+  worksheets and pasted LaTeX once it was edited; a sheet saved earlier keeps the grouping it was saved with.
 
 ## [0.45.0] - 2026-11-10
 
-Mathcad's coordinate conversions, log-spaced points and 3D plot grids, and curves in 3D plots.
+Coordinate conversions, log-spaced points and 3D plot grids, and curves in 3D plots.
 
 ### Added
 
-- Mathcad's graphing helpers: xy2pol, pol2xy, xyz2sph, sph2xyz, xyz2cyl and cyl2xyz to change coordinates;
-  logspace and logpts for points on a log scale; and CreateMesh and CreateSpace, which sample a surface of two
-  parameters, or a curve of one, for a 3D plot, with an optional mapping to another coordinate system. They follow
-  Mathcad 14's conventions, probed: xy2pol's angle runs from 0 to 2π but the azimuth of xyz2sph and xyz2cyl from
-  −π to π; logpts steps evenly within each decade (logpts(0, 1, 3) is 1, 4, 7); CreateMesh's result is a 1 × 1
-  array holding X, Y and Z, as Mathcad gives it.
+- Graphing helpers: xy2pol, pol2xy, xyz2sph, sph2xyz, xyz2cyl and cyl2xyz to change coordinates; logspace and
+  logpts for points on a log scale; and CreateMesh and CreateSpace, which sample a surface of two parameters, or a
+  curve of one, for a 3D plot, with an optional mapping to another coordinate system. They follow the reference's
+  conventions, probed: xy2pol's angle runs from 0 to 2π but the azimuth of xyz2sph and xyz2cyl from −π to π; logpts
+  steps evenly within each decade (logpts(0, 1, 3) is 1, 4, 7); CreateMesh's result is a 1 × 1 array holding X, Y
+  and Z, as the reference gives it.
 - The surface plot draws CreateMesh's result as it is, and CreateSpace's three vectors as a curve in space,
   colored by height.
 - Help has a Plots and coordinates group, and the Plots page tells how to make surfaces and curves.
@@ -350,32 +367,33 @@ Mathcad's coordinate conversions, log-spaced points and 3D plot grids, and curve
 
 ## [0.44.0] - 2026-11-10
 
-Mathcad's finance functions, and percent as a unit.
+Finance functions, and percent as a unit.
 
 ### Added
 
-- Mathcad's 18 finance functions: pmt, pv, fv, nper and rate for loans and savings; ipmt, ppmt, cumint and cumprn
-  for the interest and principal in each payment; npv, irr, mirr and fvc for a series of cash flows; eff and nom
-  for nominal and effective rates; cnper, crate and fvadj for growth without payments. They follow Mathcad's
-  conventions, probed in Mathcad 14: money paid out is negative, npv discounts the first flow by one period, and
-  irr and rate solve from a guess of 10%. At a rate of 0, fv keeps pv and nper keeps fv's sign, as the formulas
-  do; Mathcad 14 gets both wrong there. irr((−1000, 100)) gives −90%, where Mathcad 14 was
-  still calculating after a minute.
-- Percent is a unit, as in Mathcad: type 8.25%, which is 0.0825, and show a result in % by typing % in its unit.
+- 18 finance functions: pmt, pv, fv, nper and rate for loans and savings; ipmt, ppmt, cumint and cumprn for the
+  interest and principal in each payment; npv, irr, mirr and fvc for a series of cash flows; eff and nom for
+  nominal and effective rates; cnper, crate and fvadj for growth without payments. They follow the reference's
+  conventions, probed in the reference: money paid out is negative, npv discounts the first flow by one period, and
+  irr and rate solve from a guess of 10%. At a rate of 0, fv keeps pv and nper keeps fv's sign, as the formulas do;
+  the reference gets both wrong there. irr((−1000, 100)) gives −90%, where the reference was still calculating
+  after a minute.
+- Percent is a unit, as in the reference: type 8.25%, which is 0.0825, and show a result in % by typing % in its
+  unit.
 - Help has a Finance group and a Finance topic page, and the Units page mentions %.
 - A new example in the gallery, a mortgage month by month: its payment, where each payment goes, what paying a
   little extra saves, and whether solar panels pay their way.
 
 ## [0.43.1] - 2026-11-10
 
-root keeps its own variable when that name is also a range variable, as in Mathcad.
+root keeps its own variable when that name is also a range variable, as in the reference.
 
 ### Fixed
 
-- root(f(x), x, a, b) gives one answer when x is also a range variable on the sheet, as in Mathcad: the x inside it
-  belongs to root. Before, defining a value from it said "range variable in a non-indexed definition", and showing
-  it gave a column of the same root, once for each value of x. The guess form, root(f(x), x), still takes each
-  value of a range variable x as a guess, as Mathcad does.
+- root(f(x), x, a, b) gives one answer when x is also a range variable on the sheet, as in the reference: the x
+  inside it belongs to root. Before, defining a value from it said "range variable in a non-indexed definition",
+  and showing it gave a column of the same root, once for each value of x. The guess form, root(f(x), x), still
+  takes each value of a range variable x as a guess, as the reference does.
 
 ## [0.43.0] - 2026-11-10
 
@@ -383,12 +401,13 @@ The Bessel, Hankel, Airy and spherical Bessel functions take complex arguments, 
 
 ### Added
 
-- The Bessel functions take complex arguments, as in Mathcad: J0, J1, Jn, Y0, Y1, Yn, I0, I1, In, K0, K1, Kn, the
-  Hankel functions H1 and H2, the Airy functions Ai, Bi, DAi and DBi, and the spherical js and ys, with every
-  scaled .sc form. They come from a port of Amos's library, the one Mathcad's scaled forms follow; orders stay
-  real, and negative ones work at any argument, in the scaled forms too, which Mathcad 14 calls undefined. On the imaginary axis, as js(0, 2i), MathMath gives the true value,
-  where Mathcad 14's is 1/√2 of it; beyond |z| of about 10⁹, where Mathcad 14 gives up on J, Y and the Hankel
-  functions, MathMath still gives their values. ber and bei still need a real argument, as in Mathcad.
+- The Bessel functions take complex arguments, as in the reference: J0, J1, Jn, Y0, Y1, Yn, I0, I1, In, K0, K1, Kn,
+  the Hankel functions H1 and H2, the Airy functions Ai, Bi, DAi and DBi, and the spherical js and ys, with every
+  scaled .sc form. They come from a port of Amos's library, the one the reference's scaled forms follow; orders
+  stay real, and negative ones work at any argument, in the scaled forms too, which the reference calls undefined.
+  On the imaginary axis, as js(0, 2i), MathMath gives the true value, where the reference's is 1/√2 of it; beyond
+  |z| of about 10⁹, where the reference gives up on J, Y and the Hankel functions, MathMath still gives their
+  values. ber and bei still need a real argument, as in the reference.
 - About credits Amos's library and SciPy's translation of it, and links their license notices.
 - A new example in the gallery, the skin effect in a wire: alternating current crowding to the surface of a copper
   bar, from J0 and J1 of a complex argument.
@@ -412,23 +431,24 @@ Help and the Examples gallery catch up with the functions added in 0.39 to 0.42.
 
 ## [0.42.0] - 2026-11-10
 
-Mathcad's special functions: Γ, the orthogonal polynomials, hypergeometric functions, and the Bessel family for real arguments.
+Special functions: Γ, the orthogonal polynomials, hypergeometric functions, and the Bessel family for real
+arguments.
 
 ### Added
 
-- Mathcad's special functions:
-  - Γ(z), real or complex, and the incomplete gamma Γ(a, x); and `lnΓ`, the analytic log-gamma, as Mathcad's:
-    `lnΓ(−0.5)` is 1.2655 − iπ.
+- Special functions:
+  - Γ(z), real or complex, and the incomplete gamma Γ(a, x); and `lnΓ`, the analytic log-gamma, as in the
+    reference: `lnΓ(−0.5)` is 1.2655 − iπ.
   - The orthogonal polynomials `Her` (physicists' Hermite), `Tcheb`, `Ucheb`, `Lag`, `Leg` and `Jac`.
   - `fhyper` and `mhyper`, the Gauss and confluent hypergeometric functions; `ibeta`, the incomplete beta function;
     `sinc`, `ε` (the antisymmetric tensor) and `ln0`.
   - The Bessel functions `J0`, `J1`, `Jn`, `Y0`, `Y1`, `Yn`, `I0`, `I1`, `In`, `K0`, `K1`, `Kn`, of any real order,
     fractional and negative included; the Hankel functions `H1` and `H2`; the Airy functions `Ai`, `Bi`, `DAi` and
     `DBi`; the Kelvin functions `ber` and `bei`; and the spherical Bessel functions `js` and `ys`. Each Bessel and
-    Airy function has Mathcad's scaled form, typed with .sc, as `J0.sc` and `K0.sc`, which stays in range where the
-    plain one overflows.
+    Airy function has a scaled form, typed with .sc, as `J0.sc` and `K0.sc`, which stays in range where the plain
+    one overflows.
 
-  All checked against Mathcad 14 at about 500 points, and against mpmath at 40 digits, including large arguments
+  All checked against the reference at about 500 points, and against mpmath at 40 digits, including large arguments
   beyond what was probed. Where `fhyper` or `mhyper` would lose digits to its series cancelling, it says so instead
   of giving a wrong number.
 - Typing a period after a name that ends in a digit, as `J0` then `.sc`, starts its literal subscript, as after a
@@ -436,41 +456,43 @@ Mathcad's special functions: Γ, the orthogonal polynomials, hypergeometric func
 
 ### Known limits
 
-- The Bessel, Hankel, Airy and spherical functions take real arguments for now. Mathcad also takes complex ones, which
-  need a port of Amos's complex Bessel library.
-- Where Mathcad 14 is wrong, MathMath gives the true value:
-  - At a negative argument, a Bessel function of fractional order is complex: `Jn(0.5, −2)` is 0.513i, where Mathcad
-    14 gives 0, keeping only the real part; it gives NaN for `Y1(−2)`, which is 0.107 − 1.153i.
-  - `js` and `ys` of a whole order at a negative argument follow js(m, −x) = (−1)^m·js(m, x), where Mathcad 14
+- The Bessel, Hankel, Airy and spherical functions take real arguments for now. The reference also takes complex
+  ones, which need a port of Amos's complex Bessel library.
+- Where the reference is wrong, MathMath gives the true value:
+  - At a negative argument, a Bessel function of fractional order is complex: `Jn(0.5, −2)` is 0.513i, where the
+    reference gives 0, keeping only the real part; it gives NaN for `Y1(−2)`, which is 0.107 − 1.153i.
+  - `js` and `ys` of a whole order at a negative argument follow js(m, −x) = (−1)^m·js(m, x), where the reference
     gives 0 for `js` and the opposite sign for `ys`.
-  - `mhyper(0.5, 1, 100)` is 1.52·10⁴², where Mathcad 14 gives 0; and `lnΓ(1e5)`, where Mathcad 14 overflows.
+  - `mhyper(0.5, 1, 100)` is 1.52·10⁴², where the reference gives 0; and `lnΓ(1e5)`, where the reference overflows.
 
 ## [0.41.0] - 2026-11-10
 
-Strings, lookup, whole numbers and rounding to a step, as Mathcad's, with `predict`; and `regress` keeps its digits far from 0.
+Strings, lookup, whole numbers and rounding to a step, as in the reference, with `predict`; and `regress` keeps its
+digits far from 0.
 
 ### Added
 
-- Mathcad's string functions: `substr`, `search`, `str2num` (which reads Mathcad's number syntax, complex numbers
-  and 0FFh, 17o, 101b included), `str2vec`, `vec2str`, `format` (`format("{0} and {1}", 3, 4.5)`) and `error`, for a
+- String functions: `substr`, `search`, `str2num` (which reads the reference's number syntax, complex numbers and
+  0FFh, 17o, 101b included), `str2vec`, `vec2str`, `format` (`format("{0} and {1}", 3, 4.5)`) and `error`, for a
   program to stop with a message of its own.
 - `IsString`, `IsArray`, `IsScalar` and `IsNaN`, and `NaN` itself; `SIUnitsOf`, and `UnitsOf`, its older name.
 - `lookup`, `hlookup`, `vlookup` and `match`, which compare numbers within the worksheet's TOL and strings exactly.
-- `gcd`, `lcm`, `combin` and `permut`. `permut` gives the number where Mathcad 14 overflows to 0, as `permut(60, 30)`.
-- `Ceil`, `Floor`, `Round` and `Trunc` with a step, as `Ceil(x, ft)`: rounding to a multiple of a unit. As in
-  Mathcad, they read z/y to 15 digits first, so `Floor(0.3, 0.1)` is 0.3, not 0.2.
-- `predict`, linear prediction by Burg's method, matching Mathcad 14 to 15 digits.
+- `gcd`, `lcm`, `combin` and `permut`. `permut` gives the number where the reference overflows to 0, as `permut(60,
+  30)`.
+- `Ceil`, `Floor`, `Round` and `Trunc` with a step, as `Ceil(x, ft)`: rounding to a multiple of a unit. As in the
+  reference, they read z/y to 15 digits first, so `Floor(0.3, 0.1)` is 0.3, not 0.2.
+- `predict`, linear prediction by Burg's method, matching the reference to 15 digits.
 - `genfit` takes its parameters one by one as well as in a vector, as F(x, A, c), and a plain number as the guess
-  when there's one parameter, as Mathcad's Help describes. (0.40.0 said Mathcad 14 can't fit an F that gives the
-  value alone; it can, with its optimized method, the default in new worksheets.) Worksheets from Mathcad that use
-  `genfit` or `polyroots` now open with them as calls; before, they couldn't be read.
+  when there's one parameter, as the reference's Help describes. (0.40.0 said the reference can't fit an F that
+  gives the value alone; it can, with its optimized method, the default in new worksheets.) Imported worksheets
+  that use `genfit` or `polyroots` now open with them as calls; before, they couldn't be read.
 
-All of these were checked against Mathcad 14 at about 300 cases, errors included.
+All of these were checked against the reference at about 300 cases, errors included.
 
 ### Changed
 
-- `num2str` writes numbers to 15 significant digits, as Mathcad does (`num2str(1/3)` is "0.333333333333333", not
-  "0.3333333333333333"), writes complex numbers as "2 + 3i", and refuses units, as Mathcad does.
+- `num2str` writes numbers to 15 significant digits, as the reference does (`num2str(1/3)` is "0.333333333333333",
+  not "0.3333333333333333"), writes complex numbers as "2 + 3i", and refuses units, as the reference does.
 
 ### Fixed
 
@@ -480,15 +502,16 @@ All of these were checked against Mathcad 14 at about 300 cases, errors included
 - A space typed after `{`, `}`, `~` or `^` in a string is kept, so `format("{0} and {1}", …)` keeps its space, and
   `~` and `^` in a string show as themselves instead of as accents on the next letter.
 - `regress` far from 0 lost digits: a quadratic at x around 1 000 000 was out by 1 part in 7000. It now fits in
-  centred variables and matches Mathcad 14 to 13 digits.
+  centred variables and matches the reference to 13 digits.
 - A string answer drops no characters: braces and backslashes in it used to vanish from the display.
 - A worksheet's stored answer that is purely imaginary, such as 2i, now shows as 2i, not 2.
 
 ### Known limits
 
-- `loess` isn't here yet. Mathcad's returns the internal state of Cleveland's loess program for interp to use,
-  and matching it means porting that program. (0.40.0 said `loess` and `predict` couldn't be checked against
-  Mathcad; that was a mistake in the probe sheets, not Mathcad, and both have now been checked.)
+- `loess` isn't here yet. The reference's `loess` returns the internal state of Cleveland's loess program for
+  interp to use, and matching it means porting that program. (0.40.0 said `loess` and `predict` couldn't be checked
+  against the reference; that was a mistake in the probe sheets, not the reference, and both have now been
+  checked.)
 
 ## [0.40.0] - 2026-11-10
 
@@ -496,45 +519,47 @@ Curve fitting: straight lines, polynomials in one variable or several, any combi
 
 ### Added
 
-- Curve fitting, as Mathcad's: `slope`, `intercept`, `line`, `stderr` and `medfit` for straight lines; `linfit` for
-  any combination of functions; `regress` for polynomials, in one variable or several, with `interp` to evaluate
-  them; `genfit` for any model; and `expfit`, `lgsfit`, `logfit`, `lnfit`, `pwrfit` and `sinfit` for exponential,
-  logistic, logarithmic, power and sine curves. Each was checked against Mathcad 14 on exact and noisy data, and
-  `regress` against the answers in Mathcad's own example sheets, including its order for several variables (xy, y², y, 1, x, x² for two
-  of degree 2). `slope`, `intercept` and `stderr` keep units, as Mathcad's do.
-- `genfit` takes Mathcad 14's form of F(x, u), which gives the value and then its partial derivatives, and also an F
-  that gives the value alone, where Mathcad 14 says it doesn't converge.
+- Curve fitting, as in the reference: `slope`, `intercept`, `line`, `stderr` and `medfit` for straight lines;
+  `linfit` for any combination of functions; `regress` for polynomials, in one variable or several, with `interp`
+  to evaluate them; `genfit` for any model; and `expfit`, `lgsfit`, `logfit`, `lnfit`, `pwrfit` and `sinfit` for
+  exponential, logistic, logarithmic, power and sine curves. Each was checked against the reference on exact and
+  noisy data, and `regress` against the answers in the reference's own example sheets, including its order for
+  several variables (xy, y², y, 1, x, x² for two of degree 2). `slope`, `intercept` and `stderr` keep units, as the
+  reference's do.
+- `genfit` takes the reference's form of F(x, u), which gives the value and then its partial derivatives, and also
+  an F that gives the value alone, where the reference says it doesn't converge.
 
-- `slope`, `intercept` and `line` of points that all share one x are an error, where Mathcad gives NaN.
+- `slope`, `intercept` and `line` of points that all share one x are an error, where the reference gives NaN.
 
 ### Known limits
 
-- `loess` and `predict` are not here yet: they couldn't be checked against Mathcad, so they wait rather than
-  guess at Mathcad's method.
+- `loess` and `predict` are not here yet: they couldn't be checked against the reference, so they wait rather than
+  guess at its method.
 
 ## [0.39.0] - 2026-11-09
 
-The elementary functions take complex numbers, with Mathcad's branches, and the rest of its trigonometric and hyperbolic functions are here.
+The elementary functions take complex numbers, with the reference's branches, and the rest of its trigonometric and
+hyperbolic functions are here.
 
 ### Added
 
-- The rest of Mathcad's trigonometric and hyperbolic functions: `acot`, `asec`, `acsc`, `coth`, `sech`, `csch`,
-  `asinh`, `acosh`, `atanh`, `acoth`, `asech` and `acsch`; and `csgn` and `signum`, the signs of a complex number.
+- The rest of the trigonometric and hyperbolic functions: `acot`, `asec`, `acsc`, `coth`, `sech`, `csch`, `asinh`,
+  `acosh`, `atanh`, `acoth`, `asech` and `acsch`; and `csgn` and `signum`, the signs of a complex number.
 - `exp`, `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `sinh`, `cosh`, `tanh` and `atan` take complex numbers, so
   phasors such as exp(j·ω·t) work.
-- `asin(2)`, `acos(2)`, `acosh(0.5)` and the like give a complex answer, as in Mathcad, where they were refused.
-  On a branch cut each takes the same side as Mathcad 14: `asin(2)` is π/2 − 1.317i, and `atanh(2)` is
-  0.549 − 1.571i. All 29 functions were checked against Mathcad 14 at 18 arguments each.
-- A number typed straight before `i` or `j`, as `3+4i` or `4j`, is an imaginary number, as in Mathcad. Before,
-  only the `i` on the keypad was; a typed `4i` meant 4 times a variable `i`, which is now written `4·i`.
-- LaTeX pasted with `\sinh`, `\coth`, `\arcsin` and the like reads as Mathcad's names (`arcsin` is `asin`).
+- `asin(2)`, `acos(2)`, `acosh(0.5)` and the like give a complex answer, as the reference does, where they were
+  refused. On a branch cut each takes the same side as the reference: `asin(2)` is π/2 − 1.317i, and `atanh(2)` is
+  0.549 − 1.571i. All 29 functions were checked against the reference at 18 arguments each.
+- A number typed straight before `i` or `j`, as `3+4i` or `4j`, is an imaginary number, as the reference does.
+  Before, only the `i` on the keypad was; a typed `4i` meant 4 times a variable `i`, which is now written `4·i`.
+- LaTeX pasted with `\sinh`, `\coth`, `\arcsin` and the like reads as the reference's names (`arcsin` is `asin`).
 
 ### Changed
 
-- `cot(0)`, `csc(0)`, `coth(0)` and `csch(0)` are errors, as in Mathcad ("a singularity"), where they gave an
-  infinite value.
-- Far from the usual range, as `asin(1e−10 + 1e−10i)`, the inverse functions keep all their digits, where
-  Mathcad 14's own lose some or all of them; across the range probed they agree with Mathcad's to 14 digits.
+- `cot(0)`, `csc(0)`, `coth(0)` and `csch(0)` are errors, as the reference has it ("a singularity"), where they
+  gave an infinite value.
+- Far from the usual range, as `asin(1e−10 + 1e−10i)`, the inverse functions keep all their digits, where the
+  reference's own lose some or all of them; across the range probed they agree with the reference's to 14 digits.
 
 ### Known limits
 
@@ -549,8 +574,8 @@ Typed plot axis limits show as numbers, and strings show straight quotes.
 - A plot axis limit typed with a unit, such as `0.2·s` on an axis in seconds, shows as a number in the axis's unit,
   `0.2`, in the same style as the limits fitted to the data, instead of as the expression in a different font.
   Clicking it still edits what was typed.
-- Strings show straight quotes, `"abc"`, as in Mathcad, where both quotes were closing curly ones, `”abc”`. They
-  stay curly while a string is being edited.
+- Strings show straight quotes, `"abc"`, as the reference does, where both quotes were closing curly ones, `”abc”`.
+  They stay curly while a string is being edited.
 
 ## [0.38.1] - 2026-11-09
 
@@ -564,12 +589,13 @@ Strings no longer show a gap before an underscore.
 
 ## [0.38.0] - 2026-11-09
 
-`eigenvecs` gives Mathcad's eigenvectors, signs included, and each differential equation solver has its own method.
+`eigenvecs` gives the reference's eigenvectors, signs included, and each differential equation solver has its own
+method.
 
 ### Changed
 
-- Each of Mathcad's differential equation solvers now uses its own method, as Mathcad's do, where before all
-  but `rkfixed` shared two:
+- Each differential equation solver now uses its own method, as the reference's do, where before all but `rkfixed`
+  shared two:
   - `Rkadapt` and `rkadapt`: Cash–Karp Runge–Kutta;
   - `Bulstoer` and `bulstoer`: Bulirsch–Stoer extrapolation, which takes very long steps on smooth solutions;
   - `Adams`: Adams–Bashforth–Moulton of orders 1 to 12, efficient on smooth problems and slow on stiff ones;
@@ -579,20 +605,21 @@ Strings no longer show a gap before an underscore.
   - `BDF`: backward differentiation formulas of orders 1 to 5;
   - `AdamsBDF`: Adams until the equations prove stiff, then BDF, and back again.
 
-  Answers agree with the old ones, and with Mathcad's, to each method's accuracy. Odesolve is unchanged.
+  Answers agree with the old ones, and with the reference's, to each method's accuracy. Odesolve is unchanged.
 
 ### Fixed
 
-- `eigenvecs` gives Mathcad's eigenvectors, signs included. Mathcad 14 finds them with LAPACK 3.0's method, and
-  MathMath now does the same, down to the order of its arithmetic, where a column's sign can hang on the last
-  bit. 53 of 54 test matrices probed in Mathcad 14 now match it exactly, against 2 before.
-- `eigenvals` lists eigenvalues in Mathcad's order on every matrix probed, including one where it differed before.
+- `eigenvecs` gives the reference's eigenvectors, signs included. The reference finds them with LAPACK 3.0's
+  method, and MathMath now does the same, down to the order of its arithmetic, where a column's sign can hang on
+  the last bit. 53 of 54 test matrices probed in the reference now match it exactly, against 2 before.
+- `eigenvals` lists eigenvalues in the reference's order on every matrix probed, including one where it differed
+  before.
 
 ### Known limits
 
 - On a matrix whose eigenvalues are all on the unit circle, such as a rotation, a column of `eigenvecs` can still
-  come out with the opposite sign to Mathcad's: there, the sign depends on rounding inside Mathcad's own
-  arithmetic library.
+  come out with the opposite sign to the reference's: there, the sign depends on rounding inside the reference's
+  own arithmetic library.
 
 ## [0.37.1] - 2026-11-09
 
@@ -654,14 +681,14 @@ Examples: worksheets that show what MathMath does, built into the app.
 
 ## [0.34.2] - 2026-11-08
 
-eigenvals in Mathcad's order, and WRITEPRN exactly as Mathcad writes it.
+eigenvals in the reference's order, and WRITEPRN exactly as the reference writes it.
 
 ### Fixed
 
-- `eigenvals` lists eigenvalues in Mathcad's order. Mathcad doesn't sort them: their order comes from how they
-  are found, which is LAPACK's way, so MathMath now finds them the same way. 11 of 12 test matrices come out in
-  Mathcad 14's exact order, against 7 before; `eigenvecs` follows the same order.
-- `WRITEPRN` writes numbers exactly as Mathcad 14 does, checked against a file it wrote: very large and small
+- `eigenvals` lists eigenvalues in the reference's order. The reference doesn't sort them: their order comes from
+  how they are found, which is LAPACK's way, so MathMath now finds them the same way. 11 of 12 test matrices come
+  out in the reference's exact order, against 7 before; `eigenvecs` follows the same order.
+- `WRITEPRN` writes numbers exactly as the reference does, checked against a file it wrote: very large and small
   numbers in exponent form, as 1.235e+005, and a space before every column so wide numbers stay apart.
 
 ## [0.34.1] - 2026-11-08
@@ -675,22 +702,21 @@ The deployed server sends the app manifest with its proper type.
 
 ## [0.34.0] - 2026-11-08
 
-Mathcad's file writes, WRITEBMP, WRITERGB and WRITEPRN, offer their files to save.
+The file writes, WRITEBMP, WRITERGB and WRITEPRN, offer their files to save.
 
 ### Added
 
-- Mathcad's file writes work: `WRITEBMP("name") := M` writes a gray picture, `WRITERGB("name") := M` a color one
-  from red, green and blue blocks side by side, and `WRITEPRN("name") := M` a data file of numbers. As with
-  `writeImage`, the region shows a Save button that downloads the file, named without the folder in its path.
-  They work in Mathcad worksheets you open, and can be typed. A .bmp name gives a bitmap, as Mathcad writes;
-  a kind the browser can't write, such as .gif, is saved as PNG. WRITEPRN writes 4 significant figures in
-  columns 8 wide, Mathcad's defaults.
+- The file writes work: `WRITEBMP("name") := M` writes a gray picture, `WRITERGB("name") := M` a color one from
+  red, green and blue blocks side by side, and `WRITEPRN("name") := M` a data file of numbers. As with
+  `writeImage`, the region shows a Save button that downloads the file, named without the folder in its path. They
+  work in imported worksheets you open, and can be typed. A .bmp name gives a bitmap, as the reference writes; a
+  kind the browser can't write, such as .gif, is saved as PNG. WRITEPRN writes 4 significant figures in columns 8
+  wide, the reference's defaults.
 
 ### Fixed
 
-- A Mathcad file write in an opened worksheet no longer defines a function named after it, silently writing
-  nothing; and its file name keeps its spaces. `APPENDPRN` and `WRITEBIN` writes now say they aren't carried
-  out.
+- A file write in an opened worksheet no longer defines a function named after it, silently writing nothing; and
+  its file name keeps its spaces. `APPENDPRN` and `WRITEBIN` writes now say they aren't carried out.
 
 ## [0.33.0] - 2026-11-08
 
@@ -715,28 +741,28 @@ Phones and tablets: the page fits the screen, a one-row toolbar, and a keypad fo
 
 ## [0.32.0] - 2026-11-08
 
-Probability distributions and statistics as in Mathcad, Reroll for new random numbers, and an icon.
+Probability distributions and statistics as in the reference, Reroll for new random numbers, and an icon.
 
 ### Added
 
-- Probability distributions, as Mathcad has them: for each of beta, binomial, Cauchy, chi-squared, exponential,
-  F, gamma, geometric, hypergeometric, lognormal, logistic, negative binomial, normal, Poisson, Student's t,
-  uniform and Weibull, a density or probability (`dnorm`), a cumulative probability (`pnorm`), its inverse
-  (`qnorm`) and random numbers (`rnorm`). Checked against Mathcad 14 to 11 or more digits. Also `erf`,
+- Probability distributions, as the reference has them: for each of beta, binomial, Cauchy, chi-squared,
+  exponential, F, gamma, geometric, hypergeometric, lognormal, logistic, negative binomial, normal, Poisson,
+  Student's t, uniform and Weibull, a density or probability (`dnorm`), a cumulative probability (`pnorm`), its
+  inverse (`qnorm`) and random numbers (`rnorm`). Checked against the reference to 11 or more digits. Also `erf`,
   `erfc` and `cnorm`.
-- The statistics Mathcad has beside `mean` and `stdev`: `var` and `Var`, `median`, `mode`, `gmean`, `hmean`,
+- The statistics the reference has beside `mean` and `stdev`: `var` and `Var`, `median`, `mode`, `gmean`, `hmean`,
   `skew`, `kurt`, `cvar` and `corr`.
-- Reroll on the toolbar draws new random numbers, from a new seed for the worksheet. Random numbers otherwise
-  stay the same as the sheet calculates, and undo brings the old ones back. The seed is saved with the
-  worksheet (a new, optional field in the file), and a Mathcad worksheet's own seed is kept when it's opened.
+- Reroll on the toolbar draws new random numbers, from a new seed for the worksheet. Random numbers otherwise stay
+  the same as the sheet calculates, and undo brings the old ones back. The seed is saved with the worksheet (a new,
+  optional field in the file), and an imported worksheet's own seed is kept when it's opened.
 - Help: an entry for each new function, and a page on random numbers.
 - An icon: a white M² on blue grid paper, for browser tabs and bookmarks, phone home screens, and the splash.
   An app manifest lets the browser install MathMath as an app, with its own window.
 
 ### Fixed
 
-- A Mathcad worksheet's CTOL, how nearly a solve block's constraints must hold, now applies in the app. It
-  was read from the file but not used when calculating there.
+- An imported worksheet's CTOL, how nearly a solve block's constraints must hold, now applies in the app. It was
+  read from the file but not used when calculating there.
 - Help no longer says random numbers change each time a worksheet calculates; they stay until Reroll.
 
 ## [0.31.0] - 2026-11-08
@@ -756,10 +782,10 @@ A splash screen saying what MathMath is, and the AGPL notice, copyright Pelican 
 
 ### Added
 
-- A splash screen when MathMath opens: what it is, in a few lines and a worked example, and the copyright.
-  Start calculating, Esc or a click outside closes it. A tick box turns it off for next time, and the
-  version on the toolbar, or About MathMath in Help, shows it again. It says that Mathcad is PTC's trademark
-  and that MathMath isn't affiliated with or endorsed by PTC; the README says so too.
+- A splash screen when MathMath opens: what it is, in a few lines and a worked example, and the copyright. Start
+  calculating, Esc or a click outside closes it. A tick box turns it off for next time, and the version on the
+  toolbar, or About MathMath in Help, shows it again. It gives a trademark notice, and says that MathMath isn't
+  affiliated with or endorsed by the trademark's owner; the README says so too.
 
 ### Changed
 
@@ -768,23 +794,23 @@ A splash screen saying what MathMath is, and the AGPL notice, copyright Pelican 
 
 ## [0.29.1] - 2026-11-08
 
-length, last, collect, float, complex results and Mathcad's file functions behave as in Mathcad.
+length, last, collect, float, complex results and the file functions behave as probed.
 
 ### Fixed
 
-- `length` and `last` refuse a matrix or a row vector, as Mathcad does, rather than counting its rows.
-- `collect` gives a polynomial in its variable, highest power first, as Mathcad does: (x + a)·(x + b)
+- `length` and `last` refuse a matrix or a row vector, as the reference does, rather than counting its rows.
+- `collect` gives a polynomial in its variable, highest power first, as the reference does: (x + a)·(x + b)
   collects to x² + (a + b)·x + a·b, where it came back partly factored.
 - `float` shows all 20 digits, or as many as asked for with `float, n`, rather than 16. They're kept when the
-  worksheet is saved, and when a Mathcad worksheet with such answers is opened.
-- A complex result whose real or imaginary part is under 10⁻¹⁰ of the other shows that part as 0, as
-  Mathcad's complex threshold does, so rounding noise such as 25 − 2.3·10⁻¹⁵i shows as 25. A Mathcad
+  worksheet is saved, and when an imported worksheet with such answers is opened.
+- A complex result whose real or imaginary part is under 10⁻¹⁰ of the other shows that part as 0, as the
+  reference's complex threshold does, so rounding noise such as 25 − 2.3·10⁻¹⁵i shows as 25. An imported
   worksheet's own threshold is kept.
-- Mathcad's file functions, refused here, each say what to use instead: `readTable` for data files,
-  `readImage` for pictures, `writeImage` to save one. Before, every one suggested `readImage`.
+- The file functions refused here, each say what to use instead: `readTable` for data files, `readImage` for
+  pictures, `writeImage` to save one. Before, every one suggested `readImage`.
 - Help text no longer shows raw LaTeX in a few entries.
-- Typing a definition of a function call with a value inside the brackets, as Mathcad's
-  `WRITEPRN("out.prn") := M`, kept it as typed math to fix rather than stopping the worksheet from opening.
+- Typing a definition of a function call with a value inside the brackets, as `WRITEPRN("out.prn") := M`, kept it
+  as typed math to fix rather than stopping the worksheet from opening.
 
 ## [0.29.0] - 2026-11-07
 
@@ -792,10 +818,10 @@ Help, in a panel beside the paper, with an entry for every function and keyword,
 
 ### Added
 
-- Help, in a panel beside the paper: Help on the toolbar, or F1. It has an entry for every function and
-  symbolic keyword, 255 in all, each with how it's called, what it gives, how it treats units, what it
-  refuses, and a worked example with its answer, and whether Mathcad has it too. Topic pages cover typing
-  math and its keys, units, ranges and arrays, plots, solve blocks, programs, symbolic evaluation, and files.
+- Help, in a panel beside the paper: Help on the toolbar, or F1. It has an entry for every function and symbolic
+  keyword, 255 in all, each with how it's called, what it gives, how it treats units, what it refuses, and a worked
+  example with its answer, and whether the reference has it too. Topic pages cover typing math and its keys, units,
+  ranges and arrays, plots, solve blocks, programs, symbolic evaluation, and files.
   - Search finds an entry by its name or by what it does, as "standing wave" for `vswr`.
   - F1 while typing opens the entry for the function the caret is in. With a region selected, it opens the
     first function in it; otherwise the contents.
@@ -870,14 +896,13 @@ Circuit analysis from a netlist: node voltages and branch currents, at DC or at 
 
 ## [0.26.1] - 2026-11-07
 
-No brackets around a derivative, limit or sum that ends a product, as in Mathcad.
+No brackets around a derivative, limit or sum that ends a product, as probed.
 
 ### Changed
 
-- A derivative, a limit, or a sum or product with limits that ends a product is shown without brackets, as
-  in Mathcad: `E·I·d⁴/dx⁴ w(x)` rather than `E·I·(d⁴/dx⁴ w(x))`. They keep their brackets when something
-  follows them in the product, since their body reads on to the right. An integral, which ends at its dx,
-  needs none in a product.
+- A derivative, a limit, or a sum or product with limits that ends a product is shown without brackets, as probed:
+  `E·I·d⁴/dx⁴ w(x)` rather than `E·I·(d⁴/dx⁴ w(x))`. They keep their brackets when something follows them in the
+  product, since their body reads on to the right. An integral, which ends at its dx, needs none in a product.
 
 ### Fixed
 
@@ -890,21 +915,20 @@ Find and Minerr with vector, matrix and complex unknowns, and ERR.
 
 ### Added
 
-- Find and Minerr solve for vectors and matrices as well as numbers, as Mathcad's: from a guess `v := (1; 1)`,
-  `v₀ + v₁ = 3` and `v₀ − v₁ = 1` give v = (2; 1), and a matrix equation such as `M·x = b` holds element by
-  element. Even `A·A = M`, with A a matrix, finds a square root of M. Several unknowns of different shapes,
-  as `Find(x, s)`, come back nested. An inequality between a vector and a number holds for each element.
-  Maximize and Minimize take vectors too, calling the function with the whole vector.
-- Complex unknowns: a complex guess lets Find look for a complex answer, so `z := 1 + i` with `z² = −4` finds
-  2i. A real guess still looks for a real answer only, as in Mathcad.
-- ERR, as in Mathcad: after Find or Minerr, how far the constraints are from holding, the square root of the
-  sum of each one's error squared. It's 0 when Find solves exactly, and inequalities count how far they're
-  broken.
+- Find and Minerr solve for vectors and matrices as well as numbers, as the reference does: from a guess `v := (1;
+  1)`, `v₀ + v₁ = 3` and `v₀ − v₁ = 1` give v = (2; 1), and a matrix equation such as `M·x = b` holds element by
+  element. Even `A·A = M`, with A a matrix, finds a square root of M. Several unknowns of different shapes, as
+  `Find(x, s)`, come back nested. An inequality between a vector and a number holds for each element. Maximize and
+  Minimize take vectors too, calling the function with the whole vector.
+- Complex unknowns: a complex guess lets Find look for a complex answer, so `z := 1 + i` with `z² = −4` finds 2i. A
+  real guess still looks for a real answer only, as the reference does.
+- ERR, as probed: after Find or Minerr, how far the constraints are from holding, the square root of the sum of
+  each one's error squared. It's 0 when Find solves exactly, and inequalities count how far they're broken.
 
 ### Fixed
 
-- Minerr, when its constraints can't all hold and one is an inequality, stopped short of the closest answer:
-  `q = 1`, `q = 2` and `q > 5` gave 2.17 instead of 8/3, which Mathcad 14 gives.
+- Minerr, when its constraints can't all hold and one is an inequality, stopped short of the closest answer: `q =
+  1`, `q = 2` and `q > 5` gave 2.17 instead of 8/3, which the reference gives.
 
 ## [0.25.0] - 2026-11-06
 
@@ -912,16 +936,16 @@ The nth derivative operator, dⁿ/dxⁿ.
 
 ### Added
 
-- The nth derivative, dⁿ/dxⁿ, as Mathcad's (Ctrl+Shift+?, or the dⁿ/dxⁿ button): orders 0 to 5, the 0th being
-  the expression itself. Type the order above; it's shown below too. It works in units, at each value of a
-  range, from a variable order such as `n`, and under → through the algebra engine. In an Odesolve block,
-  d²/dt² y(t) is y''(t), so equations can be written either way. Mathcad sheets with it are read.
-  Higher derivatives are found by Ridders' extrapolation, at least as accurately as Mathcad 14: e.g. eˣ's fourth
-  derivative at 1 to 5·10⁻¹⁰ (Mathcad: 3·10⁻⁹), and d²/dx² sin x at x = 1000 to 10⁻¹³.
+- The nth derivative, dⁿ/dxⁿ, as the reference has it (Ctrl+Shift+?, or the dⁿ/dxⁿ button): orders 0 to 5, the 0th
+  being the expression itself. Type the order above; it's shown below too. It works in units, at each value of a
+  range, from a variable order such as `n`, and under → through the algebra engine. In an Odesolve block, d²/dt²
+  y(t) is y''(t), so equations can be written either way. Imported worksheets with it are read. Higher derivatives
+  are found by Ridders' extrapolation, at least as accurately as the reference: e.g. eˣ's fourth derivative at 1 to
+  5·10⁻¹⁰ (the reference: 3·10⁻⁹), and d²/dx² sin x at x = 1000 to 10⁻¹³.
 
 ### Known limits
 
-- Numerical derivatives of order 6 and above are refused, as in Mathcad: finite differences are mostly
+- Numerical derivatives of order 6 and above are refused, as the reference does: finite differences are mostly
   rounding noise there. The algebra engine has no such limit.
 
 ## [0.24.0] - 2026-11-06
@@ -930,14 +954,14 @@ Odesolve with conditions at two points (boundary value problems).
 
 ### Added
 
-- Odesolve with conditions at two points (boundary value problems), as Mathcad's: `y(0) = 0` and `y(1) = 1`,
-  or a slope at the far end, `y'(1) = 0`. As in Mathcad, the solution runs from the point farther from the
-  end, so the second point may lie inside the interval or past its end, and the conditions may come in either
-  order. Linear and nonlinear equations, higher orders, systems and units all work: a hanging cable,
-  `y'' = w/H·√(1 + y'²)` between supports at 0 m and 100 m, sags 12.76 m at the middle.
-- Fast-growing solutions come out right. Odesolve splits the interval into segments and solves for every
-  joint at once (multiple shooting), so `y'' = 100·y` with `y(0) = 1` and `y(5) = 0` is accurate, where Mathcad
-  14's answer is wrong by orders of magnitude and it gives up over a longer interval.
+- Odesolve with conditions at two points (boundary value problems), as the reference does: `y(0) = 0` and `y(1) =
+  1`, or a slope at the far end, `y'(1) = 0`. As the reference does, the solution runs from the point farther from
+  the end, so the second point may lie inside the interval or past its end, and the conditions may come in either
+  order. Linear and nonlinear equations, higher orders, systems and units all work: a hanging cable, `y'' = w/H·√(1
+  + y'²)` between supports at 0 m and 100 m, sags 12.76 m at the middle.
+- Fast-growing solutions come out right. Odesolve splits the interval into segments and solves for every joint at
+  once (multiple shooting), so `y'' = 100·y` with `y(0) = 1` and `y(5) = 0` is accurate, where the reference's
+  answer is wrong by orders of magnitude and it gives up over a longer interval.
 - When no solution meets the conditions, as `y'' + y = 0` with `y(0) = 0` and `y(π) = 1`, Odesolve says so
   instead of giving one that only seems to.
 
@@ -948,8 +972,8 @@ Odesolve with conditions at two points (boundary value problems).
 
 ### Known limits
 
-- Odesolve's conditions can be at two points at most, and each gives one value, as `y(1) = 0` or `y'(1) = 0`,
-  as in Mathcad: a combination such as `y(1) + y'(1) = 0` isn't accepted.
+- Odesolve's conditions can be at two points at most, and each gives one value, as `y(1) = 0` or `y'(1) = 0`, as
+  the reference does: a combination such as `y(1) + y'(1) = 0` isn't accepted.
 
 ## [0.23.0] - 2026-11-06
 
@@ -957,12 +981,12 @@ Solve blocks: Find, Minerr, Maximize, Minimize and Odesolve, and root.
 
 ### Added
 
-- Solve blocks, as Mathcad's. Define a guess for each unknown, then a region with `Given`, then the
+- Solve blocks, as in the reference. Define a guess for each unknown, then a region with `Given`, then the
   constraints, one to a region, then the function that closes the block. A constraint is an equation or an
   inequality: `x^2 + y^2 = 4` typed in a region of its own is a constraint, not a result to work out.
-  - `Find(x, y, …)` gives the values that make every constraint hold, within CTOL (0.001 unless a Mathcad
-    sheet sets it), or an error when there are none. One unknown gives a number, several a vector, each in
-    its own units. Inequalities (`<`, `>`, `≤`, `≥`) keep the answer on their side.
+  - `Find(x, y, …)` gives the values that make every constraint hold, within CTOL (0.001 unless an imported
+    worksheet sets it), or an error when there are none. One unknown gives a number, several a vector, each in its
+    own units. Inequalities (`<`, `>`, `≤`, `≥`) keep the answer on their side.
   - `Minerr(x, y, …)` gives the nearest it can get, even when the constraints can't all hold.
   - `Maximize(f, x, …)` and `Minimize(f, x, …)` find where the function f is largest or smallest, alone or
     inside a solve block, whose constraints then limit where they look.
@@ -971,38 +995,39 @@ Solve blocks: Find, Minerr, Maximize, Minimize and Odesolve, and root.
     `y(2.5) =`. Derivatives may be written with primes, `y''(t) + y(t) = 0`, or with d/dt. `Odesolve((x; y),
     t, b)` solves a system, and an optional third number sets how many steps it keeps (1000 unless given).
     Units carry through, so a circuit can be solved in coulombs and seconds.
-- A function defined from a solve block, as `f(a) := Find(x)` with constraints that use a, solves the block
-  again for each argument, as in Mathcad: `f(9)` and `f(16)` from one block. Odesolve works the same way.
+- A function defined from a solve block, as `f(a) := Find(x)` with constraints that use a, solves the block again
+  for each argument, as the reference does: `f(9)` and `f(16)` from one block. Odesolve works the same way.
 - Every equation and inequality region between Given and the function that closes the block is one of its
-  constraints, as in Mathcad.
-- `root(f(x), x)`, from x's value as a guess, and `root(f(x), x, a, b)`, between a and b where f changes
-  sign, as Mathcad's.
-- Primes after a name, as `y'` and `y''`, typed with the apostrophe key: Mathcad keeps them in the name.
-- Mathcad sheets' solve blocks and CTOL are read, including the form Mathcad saves Find, Minerr, Maximize,
-  Minimize and Odesolve in.
+  constraints, as the reference does.
+- `root(f(x), x)`, from x's value as a guess, and `root(f(x), x, a, b)`, between a and b where f changes sign, as
+  the reference's.
+- Primes after a name, as `y'` and `y''`, typed with the apostrophe key: the reference keeps them in the name.
+- Imported worksheets' solve blocks and CTOL are read, including the form the reference saves Find, Minerr,
+  Maximize, Minimize and Odesolve in.
 
 ### Known limits
 
-- Find and the rest solve for real numbers, one number per unknown: not complex numbers or whole vectors.
-  Minerr doesn't set Mathcad's ERR variable.
-- Odesolve's starting values must all be at one point: conditions at two points (boundary value problems)
-  aren't supported yet. Its derivatives are primes or first derivatives d/dt; the d²/dt² operator form
-  isn't read from Mathcad sheets yet.
-- Results agree with Mathcad's to the solvers' accuracy: MathMath works to the last digit or two where
-  Mathcad stops at its tolerance, so Mathcad's root(x² − 2, x) is 1.41421356206 and MathMath's 1.41421356237.
+- Find and the rest solve for real numbers, one number per unknown: not complex numbers or whole vectors. Minerr
+  doesn't set the ERR variable.
+- Odesolve's starting values must all be at one point: conditions at two points (boundary value problems) aren't
+  supported yet. Its derivatives are primes or first derivatives d/dt; the d²/dt² operator form isn't read from
+  imported worksheets yet.
+- Results agree with the reference's to the solvers' accuracy: MathMath works to the last digit or two where the
+  reference stops at its tolerance, so the reference's root(x² − 2, x) is 1.41421356206 and MathMath's
+  1.41421356237.
 
 ## [0.22.0] - 2026-11-05
 
-Mathcad's differential equation solvers, with units.
+Differential equation solvers, with units.
 
 ### Added
 
-- Mathcad's ordinary differential equation solvers. Each takes the starting values, the interval x1 to x2,
-  and D(x, y), a function giving the vector of derivatives, and gives a matrix with x in the first column
-  and a column for each value of y. As in Mathcad 14, y may start as a single number, x2 may be below x1,
-  and D always receives y as a vector.
-  - `rkfixed(y, x1, x2, n, D)`: fixed-step fourth-order Runge–Kutta, matching Mathcad 14's results to the
-    last digit.
+- Ordinary differential equation solvers. Each takes the starting values, the interval x1 to x2, and D(x, y), a
+  function giving the vector of derivatives, and gives a matrix with x in the first column and a column for each
+  value of y. As in the reference, y may start as a single number, x2 may be below x1, and D always receives y as a
+  vector.
+  - `rkfixed(y, x1, x2, n, D)`: fixed-step fourth-order Runge–Kutta, matching the reference's results to the last
+    digit.
   - `Rkadapt`, `Bulstoer` and `Adams(…, [tol])`, answers at n + 1 evenly spaced points, and `rkadapt` and
     `bulstoer(y, x1, x2, acc, D, kmax, save)`, answers at the solver's own steps. These share one adaptive
     Runge–Kutta solver (Dormand–Prince 5(4)).
@@ -1010,16 +1035,16 @@ Mathcad's differential equation solvers, with units.
     save)`, whose Jacobian J(x, y) has ∂D/∂x in its first column, then ∂D/∂y; and `Radau(…, D, [J], [M],
     [tol])`, `BDF` and `AdamsBDF(…, D, [J], [tol])`, whose Jacobian is ∂D/∂y alone and can be left out. `M`
     is a constant mass matrix, for M·y′ = D. These share one stiff solver (Rosenbrock 4(3)).
-- Units in the differential equation solvers, which Mathcad 14 refuses: x may have a unit and each value
-  of y its own, so a circuit's voltages and currents can be solved in volts, amps and seconds. D's values
-  must be in y's units per x's. A start of 0 takes its unit from D, so (0·V; 0·A) works.
+- Units in the differential equation solvers, which the reference refuses: x may have a unit and each value of y
+  its own, so a circuit's voltages and currents can be solved in volts, amps and seconds. D's values must be in y's
+  units per x's. A start of 0 takes its unit from D, so (0·V; 0·A) works.
 
 ### Changed
 
-- Dirac's impulse is now Δ(x), as Mathcad 14 writes it in inverse Laplace transforms, and `δ(m, n)` is only
-  Kronecker's delta, as in Mathcad. 0.20.0 used δ(x) for both.
-- The second argument to `laplace`, `invlaplace`, `ztrans` and `invztrans` is MathMath's own: Mathcad 14
-  won't open a sheet that uses it.
+- Dirac's impulse is now Δ(x), as the reference writes it in inverse Laplace transforms, and `δ(m, n)` is only
+  Kronecker's delta, as in the reference. 0.20.0 used δ(x) for both.
+- The second argument to `laplace`, `invlaplace`, `ztrans` and `invztrans` is MathMath's own: the reference won't
+  open a sheet that uses it.
 
 ### Fixed
 
@@ -1029,9 +1054,9 @@ Mathcad's differential equation solvers, with units.
 ### Known limits
 
 - `Odesolve` isn't supported yet: it works inside a Given solve block, which MathMath doesn't have.
-- The adaptive and stiff solvers agree with Mathcad's to each method's accuracy, not digit for digit; with
-  no tolerance given they work to 10⁻⁹, tighter than Mathcad's defaults. `rkadapt` and the other solvers that
-  keep their own steps choose different steps from Mathcad's.
+- The adaptive and stiff solvers agree with the reference's to each method's accuracy, not digit for digit; with no
+  tolerance given they work to 10⁻⁹, tighter than the reference's defaults. `rkadapt` and the other solvers that
+  keep their own steps choose different steps from the reference's.
 
 ## [0.21.0] - 2026-11-05
 
@@ -1065,8 +1090,8 @@ Transfer functions, filter design in five families, and Laplace and z-transforms
   t = 0, as SciPy's `step` and `impulse` (the impulse response leaves out an impulse at 0 from a direct
   term); at sample numbers, a digital filter's.
 - `analogPoles` and `analogZeros` (in 1/s), and `digitalPoles` and `digitalZeros` (in the z-plane).
-- `polyroots(v)`, Mathcad's: the roots of a polynomial, coefficients constant term first, which may be
-  complex. Roots are sorted by real part, then imaginary.
+- `polyroots(v)`: the roots of a polynomial, coefficients constant term first, which may be complex. Roots are
+  sorted by real part, then imaginary.
 - `unwrapPhase(φ)` removes the jumps of 2π in a phase, as NumPy's `unwrap`, for phase plots past ±180°.
 - Filter design in four more families, each with Lowpass, Highpass, Bandpass and Bandstop forms, as SciPy's:
   Chebyshev type I (`cheby1Lowpass(n, ripple, f)`, ripple in dB), Chebyshev type II
@@ -1075,12 +1100,12 @@ Transfer functions, filter design in five families, and Laplace and z-transforms
 - Analog filter design: every family, Butterworth included, designs an analog H(s) when its edges are
   frequencies with units, such as `butterLowpass(4, 1·kHz)`, scaled so a₀ = 1. Any frequency with units is
   read as cycles per second (Hz), since Hz and 1/s are the same unit.
-- The Laplace and z-transform keywords, as Mathcad's: `laplace, t` (result in s), `invlaplace, s` (in t),
-  `ztrans, n` (in z) and `invztrans, z` (in n). A second argument names the result's variable. They are on
-  the Keywords menu. Decimals in the expression are made exact first, so 0.5ⁿ transforms like (1/2)ⁿ.
-- `Φ(x)`, Mathcad's step function (1 from 0 up), and `δ(m, n)`, Mathcad's Kronecker delta. `δ(x)` with one
-  argument is Dirac's impulse, which inverse transforms give: 0 away from 0, ∞ at 0. A transform's variable
-  must have no value on the sheet, as Mathcad requires.
+- The Laplace and z-transform keywords, as in the reference: `laplace, t` (result in s), `invlaplace, s` (in t),
+  `ztrans, n` (in z) and `invztrans, z` (in n). A second argument names the result's variable. They are on the
+  Keywords menu. Decimals in the expression are made exact first, so 0.5ⁿ transforms like (1/2)ⁿ.
+- `Φ(x)`, the step function (1 from 0 up), and `δ(m, n)`, the Kronecker delta. `δ(x)` with one argument is Dirac's
+  impulse, which inverse transforms give: 0 away from 0, ∞ at 0. A transform's variable must have no value on the
+  sheet, as the reference requires.
 
 ### Changed
 
@@ -1099,14 +1124,12 @@ Electrical engineering: units, phasors, decibels and standard part values.
 
 ### Added
 
-- Electrical units, with the names and values Mathcad 14 uses, so sheets that use them now calculate:
-  ohms (`Ω`, `kΩ`, `MΩ`, `ohm`), siemens (`S`, `mho`), farads (`F`, `μF`, `nF`, `pF`), henries (`H`, `mH`,
-  `μH`), coulombs (`C` to `pC`), `Wb`, teslas (`T`, `gauss`, `G`), `Oe`, and smaller amps, volts, seconds
-  and watts (`kA`, `μA`, `nA`, `pA`, `μV`, `nV`, `μs`, `ps`, `μW`, `nW`). Results already showed in ohms,
-  farads and henries.
-- More units that Mathcad 14 lacks: `mΩ`, `GΩ`, `mS`, `μS`, `mF`, `nH`, `pH`, `mT`, `μT`, `MV`, `VA`,
-  `kVA`, `MVA`, `Wh`, `kWh`, `Ah`, `mAh` and `eV`. VA shows as W and Wh as J, since they measure the same
-  thing.
+- Electrical units, with the names and values the reference uses, so sheets that use them now calculate: ohms (`Ω`,
+  `kΩ`, `MΩ`, `ohm`), siemens (`S`, `mho`), farads (`F`, `μF`, `nF`, `pF`), henries (`H`, `mH`, `μH`), coulombs
+  (`C` to `pC`), `Wb`, teslas (`T`, `gauss`, `G`), `Oe`, and smaller amps, volts, seconds and watts (`kA`, `μA`,
+  `nA`, `pA`, `μV`, `nV`, `μs`, `ps`, `μW`, `nW`). Results already showed in ohms, farads and henries.
+- More units that the reference lacks: `mΩ`, `GΩ`, `mS`, `μS`, `mF`, `nH`, `pH`, `mT`, `μT`, `MV`, `VA`, `kVA`,
+  `MVA`, `Wh`, `kWh`, `Ah`, `mAh` and `eV`. VA shows as W and Wh as J, since they measure the same thing.
 - Ways to type units without Greek letters: `kohm`, `Mohm`, `mohm` (milliohms) and `Gohm`, and `u` for
   micro (`uF`, `uH`, `uA`, `uV`, `uC`, `uW`, `uS`, `uT`). Typing `Omega` alone gives `Ω`. The
   micro sign `µ` that many keyboards type is read as `μ`.
@@ -1126,9 +1149,9 @@ Electrical engineering: units, phasors, decibels and standard part values.
 
 ### Changed
 
-- A result whose units are a whole power of one named unit now shows in that unit, as Mathcad 14 does:
-  conductance as 1/Ω rather than base units, and likewise Ω², 1/W and 1/L. Units that combine several, such
-  as S/m, still show in base units.
+- A result whose units are a whole power of one named unit now shows in that unit, as the reference does:
+  conductance as 1/Ω rather than base units, and likewise Ω², 1/W and 1/L. Units that combine several, such as S/m,
+  still show in base units.
 
 ## [0.18.0] - 2026-11-05
 
@@ -1138,9 +1161,9 @@ Image processing.
 
 - Image processing. A gray image is a matrix of 0 to 255, and a color image is a vector of three matrices
   (R; G; B). Functions that work on a channel do each of a color image's three, and give back the same kind.
-- Color: `imageChannels(M)` splits the red, green and blue blocks that `readImage` and Mathcad's `READRGB`
-  put side by side into (R; G; B), and `joinChannels` puts them back. `toGray` uses the usual Rec. 601
-  weights. `rgbToHsv` and `hsvToRgb` convert to and from hue, saturation and value, each 0 to 255.
+- Color: `imageChannels(M)` splits the red, green and blue blocks that `readImage` and `READRGB` put side by side
+  into (R; G; B), and `joinChannels` puts them back. `toGray` uses the usual Rec. 601 weights. `rgbToHsv` and
+  `hsvToRgb` convert to and from hue, saturation and value, each 0 to 255.
 - Geometry: `resizeImage(M, rows, cols)`, smooth when enlarging and averaging when shrinking;
   `rotateImage(M, angle)` about the center, counterclockwise, so `30·deg` works; `rotate90(M, k)` for quarter
   turns; `flipRows` and `flipCols`.
@@ -1175,10 +1198,10 @@ Signal processing.
 
 ### Added
 
-- Mathcad's Fourier transforms: `fft` and `ifft`, `FFT` and `IFFT` for real signals of 2^m values, and
-  `cfft`, `icfft`, `CFFT` and `ICFFT` for complex vectors of any length and matrices (a 2-D transform). They
-  match Mathcad 14's scaling and signs, checked against its own answers. Any length is fast, not only powers
-  of two: a million points take a fraction of a second. Values keep their units.
+- Fourier transforms: `fft` and `ifft`, `FFT` and `IFFT` for real signals of 2^m values, and `cfft`, `icfft`,
+  `CFFT` and `ICFFT` for complex vectors of any length and matrices (a 2-D transform). They match the reference's
+  scaling and signs, checked against its own answers. Any length is fast, not only powers of two: a million points
+  take a fraction of a second. Values keep their units.
 - Convolution and correlation: `convolve(a, b)` and `correlate(a, b)`, of real or complex vectors, at every
   overlap.
 - Windows: `hannWindow(n)`, `hammingWindow(n)`, `blackmanWindow(n)` and `kaiserWindow(n, β)`.
@@ -1198,7 +1221,7 @@ Signal processing.
 
 ### Known limits
 
-- Mathcad's wavelet transforms, `wave` and `iwave`, aren't built.
+- The wavelet transforms, `wave` and `iwave`, aren't built.
 - WAV files can be read but not written yet.
 - An attached WAV file is kept inside the sheet, so a long recording makes the sheet file large: a 30-second
   stereo recording at 44.1 kHz adds about 7 MB.
@@ -1375,7 +1398,7 @@ Speed on large sheets, and answers that stay in view while their unit or math is
   Now the number stays in view and only the unit opens, filled in with the unit shown and selected, so typing
   replaces it.
 - Clicking into math with an answer hid the answer while editing. It now stays in view, grayed, just after the
-  math, until the sheet calculates again, as in Mathcad.
+  math, until the sheet calculates again, as in the reference.
 
 ## [0.8.0] - 2026-11-03
 
@@ -1396,29 +1419,29 @@ Deployment (milestone 7).
 
 ## [0.7.0] - 2026-11-02
 
-The calculating region's green box, units on plot axes, Mathcad's splines and remaining matrix functions, and a
-Matrix menu for typing matrix operators.
+The calculating region's green box, units on plot axes, splines and remaining matrix functions, and a Matrix menu
+for typing matrix operators.
 
 ### Added
 
-- While a sheet calculates, the region being worked on gets a green box, as in Mathcad. It appears only once a
-  region has taken a tenth of a second, so quick sheets don't flicker, and it isn't printed.
+- While a sheet calculates, the region being worked on gets a green box, as in the reference. It appears only once
+  a region has taken a tenth of a second, so quick sheets don't flicker, and it isn't printed.
 - Plot axes show their unit after the axis expression: the default in gray, chosen as a result's display unit
   is, such as `(m)` or `(s)`. Click it and type another, such as `ft` or `ms`, and the axis converts; clear it
   to go back to the default. A limit typed with units converts too, and a bare number is in the axis's unit.
-- Mathcad's interpolating splines: `lspline`, `pspline` and `cspline` (natural, parabolic and cubic ends), in
-  1-D and on a 2-D grid, `bspline` (a piecewise polynomial of chosen degree with breaks where asked), and
-  `interp` to evaluate any of them. Outside the data, the end piece continues. `medsmooth(v, n)` takes running
-  medians over an odd window, cut short at the ends. Spline vectors are laid out as Mathcad lays them out, and
-  46 measured results from Mathcad 14 match to within 10⁻¹³.
-- Mathcad's remaining matrix functions: `lsolve`, `rank`, `rref`, `diag`, `norm1` and `norm2`, the condition
-  numbers `cond1`, `cond2`, `conde` and `condi`, `svds`, `svd` (U over V), `geninv`, `lu` (P, L and U side by
-  side, pivoting as Mathcad does), `qr`, `cholesky`, `eigenvecs` and `eigenvec`. Checked against 33 results
-  measured in Mathcad 14.
-- A Matrix menu on the toolbar, in place of the Matrix button: insert a 2×2, 3×3, column or row matrix, add a
-  row or column, and apply transpose, a column M⟨j⟩, vectorize and |M| to the selection or to what's before
-  the caret. These couldn't be typed before. Mathcad's keys work too: Ctrl+M for a matrix, Ctrl+1 transpose,
-  Ctrl+6 column and Ctrl+− vectorize, though Chrome keeps Ctrl+1 and Ctrl+6 for its tabs.
+- Interpolating splines: `lspline`, `pspline` and `cspline` (natural, parabolic and cubic ends), in 1-D and on a
+  2-D grid, `bspline` (a piecewise polynomial of chosen degree with breaks where asked), and `interp` to evaluate
+  any of them. Outside the data, the end piece continues. `medsmooth(v, n)` takes running medians over an odd
+  window, cut short at the ends. Spline vectors are laid out as the reference lays them out, and 46 measured
+  results from the reference match to within 10⁻¹³.
+- The remaining matrix functions: `lsolve`, `rank`, `rref`, `diag`, `norm1` and `norm2`, the condition numbers
+  `cond1`, `cond2`, `conde` and `condi`, `svds`, `svd` (U over V), `geninv`, `lu` (P, L and U side by side,
+  pivoting as the reference does), `qr`, `cholesky`, `eigenvecs` and `eigenvec`. Checked against 33 results
+  measured in the reference.
+- A Matrix menu on the toolbar, in place of the Matrix button: insert a 2×2, 3×3, column or row matrix, add a row
+  or column, and apply transpose, a column M⟨j⟩, vectorize and |M| to the selection or to what's before the caret.
+  These couldn't be typed before. The reference's keys work too: Ctrl+M for a matrix, Ctrl+1 transpose, Ctrl+6
+  column and Ctrl+− vectorize, though Chrome keeps Ctrl+1 and Ctrl+6 for its tabs.
 
 ### Changed
 
@@ -1426,29 +1449,29 @@ Matrix menu for typing matrix operators.
 
 ### Fixed
 
-- `|M|` on a square matrix gave the size of the determinant, dropping its sign; it's now the determinant, as in
-  Mathcad 14 (`|(1 2; 3 4)|` is −2). Mathcad's separate determinant operator now imports as `|M|`. With units,
-  Mathcad refuses a determinant; MathMath gives it, in the matrix's unit to the power of its size.
+- `|M|` on a square matrix gave the size of the determinant, dropping its sign; it's now the determinant, as in the
+  reference (`|(1 2; 3 4)|` is −2). The reference's separate determinant operator now imports as `|M|`. With units,
+  the reference refuses a determinant; MathMath gives it, in the matrix's unit to the power of its size.
 
 ### Known limits
 
-- Eigenvectors, `svd` and `qr` are unique only up to sign, and can differ from Mathcad's in sign (`qr` always
-  makes R's diagonal positive). For some non-symmetric matrices, `eigenvals` lists the values in a different
-  order from Mathcad, and `eigenvecs` follows it.
+- Eigenvectors, `svd` and `qr` are unique only up to sign, and can differ from the reference's in sign (`qr` always
+  makes R's diagonal positive). For some non-symmetric matrices, `eigenvals` lists the values in a different order
+  from the reference, and `eigenvecs` follows it.
 
 - Traces with different units on one axis share no unit, so that axis shows plain base-unit numbers with no
   unit after it.
 
 ## [0.6.0] - 2026-11-02
 
-Sums over range variables, Mathcad's sum rules and keys, plot titles, and a script to run the app.
+Sums over range variables, the reference's sum rules and keys, plot titles, and a script to run the app.
 
 ### Added
 
-- Sums and products over a range variable, as in Mathcad: type `$` (or `#` for a product), then the range
-  variable and the term. With `i := 0..10`, the sum of `i²` over `i` is 385. They read from and import as
-  Mathcad's range sum and range product.
-- Mathcad's keys for a sum or product with limits: Ctrl+Shift+4 and Ctrl+Shift+3.
+- Sums and products over a range variable, as in the reference: type `$` (or `#` for a product), then the range
+  variable and the term. With `i := 0..10`, the sum of `i²` over `i` is 385. They read from and import as the
+  reference's range sum and range product.
+- The reference's keys for a sum or product with limits: Ctrl+Shift+4 and Ctrl+Shift+3.
 - `scripts/serve.sh` (or `npm run serve`) runs the app in the terminal, reachable from other machines by this
   machine's name, which it lets through Vite's host check without touching `vite.config.ts`. `--built` builds
   first and serves the built app, as a deployment would. More names can be given in `MATHMATH_HOSTS`.
@@ -1458,9 +1481,9 @@ Sums over range variables, Mathcad's sum rules and keys, plot titles, and a scri
 
 ### Changed
 
-- Sum and product limits follow Mathcad 14, as measured there: they must be whole numbers without units, and
-  limits given high to low count down. A limit of ∞ is refused with `=`, saying to use → for an exact answer,
-  where before the sum ran until stopped.
+- Sum and product limits follow the reference, as measured there: they must be whole numbers without units, and
+  limits given high to low count down. A limit of ∞ is refused with `=`, saying to use → for an exact answer, where
+  before the sum ran until stopped.
 - The built app, served with `vite preview`, now sends the content security policy as a header, so the
   calculation worker is held to it too, as it would be when deployed.
 - The `.mathmath` format, still version 1, gains optional title fields on plots and their axes. Files without
@@ -1468,9 +1491,9 @@ Sums over range variables, Mathcad's sum rules and keys, plot titles, and a scri
 
 ### Fixed
 
-- Σ over a range variable written with no limits gave the column of its values, and a sum with limits given
-  high to low gave 0. Σ of a single number or a range variable is now an error that points to `$`, as in
-  Mathcad, and reversed limits count down.
+- Σ over a range variable written with no limits gave the column of its values, and a sum with limits given high to
+  low gave 0. Σ of a single number or a range variable is now an error that points to `$`, as in the reference, and
+  reversed limits count down.
 
 ### Known limits
 
@@ -1479,57 +1502,57 @@ Sums over range variables, Mathcad's sum rules and keys, plot titles, and a scri
 
 ## [0.5.0] - 2026-11-02
 
-Wider corpus tests (milestone 6): 592 of 664 stored results in the test worksheets match, up from 383.
-References, data files, Ctrl+G for Greek letters, and ranges with units checked as Mathcad checks them.
+Wider corpus tests (milestone 6): 592 of 664 stored results in the test worksheets match, up from 383. References,
+data files, Ctrl+G for Greek letters, and ranges with units checked as the reference checks them.
 
 ### Added
 
-- References. A Mathcad reference region imports as an `include` region that shows only the file name.
-  It runs the other worksheet's regions at that point, so their definitions hold from there on, without
-  showing their results. A reference to an `.mcd` file finds the same sheet saved as `.xmcd`. A missing sheet
-  is grayed with a note to load it with Files; a sheet that includes itself stops with a message.
-- `readTable("name")` reads an attached text file of numbers and words, split on commas, tabs or spaces, into
-  a matrix. Words stay strings, and an empty cell is 0, as Mathcad reads it.
-- Mathcad's data-reading components (File Input, the Data Import Wizard and the Excel component) import as
+- References. A worksheet reference region imports as an `include` region that shows only the file name. It runs
+  the other worksheet's regions at that point, so their definitions hold from there on, without showing their
+  results. A reference to an `.mcd` file finds the same sheet saved as `.xmcd`. A missing sheet is grayed with a
+  note to load it with Files; a sheet that includes itself stops with a message.
+- `readTable("name")` reads an attached text file of numbers and words, split on commas, tabs or spaces, into a
+  matrix. Words stay strings, and an empty cell is 0, as the reference reads it.
+- Data-reading components (File Input, the Data Import Wizard and the Excel component) import as
   `Name := readTable("file")`, using only the file's name from the component. readTable reads text, so a
   spreadsheet needs saving as CSV.
 - Files → *From this computer…* also takes data files, which add a readTable region, and worksheets
   (`.xmcd` or `.mathmath`), which references then find by name. Several files can be picked at once, and an
   attached `.mathmath` sheet brings the files attached to it.
 - `histogram(n, data)` and `hist(bounds, data)`.
-- Ctrl+G turns the letter before the caret into its Greek letter, as in Mathcad (`q` is θ, `f` is φ, `D` is Δ),
-  and pressing it again turns it back. Typing a letter's name, such as `alpha`, still works too.
-- Mathcad's zero-over-zero option, read from imported sheets: with it on, 0/0 is 0, element by element.
-- Calling a function with fewer arguments than it takes gives a function of the rest, as in Mathcad.
-- The scoreboard can score sheets that read files and reference others: `--also <folder>` adds worksheets to
-  find references in, before the corpus, and `--skip` leaves sheets out. Results held up by a missing file
-  or a Mathcad function to replace are counted apart, as needing a file.
+- Ctrl+G turns the letter before the caret into its Greek letter, as in the reference (`q` is θ, `f` is φ, `D` is
+  Δ), and pressing it again turns it back. Typing a letter's name, such as `alpha`, still works too.
+- The zero-over-zero option, read from imported sheets: with it on, 0/0 is 0, element by element.
+- Calling a function with fewer arguments than it takes gives a function of the rest, as in the reference.
+- The scoreboard can score sheets that read files and reference others: `--also <folder>` adds worksheets to find
+  references in, before the corpus, and `--skip` leaves sheets out. Results held up by a missing file or a function
+  to replace are counted apart, as needing a file.
 
 ### Changed
 
 - The `.mathmath` format, still version 1 before 1.0, gains the `include` region kind and two sheet settings,
   `exactCompare` and `zeroOverZero`. Older files open unchanged; a file with a reference in it needs this
   version.
-- Comparisons follow the sheet's "exact equality" setting. With it off, as in some Mathcad sheets, numbers
-  within a relative 10⁻¹² of each other are equal, as measured in Mathcad 14. New sheets compare exactly.
+- Comparisons follow the sheet's "exact equality" setting. With it off, as in some imported worksheets, numbers
+  within a relative 10⁻¹² of each other are equal, as measured in the reference. New sheets compare exactly.
 
 - Integrals split at the points of any table interpolated at the integration variable, so each piece is
   smooth. Integrals of tabulated data are far faster (one color integral went from 2.6 s to 44 ms) and more
   accurate.
 - Arithmetic on arrays of real numbers works on the numbers directly, about three times faster.
-- The scoreboard compares a result that depends on an integral or derivative, at any remove and through
-  references, with the looser tolerance integrals get, because Mathcad computes them only to its tolerance.
-  With a referenced sheet missing, a name left undefined counts as needing that file.
+- The scoreboard compares a result that depends on an integral or derivative, at any remove and through references,
+  with the looser tolerance integrals get, because the reference computes them only to its tolerance. With a
+  referenced sheet missing, a name left undefined counts as needing that file.
 
 ### Fixed
 
-- A call on the right of a global definition (`≡`), which Mathcad saves in a different form, failed to read.
-- A name mixing Greek and Latin letters, such as `Δx` or `αβ`, failed to read when typed. Adjacent letters,
-  Greek ones included, are now one name, as in Mathcad.
-- Ranges with units now follow Mathcad 14's rules, as measured there. A range with units must give its second
+- A call on the right of a global definition (`≡`), which the reference saves in a different form, failed to read.
+- A name mixing Greek and Latin letters, such as `Δx` or `αβ`, failed to read when typed. Adjacent letters, Greek
+  ones included, are now one name, as in the reference.
+- Ranges with units now follow the reference's rules, as measured there. A range with units must give its second
   value (`0s, 0.5s..3s`); without it the step would be 1 of a base unit, so `0cm..3cm` gave only 0. Every value
-  must have the same unit, though a 0 can go without one. Before, `0m..3s` quietly gave metres and
-  `0, 0.5m..2m` lost its unit.
+  must have the same unit, though a 0 can go without one. Before, `0m..3s` quietly gave metres and `0, 0.5m..2m`
+  lost its unit.
 - A derivative at a range or vector of points failed; it's now taken at each point.
 - A stored zero now matches a computed zero whatever its display unit.
 - An attached sheet that needs more files (references of its own, or data files) kept its reference grayed,
@@ -1547,11 +1570,11 @@ Plots, display units, images and a LIVE / EDIT mode (milestone 5).
   several traces, and values typed at the axis ends override the automatic limits. Log axes, points or lines,
   a readout on hover, and a resize handle. Trace colors pass a color-vision check, and each trace has its own
   dash pattern. Plots imported from `.xmcd` files stay as their stored pictures. 3-D plots come later.
-- Results show default display units chosen the way Mathcad chooses them: a named unit (N, J, W, Pa, C, V,
-  Ω, F, T, Wb, H, lx, L) where one fits, otherwise base units in a fixed order. They agree with Mathcad on
-  all 27 of its choices in the self-contained test sheets.
+- Results show default display units chosen the way the reference chooses them: a named unit (N, J, W, Pa, C, V, Ω,
+  F, T, Wb, H, lx, L) where one fits, otherwise base units in a fixed order. They agree with the reference on all
+  27 of its choices in the self-contained test sheets.
 - Click an answer to set its unit. `degC` and `degF` take their offset, and a chosen unit survives editing.
-- Image regions show a matrix in gray, or in color from three matrices or three blocks of columns. Mathcad's
+- Image regions show a matrix in gray, or in color from three matrices or three blocks of columns. The reference's
   two image viewer components import as image regions.
 - `readImage("name")` reads an attached image file. Files → *From this computer…* or *From a web address…*
   attaches a file and adds `■ := readImage("name")` with the name placeholder selected. A web address must be
@@ -1565,11 +1588,11 @@ Plots, display units, images and a LIVE / EDIT mode (milestone 5).
 
 ### Changed
 
-- Imported sheets keep Mathcad's function names. MathMath's own functions get their own names, and a
+- Imported sheets keep the reference's function names. MathMath's own functions get their own names, and a
   translation table (`src/xmcd/names.ts`) maps the ones that mean the same thing (empty so far).
-- Mathcad's file functions (`READRGB`, `READBMP` and the rest) don't run, because they read paths on
-  Mathcad's machine. Their regions, and everything depending on them, are grayed, with a note saying to load
-  the file with Files instead. `readImage` refuses folder paths and explains why.
+- The reference's file functions (`READRGB`, `READBMP` and the rest) don't run, because they read paths on the
+  original machine. Their regions, and everything depending on them, are grayed, with a note saying to load the
+  file with Files instead. `readImage` refuses folder paths and explains why.
 - Program blocks draw their bar as part of the array (`\begin{array}{|l}`) rather than as a stretchy `\left|`.
   A stretchy bar is centered on the first line, so a program left as much empty space above it as it hung
   below: one test program went from 361 px to 128 px tall. Programs saved in the old form still open.
@@ -1590,9 +1613,9 @@ Plots, display units, images and a LIVE / EDIT mode (milestone 5).
 
 ### Known limits
 
-- KaTeX's letters are wider than Mathcad's, so wide programs can touch their neighbors.
+- KaTeX's letters are wider than the reference's, so wide programs can touch their neighbors.
 - `°C` and `°F` are typed as `degC` and `degF`.
-- Images are decoded by the browser, so JPEG pixels may differ from Mathcad's by one level.
+- Images are decoded by the browser, so JPEG pixels may differ from the reference's by one level.
 - Attaching a file can't be undone. `writeImage` isn't built yet.
 - In a file-writing definition whose parameter is a path, the path loses its spaces on the round trip
   through the text form.
@@ -1605,8 +1628,8 @@ touch the same core files).
 
 ### Added
 
-- The worksheet app: click anywhere and type, Mathcad-style keys (`:` `;` `[` `.` `]` `{` `}`), drag, box
-  select, shift-click, align, push-down, text regions, display-only math, undo, printing, and open and save.
+- The worksheet app: click anywhere and type, the reference's keys (`:` `;` `[` `.` `]` `{` `}`), drag, box select,
+  shift-click, align, push-down, text regions, display-only math, undo, printing, and open and save.
 - Calculation runs in a Web Worker, and Esc stops it.
 - The `.mathmath` file format, version 1. It stores expression trees rather than LaTeX. Math that can't be
   read is kept as typed, and regions this version can't edit keep their original data, so saving loses nothing.

@@ -1,6 +1,6 @@
 {
   "name": "mathmath",
-  "version": "0.55.0",
+  "version": "0.55.1",
   "private": true,
   "description": "Web-based engineering math application with a WYSIWYG paper interface",
   "license": "AGPL-3.0-or-later",
