@@ -52,7 +52,7 @@ import { parseTable } from './table.js';
 import { MATHCAD_FILE_FUNCTIONS, MATHCAD_WRITES } from '../xmcd/names.js';
 import { absV, addV, compareReal, det, identity, inverse, magnitude, mapMat, pow, sumV, transpose } from './ops.js';
 import {
-  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, dimDiv, fromValues, getEl, isNoDim, newMat, num, numbersOf,
+  type Dim, EvalError, MAX_ELEMENTS, checkPoints, checkString, countText, type Fn, type Mat, NODIM, type Num, type Value, cloneMat, dimDiv, fromValues, getEl, isNoDim, newMat, num, numbersOf,
   needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
@@ -190,8 +190,12 @@ function sortRowsBy(m: Mat, key: Float64Array): Mat {
 }
 
 /** An image as one matrix of 0 to 255, with red, green and blue blocks side by side. */
-function imageMatrix(img: DecodedImage): Mat {
+function imageMatrix(img: DecodedImage, name: string): Mat {
   const { width: w, height: h, rgba } = img;
+  // Three numbers a pixel, so the array limit is about 3.3 megapixels: say so in terms of the picture.
+  if (w * h * 3 > MAX_ELEMENTS) {
+    throw new EvalError('runtime', `${name} is ${w} × ${h} pixels, ${countText(w * h * 3)} numbers in red, green and blue, and an array can have at most ${countText(MAX_ELEMENTS)}: about ${(MAX_ELEMENTS / 3e6).toFixed(1)} megapixels. Attach a smaller copy of the picture`);
+  }
   const m = newMat(h, w * 3);
   for (let i = 0; i < h; i++) {
     for (let j = 0; j < w; j++) {
@@ -280,6 +284,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
   const count = (m: Value, fn: string): number => {
     const n = requireReal(m, `${fn}'s count`);
     if (!Number.isInteger(n) || n < 1) throw new EvalError('runtime', `${fn} needs a whole number of values, 1 or more`);
+    checkPoints(n, fn, 'number of values');
     return n;
   };
 
@@ -570,7 +575,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       const img = files.image(fileKey(name));
       // A missing file, as for readWav and readTable: the region waits for it, and the bar above the paper asks for it.
       if (!img) throw isWebAddress(name) ? new EvalError('runtime', `${name} isn't loaded in this worksheet. Load it with Files on the toolbar`) : needsFile(name);
-      return imageMatrix(img);
+      return imageMatrix(img, name);
     },
     // Mathcad's Fourier transforms, with its scaling and signs (see fourier.ts).
     fft: (v) => realForward(v!, 'fft'), FFT: (v) => realForward(v!, 'FFT'),
@@ -709,7 +714,13 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       for (let i = 0; i < n; i++) cells.push(num(counts[i]!));
       return fromValues(n, 2, cells);
     },
-    concat: (...a) => str(a.map((s) => (s.t === 'str' ? s.v : '')).join('')),
+    concat: (...a) => {
+      const parts = a.map((s) => (s.t === 'str' ? s.v : ''));
+      // Checked before joining, so the string too long to keep is never made.
+      const length = parts.reduce((n, p) => n + p.length, 0);
+      checkString(length);
+      return str(parts.join(''));
+    },
     strlen: (s) => num(s.t === 'str' ? s.v.length : 0),
     // A uniform number in [0, x), in x's units. On a vector, one for each element.
     rnd: (x) => scalar((v) => num(next() * requireReal(v, "rnd's argument"), v.dim))(x!),

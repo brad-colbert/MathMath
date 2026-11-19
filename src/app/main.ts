@@ -36,7 +36,7 @@ const INK = 'ink';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
-import type { Content, NumberFormat, Worksheet } from '../model/ast.js';
+import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type Worksheet, onPaper, paperOf } from '../model/ast.js';
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { isCmpFile } from '../engine/colormaps.js';
 import { Doc } from './document.js';
@@ -145,7 +145,20 @@ async function insertPicture(): Promise<void> {
   doc.addPicture(at.left, at.top, file.type, await base64(file), bitmap.width * 0.75 * scale, bitmap.height * 0.75 * scale);
 }
 
-const doc = new Doc();
+/** Where this browser keeps the paper last chosen, for new worksheets. */
+const PAPER_KEY = 'mathmath.paper';
+/** An empty worksheet on the paper last chosen in this browser, Letter until one is. */
+function newWorksheet(): Worksheet {
+  const ws = emptyWorksheet();
+  try {
+    const chosen = localStorage.getItem(PAPER_KEY);
+    if (chosen && chosen in PAPERS) ws.page = onPaper(ws.page, chosen as PaperSize);
+  } catch {
+    // No storage: Letter.
+  }
+  return ws;
+}
+const doc = new Doc(newWorksheet());
 const toolbar = document.getElementById('toolbar')!;
 const paper = new Paper(document.getElementById('sheet')!, doc);
 // The paper's size on screen: true size, or fitted to a phone's width.
@@ -308,7 +321,7 @@ const fresh = (): void => {
   paper.commitAll();
   if (doc.dirty && !window.confirm('Discard unsaved changes?')) return;
   forgetFile();
-  doc.replace(emptyWorksheet(), 'Untitled');
+  doc.replace(newWorksheet(), 'Untitled');
   leaveShared();
 };
 
@@ -571,16 +584,35 @@ for (const [name, takesArgument, help] of KEYWORDS) {
   });
   list.appendChild(b);
 }
-// The page: portrait or landscape. The current one is ticked each time the menu opens.
+// The page: its paper, and portrait or landscape. The current ones are ticked each time the menu opens.
 const pageMenu = document.createElement('details');
 pageMenu.className = 'menu';
 const pageSummary = document.createElement('summary');
 pageSummary.textContent = 'Page';
-pageSummary.title = 'Page orientation';
+pageSummary.title = 'Paper size and orientation';
 pageSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const pageList = document.createElement('div');
 pageMenu.append(pageSummary, pageList);
 toolbar.appendChild(pageMenu);
+const PAPER_LABELS: Record<PaperSize, string> = { Letter: 'Letter, 8.5 × 11 in', Legal: 'Legal, 8.5 × 14 in', A4: 'A4, 210 × 297 mm' };
+const paperButtons = (Object.keys(PAPERS) as PaperSize[]).map((size) => {
+  const b = document.createElement('button');
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    pageMenu.open = false;
+    doc.setPaper(size);
+    // New worksheets in this browser start on it too.
+    try {
+      localStorage.setItem(PAPER_KEY, size);
+    } catch {
+      // Without storage, new worksheets stay on Letter.
+    }
+  });
+  pageList.appendChild(b);
+  return { b, size };
+});
+const pageRule = document.createElement('hr');
+pageList.appendChild(pageRule);
 const orientations: [string, boolean][] = [['Portrait', false], ['Landscape', true]];
 const orientationButtons = orientations.map(([label, landscape]) => {
   const b = document.createElement('button');
@@ -593,6 +625,12 @@ const orientationButtons = orientations.map(([label, landscape]) => {
   return { b, label, landscape };
 });
 pageMenu.addEventListener('toggle', () => {
+  const current = paperOf(doc.ws.page);
+  for (const { b, size } of paperButtons) {
+    b.textContent = `${current === size ? '✓ ' : '\u2003'}${PAPER_LABELS[size]}`;
+    b.setAttribute('aria-checked', String(current === size));
+    b.setAttribute('role', 'menuitemradio');
+  }
   for (const { b, label, landscape } of orientationButtons) {
     const on = doc.ws.page.landscape === landscape;
     b.textContent = `${on ? '✓ ' : '\u2003'}${label}`;

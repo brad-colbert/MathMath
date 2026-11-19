@@ -223,6 +223,27 @@ export const DEFAULT_PAGE: PageModel = {
   width: 612, height: 792, landscape: false, margins: { left: 36, right: 36, top: 36, bottom: 36 },
 };
 
+/** Paper sizes, upright, in points: width, then height. */
+export const PAPERS = {
+  Letter: [612, 792],
+  Legal: [612, 1008],
+  A4: [595.28, 841.89],
+} as const satisfies Record<string, readonly [number, number]>;
+export type Paper = keyof typeof PAPERS;
+
+/** The paper a page is, whichever way up, or null for a size that isn't one of them. */
+export function paperOf(page: PageModel): Paper | null {
+  const [short, long] = [Math.min(page.width, page.height), Math.max(page.width, page.height)];
+  for (const [name, [w, h]] of Object.entries(PAPERS)) if (Math.abs(short - w) < 1 && Math.abs(long - h) < 1) return name as Paper;
+  return null;
+}
+
+/** The page on a paper, the same way up as `page`, its margins kept. */
+export function onPaper(page: PageModel, paper: Paper): PageModel {
+  const [w, h] = PAPERS[paper];
+  return { ...page, width: page.landscape ? h : w, height: page.landscape ? w : h };
+}
+
 export const DEFAULT_FORMAT: NumberFormat = { precision: 3, exponent: 3, trailingZeros: false };
 
 /** A file a worksheet reads, such as an image, kept inside the worksheet file. */

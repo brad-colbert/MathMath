@@ -1638,6 +1638,41 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await sleep(80);
   st = await state();
   check('one undo puts it back to portrait', !st.landscape && st.width === 612 && st.height === 792, st);
+  // Paper sizes: A4 keeps the orientation, prints at its size, and new worksheets in this browser start on it.
+  await pick('A4');
+  await sleep(80);
+  st = await state();
+  check('Page → A4 sizes the page, for the screen and for print', !st.landscape && st.width === 595.28 && st.height === 841.89 && st.firstBreak === '841.89pt' && st.print.includes('size: 595.28pt 841.89pt'), st);
+  await pick('Landscape');
+  await sleep(80);
+  st = await state();
+  check('and A4 turns sideways', st.landscape && st.width === 841.89 && st.height === 595.28, st);
+  await pick('Legal');
+  await sleep(80);
+  st = await state();
+  check('a new paper keeps the orientation', st.landscape && st.width === 1008 && st.height === 612, st);
+  const ticked = await page.evaluate(() => {
+    const menu = [...document.querySelectorAll<HTMLDetailsElement>('#toolbar details.menu')].find((d) => d.querySelector('summary')!.textContent === 'Page')!;
+    menu.dispatchEvent(new Event('toggle'));
+    return [...menu.querySelectorAll('button')].filter((b) => b.textContent!.startsWith('✓')).map((b) => b.textContent);
+  });
+  check('the menu ticks the paper and the orientation', JSON.stringify(ticked) === JSON.stringify(['✓ Legal, 8.5 × 14 in', '✓ Landscape']), ticked);
+  await pick('A4');
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'New')!.click());
+  await sleep(80);
+  st = await state();
+  check('New starts on the paper last chosen, upright', !st.landscape && st.width === 595.28 && st.height === 841.89, st);
+  // And so does the sheet a reload opens with, as its starting point: undoing the first edit keeps the paper.
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath');
+  await type(page, 72, 72, 'q:1');
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(80);
+  st = await state();
+  check('a reload opens on that paper, and undo keeps it', st.width === 595.28 && st.height === 841.89, st);
+  await page.evaluate(() => localStorage.removeItem('mathmath.paper'));
   await page.close();
 }
 
@@ -2950,6 +2985,21 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   // ∂/∂x of ∂/∂y shows as one, ∂²/∂x∂y; î shows as a dotless i under a hat.
   check('the ∇ menu types ∇f, ∂/∂x and î, and they calculate', ws.regions.every((r: any) => r.content.k !== 'draft')
     && s.includes('∇f(1,2)=(41)') && s.includes('∂x∂y∂2f(x,y)=2') && s.includes('3⋅ı^+k^=⎝⎛301⎠⎞'), s);
+  await page.close();
+}
+
+// Limits: a worksheet asking for a huge array says so at once, and the page carries on.
+{
+  const page = await fresh();
+  const t = Date.now();
+  await type(page, 72, 60, 'x:0;10^9');
+  await type(page, 72, 100, 'x=');
+  await type(page, 72, 140, 'identity(100000)=');
+  await type(page, 72, 180, '2+2=');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const reasons = await page.evaluate(() => [...(window as any).mathmath.doc.outcomes.values()].map((o: any) => o.error).filter(Boolean));
+  check('huge ranges and arrays are refused at once, and the page carries on', Date.now() - t < 15000 && s.includes('2+2=4')
+    && reasons.some((r: string) => r.includes('gives 1,000,000,001 values')) && reasons.some((r: string) => r.includes('at most 10,000,000 elements')), { s, reasons });
   await page.close();
 }
 

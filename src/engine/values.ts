@@ -54,11 +54,45 @@ export interface Failed { t: 'failed'; error: EvalError }
 export type Value = Num | Str | Mat | Range | Fn | Failed;
 
 export const num = (re: number, dim: Dim = NODIM, im = 0): Num => ({ t: 'num', re, im, dim });
-export const str = (v: string): Str => ({ t: 'str', v });
+/** A string, held to MAX_ELEMENTS characters: built up in a loop, one would soon fill the page's memory. */
+export function checkString(length: number): void {
+  if (length > MAX_ELEMENTS) throw new EvalError('runtime', `A string can have at most ${countText(MAX_ELEMENTS)} characters, and this one would have ${countText(length)}. MathMath stops there to keep within the page's memory`);
+}
+export const str = (v: string): Str => {
+  checkString(v.length);
+  return { t: 'str', v };
+};
 
-export const newMat = (rows: number, cols: number, dim: Dim = NODIM): Mat => ({
-  t: 'mat', rows, cols, re: new Float64Array(rows * cols), im: null, dim, cells: null,
-});
+/**
+ * The most elements an array may have, and the most values range variables may give a region at once: 80 MB of
+ * numbers. A worksheet asking for more, as one shared from anywhere might, would run the page out of memory, which
+ * ends the tab, on a phone especially, before Esc can stop the calculation.
+ */
+export const MAX_ELEMENTS = 10_000_000;
+/** A count as written in a message: 10,000,000, or 1.2e+15 when it's far past that. */
+export const countText = (n: number): string => (n < 1e15 ? Math.round(n).toLocaleString('en-US') : n.toExponential(1));
+/** Refuses an array of more than MAX_ELEMENTS elements, before any memory is taken for it. */
+export function checkElements(n: number): void {
+  if (n > MAX_ELEMENTS) throw new EvalError('runtime', `An array can have at most ${countText(MAX_ELEMENTS)} elements, and this one would have ${countText(n)}. MathMath stops there to keep within the page's memory`);
+}
+/**
+ * The most elements an array may have when it holds strings, arrays, or numbers in different units: each is an
+ * object of its own, about ten times the memory of a plain number.
+ */
+export const MAX_CELLS = 1_000_000;
+function checkCells(n: number): void {
+  if (n > MAX_CELLS) throw new EvalError('runtime', `An array holding strings, arrays or values in different units can have at most ${countText(MAX_CELLS)} elements, and this one would have ${countText(n)}. MathMath stops there to keep within the page's memory`);
+}
+
+/** Refuses a number of points or steps past MAX_ELEMENTS, as each is a row of the answer. */
+export function checkPoints(n: number, fn: string, what: string): void {
+  if (n > MAX_ELEMENTS) throw new EvalError('runtime', `${fn}'s ${what} can be at most ${countText(MAX_ELEMENTS)}, not ${countText(n)}, to keep within the page's memory`);
+}
+
+export const newMat = (rows: number, cols: number, dim: Dim = NODIM): Mat => {
+  checkElements(rows * cols);
+  return { t: 'mat', rows, cols, re: new Float64Array(rows * cols), im: null, dim, cells: null };
+};
 
 export const dimEq = (a: Dim, b: Dim): boolean => a === b || a.every((v, i) => Math.abs(v - b[i]!) < 1e-9);
 export const isNoDim = (d: Dim): boolean => d === NODIM || dimEq(d, NODIM);
@@ -74,6 +108,7 @@ export function getEl(m: Mat, i: number, j: number): Value {
 
 function toCells(m: Mat): void {
   if (m.cells) return;
+  checkCells(m.rows * m.cols);
   const cells: Value[] = [];
   for (let n = 0; n < m.rows * m.cols; n++) cells.push(num(m.re[n]!, m.dim, m.im ? m.im[n]! : 0));
   m.cells = cells;
@@ -99,6 +134,47 @@ export function setEl(m: Mat, i: number, j: number, v: Value): void {
   if (m.im) m.im[n] = v.im;
 }
 
+/**
+ * A column vector built a value at a time, as fromValues builds one from them all, without keeping each value as
+ * an object till the end: ten million numbers are 80 MB here, and a gigabyte as separate values.
+ */
+export class ColumnBuilder {
+  private m: Mat = newMat(16, 1);
+  length = 0;
+
+  /** `expected`, when known, is how many values will come, for a refusal to give the whole size. */
+  constructor(private expected?: number) {}
+
+  push(v: Value): void {
+    if (this.length === this.m.rows) this.grow();
+    setEl(this.m, this.length++, 0, v);
+  }
+
+  private grow(): void {
+    const m = this.m;
+    const rows = Math.max(m.rows + 1, Math.min(2 * m.rows, MAX_ELEMENTS));
+    const re = new Float64Array(rows);
+    re.set(m.re);
+    m.re = re;
+    if (m.im) {
+      const im = new Float64Array(rows);
+      im.set(m.im);
+      m.im = im;
+    }
+    if (m.cells) {
+      checkCells(Math.max(this.length + 1, this.expected ?? 0));
+      for (let n = m.rows; n < rows; n++) m.cells.push(num(0, m.dim));
+    }
+    m.rows = rows;
+  }
+
+  /** The vector of the values pushed. */
+  build(): Mat {
+    const { m, length } = this;
+    return { t: 'mat', rows: length, cols: 1, re: m.re.slice(0, length), im: m.im ? m.im.slice(0, length) : null, dim: m.dim, cells: m.cells ? m.cells.slice(0, length) : null };
+  }
+}
+
 export function cloneMat(m: Mat): Mat {
   const c: Mat = { t: 'mat', rows: m.rows, cols: m.cols, re: m.re.slice(), im: m.im ? m.im.slice() : null, dim: m.dim, cells: null };
   if (m.cells) c.cells = m.cells.slice();
@@ -109,7 +185,10 @@ export function cloneMat(m: Mat): Mat {
 export function resized(m: Mat, rows: number, cols: number): Mat {
   const c = newMat(rows, cols, m.dim);
   if (m.im) c.im = new Float64Array(rows * cols);
-  if (m.cells) c.cells = Array.from({ length: rows * cols }, () => num(0));
+  if (m.cells) {
+    checkCells(rows * cols);
+    c.cells = Array.from({ length: rows * cols }, () => num(0));
+  }
   for (let j = 0; j < Math.min(cols, m.cols); j++) {
     for (let i = 0; i < Math.min(rows, m.rows); i++) {
       const to = i + j * rows;
@@ -133,6 +212,7 @@ const ROOMY = new WeakSet<ArrayBufferLike>();
  */
 export function growColumn(m: Mat, rows: number): void {
   if (m.cols !== 1 || rows <= m.rows) throw new Error('growColumn lengthens a column vector');
+  checkElements(rows);
   const grow = (a: Float64Array): Float64Array => {
     // Only room this made: a buffer from anywhere else might hold another array's numbers past this one's.
     if (ROOMY.has(a.buffer) && a.byteOffset === 0 && a.buffer.byteLength >= rows * 8) return new Float64Array(a.buffer, 0, rows);

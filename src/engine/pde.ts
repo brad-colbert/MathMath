@@ -24,7 +24,7 @@
  * - numol(…): the method of lines (below).
  */
 import { type Jacobian, cashKarp, radau } from './ode-methods.js';
-import { EvalError, type Fn, type Mat, type Value, fromValues, getEl, isNoDim, newMat, num } from './values.js';
+import { EvalError, type Fn, checkPoints, type Mat, type Value, fromValues, getEl, isNoDim, newMat, num } from './values.js';
 
 /** A square matrix of real numbers without units, as a 1-based array of rows, for the ports. */
 function grid(v: Value | undefined, fn: string, what: string, n?: number): number[][] {
@@ -274,11 +274,13 @@ export function numol(args: Value[]): Mat {
   const count = (v: Value, what: string, min: number): number => {
     const x = realOf(v, fn, what);
     if (!Number.isInteger(x) || x < min) throw new EvalError('runtime', `numol's ${what} must be a whole number, ${min} or more`);
+    checkPoints(x, 'numol', what);
     return x;
   };
   const xpts = count(xp, 'xpts', 6);
   const tpts = count(tp, 'tpts', 2);
   const npde = count(np, 'num_pde', 1);
+  checkPoints(xpts * tpts * npde, 'numol', 'answer, xpts × tpts × num_pde values,');
   if (count(na, 'num_pae', 0) > 0) throw new EvalError('unsupported', 'numol: algebraic equations (num_pae above 0) aren\'t supported yet');
   const fnOf = (v: Value, what: string): Fn => {
     if (v.t !== 'fn') throw new EvalError('runtime', `numol's ${what} must be a function, defined above`);

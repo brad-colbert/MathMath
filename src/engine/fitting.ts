@@ -32,7 +32,7 @@
  */
 import { loessInterp, loessVector, readLoess } from './loess.js';
 import { leastSquares } from './solve.js';
-import { type Dim, EvalError, type Fn, type Mat, NODIM, type Value, dimDiv, isNoDim, newMat, num, requireMat } from './values.js';
+import { type Dim, EvalError, type Fn, checkPoints, type Mat, NODIM, type Value, dimDiv, isNoDim, newMat, num, requireMat } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
 
@@ -449,6 +449,7 @@ function predict(vv: Value | undefined, vm: Value | undefined, vn: Value | undef
   const count = (x: Value | undefined, what: string): number => {
     const k = x?.t === 'num' && x.im === 0 && isNoDim(x.dim) ? x.re : NaN;
     if (!Number.isInteger(k) || k < 1) throw new EvalError('runtime', `predict's ${what} must be a whole number, 1 or more`);
+    checkPoints(k, 'predict', what);
     return k;
   };
   const m = count(vm, 'number of coefficients m');

@@ -30,7 +30,7 @@
  *   and z the value; one giving a vector, or three functions, give x, y and z. An fmap after them is called
  *   with each point's x, y and z and gives the point to use.
  */
-import { EvalError, type Fn, type Mat, type Value, dimEq, fromValues, getEl, isNoDim, num } from './values.js';
+import { EvalError, type Fn, MAX_CELLS, checkPoints, countText, type Mat, type Value, dimEq, fromValues, getEl, isNoDim, num } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
 
@@ -63,6 +63,7 @@ function coords(args: Value[], n: number, fn: string): number[] {
 function count(v: Value | undefined, fn: string, what: string): number {
   const n = real(v, fn, what);
   if (!Number.isInteger(n) || n < 1) throw new EvalError('runtime', `${fn}'s ${what} must be a positive whole number`);
+  checkPoints(n, fn, what);
   return n;
 }
 
@@ -180,6 +181,8 @@ export const graphingFns: Record<string, Impl> = {
     const [s0, s1, t0, t1] = nums.length >= 4 ? nums : [-5, 5, -5, 5];
     const grid = nums.length === 2 ? nums : nums.length === 6 ? nums.slice(4) : [20, 20];
     const [ns, nt] = grid.map((g) => count(num(g), 'CreateMesh', 'grid'));
+    // Each point is kept as its own values till the grid is made, so the grid is held to an array of objects' size.
+    if (ns! * nt! > MAX_CELLS) throw new EvalError('runtime', `CreateMesh's grid, sgrid × tgrid, can have at most ${countText(MAX_CELLS)} points, not ${countText(ns! * nt!)}, to keep within the page's memory`);
     const ss = steps(s0!, s1!, ns!);
     const ts = steps(t0!, t1!, nt!);
     const pts: Value[][] = [];

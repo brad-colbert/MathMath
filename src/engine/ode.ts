@@ -32,7 +32,7 @@
  */
 import { type Engine, type Jacobian, type Setup, adams, adamsBdf, bdf, bulirschStoer, cashKarp, numericJacobian, radau, rosenbrock as rosenbrockEngine, rosenbrockStep, semiImplicitExtrapolation } from './ode-methods.js';
 import { addV, matMul } from './ops.js';
-import { type Dim, EvalError, type Fn, type Mat, type Num, type Value, dimDiv, dimEq, dimMul, getEl, isNoDim, newMat, num, requireMat } from './values.js';
+import { type Dim, EvalError, type Fn, checkPoints, type Mat, type Num, type Value, dimDiv, dimEq, dimMul, getEl, isNoDim, newMat, num, requireMat } from './values.js';
 
 type Impl = (...args: Value[]) => Value;
 type F = (x: number, y: Float64Array) => Float64Array;
@@ -87,6 +87,7 @@ function interval(a: Value, b: Value, fn: string): { x1: number; x2: number; dim
 function count(v: Value, fn: string, what: string): number {
   const n = realNum(v, `${fn}'s ${what}`);
   if (!isNoDim(n.dim) || !Number.isInteger(n.re) || n.re < 1) throw new EvalError('runtime', `${fn}'s ${what} must be a positive whole number`);
+  checkPoints(n.re, fn, what);
   return n.re;
 }
 
