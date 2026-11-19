@@ -41,6 +41,7 @@ export const TOPICS: Topic[] = [
         ['F1', 'Help on the function being typed'], ['Esc', 'Finish typing; with nothing open, stop a calculation'],
         ['Ctrl+Z, Ctrl+Y', 'Undo and redo'],
       ] },
+      { p: '**Page** on the toolbar sets the paper, Letter, Legal or A4, and portrait or landscape. The dashed lines across the paper are where pages break, and Print prints on that paper. New worksheets start on the paper you last chose in this browser.' },
       { p: '**Examples** on the toolbar opens worksheets that show what MathMath does, each a small problem worked on paper. Open one and change a number: everything below it follows.' },
       { p: 'Names are letters, digits and _, with digits anywhere after the first letter, as x2 or str2num; a name like R.load or J0.sc has a literal subscript, typed with `.`. A single letter can wear a hat or an arrow, as î, from the ∇ menu; see Vector calculus. Functions are called by name with their arguments in brackets, as `sin(x)`. A function of your own is defined like a variable: `f(x):x^2`, and a name you define takes the place of a built-in one with that name.' },
       { p: 'A number followed straight away by i or j is imaginary: `3+4i` or `2j`. (`4*i` is 4 times a variable named i.) See Complex numbers. Inside math, `"` starts a string, as "data.csv", and a second `"` ends it; the Strings group in the contents lists what works on them.' },
@@ -69,6 +70,7 @@ export const TOPICS: Topic[] = [
     body: [
       { p: 'A range variable takes a run of values: type `k:0;4` for k := 0..4, or `x:0,0.1;1` for steps of 0.1. Anything using it is worked out for each value, which makes tables and plots.' },
       { p: 'An element of a vector or matrix is a subscript, typed with `[`: v₂, or M₁,₀ for row 1, column 0. Arrays count from 0. Defining v_k for a range k builds a vector.' },
+      { p: 'An array can have up to 10 million elements, or 1 million when it holds strings, arrays, or values in different units. Range variables can give a region up to 10 million values at once, as i and j of 3000 values each would give 9 million, and a string can have up to 10 million characters. Past those, the region says so at once, rather than filling the page\'s memory. A sum over a range keeps nothing, so it isn\'t limited: a long one is only slow, and Esc stops it.' },
       { id: 'arrays-1', example: ['k\\coloneq 0..4', 'v_{k}\\coloneq k^{2}', 'v='] },
       { p: 'To stop such a definition early, at the first k where a condition turns negative, use [[until]]: x_k := until(c, e). In a recurrence, as w_(k+1) := until(100 − w_k, 2·w_k), it runs until the values pass a limit.' },
       { p: 'Ctrl+M inserts a matrix, and the Matrix menu has its operators: transpose (Ctrl+1), a column (Ctrl+6), vectorize (Ctrl+−), and rows or columns added. Arrays multiply as matrices; the Vectors and matrices and Linear algebra groups in the contents list their functions.' },
@@ -209,6 +211,7 @@ export const TOPICS: Topic[] = [
     id: 'files', title: 'Files and images', summary: 'Attaching files, reading images and tables, and showing a matrix as a picture.',
     body: [
       { p: 'A worksheet carries the files it reads. Use Files on the toolbar to attach one: an image adds a [[readImage]] line, and other files are read by name with [[readTable]] or [[readWav]]. The files are saved inside the worksheet.' },
+      { p: 'readImage gives three numbers a pixel, so it reads pictures of up to about 3.3 megapixels, 10 million numbers; attach a smaller copy of a larger photo.' },
       { p: 'Image on the toolbar shows a matrix as a picture: gray levels 0 to 255, or red, green and blue side by side. Picture… puts a picture from a file on the page, as it is.' },
       { p: 'Save writes a .mathmath file. Open reads those and Mathcad .xmcd worksheets.' },
       { p: 'A Mathcad worksheet reads its files from folders on Mathcad\'s computer, with functions such as [[READRGB]], [[READ_HSV]], [[READWAV]] and [[READPRN]]. Those lines stay as they were, grayed, and their note names the MathMath expression that gives the same numbers from an attached file, the folder dropped: `READ_HSV("a.bmp")` is `rgbToHsv(readImage("a.bmp"), 360)`. A bar above the paper offers to **Convert** them all; Undo puts them back. READWAV and READPRN wait until their file is attached, since how they convert depends on it.' },
@@ -225,7 +228,7 @@ export const TOPICS: Topic[] = [
       { p: 'The worksheet travels whole, with the files attached to it, so anyone with the link can read them. Leave out anything you wouldn\'t publish.' },
       { h: 'Opening one' },
       { p: 'Click the link, or paste a link or a gist\'s address into the box at the bottom of Share. The worksheet replaces the one open, as Open does, and calculates. A bar above the paper says who shared it, and links to the gist, where you can comment. Save keeps your own copy; the gist doesn\'t change.' },
-      { p: 'Opening one reads it from GitHub, and nothing else is contacted: a link can only name a gist. A worksheet can\'t run programs on your computer or reach the network, and a file altered to put its own markup on the page is refused or its styles ignored. Without signing in, GitHub lets each connection open 60 gists an hour.' },
+      { p: 'Opening one reads it from GitHub, and nothing else is contacted: a link can only name a gist. A worksheet can\'t run programs on your computer or reach the network, and a file altered to put its own markup on the page is refused or its styles ignored. A long calculation can be stopped with Esc, and a region asking for a huge array or string is refused at once rather than filling the page\'s memory (see Ranges, vectors and matrices). Without signing in, GitHub lets each connection open 60 gists an hour.' },
     ],
   },
 ];

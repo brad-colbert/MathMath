@@ -8,6 +8,37 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.59.0] - 2026-11-18
+
+Paper sizes, and limits that keep a worksheet from filling the page's memory.
+
+### Added
+
+- Paper sizes. Page on the toolbar now offers Letter, Legal and A4 as well as portrait or landscape, for the
+  screen's page breaks and for printing. New worksheets start on the paper last chosen in that browser, so
+  someone who prints on A4 chooses it once. Help's Typing math page says so.
+
+### Changed
+
+- A region asking for a huge array or string is now refused at once, with the limit it passed, rather than
+  filling the page's memory until the tab ends. This matters now that shared links open worksheets from anyone.
+  - An array can have up to 10 million elements, or 1 million when it holds strings, arrays or values in
+    different units.
+  - Range variables can give a region up to 10 million values at once.
+  - Solvers take up to 10 million points or steps.
+  - A string can have up to 10 million characters.
+
+  Help's Ranges, vectors and matrices page gives the limits.
+- Range variables now take about a quarter of the memory they did, and calculate faster. 10 million values once
+  needed over a gigabyte.
+
+### Known limits
+
+- readImage reads pictures of up to about 3.3 megapixels, as it gives three numbers a pixel. A larger photo is
+  refused with its size; attach a smaller copy.
+- Many arrays near the limit, each built separately, can still use up memory together. A calculation that
+  is only slow, such as a sum over a very long range or a loop that never ends, still runs until Esc stops it.
+
 ## [0.58.0] - 2026-11-18
 
 Vector calculus: ∇ for gradient, divergence, curl and Laplacian, partial derivatives, and unit vectors.

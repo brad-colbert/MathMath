@@ -33,7 +33,7 @@ import { type Polyhedron, polyhedron } from './polyhedra.js';
 import { type FieldData, fieldOf } from './vectorfield.js';
 import { UNITS } from './units.js';
 import {
-  type Dim, EvalError, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
+  ColumnBuilder, type Dim, EvalError, MAX_ELEMENTS, checkPoints, countText, type Fn, type Mat, NODIM, type Num, type Range, type Value, cloneMat, dimDiv, dimEq, dimMul, dimPow, fromValues, getEl, isNoDim, newMat, num,
   growColumn, needsFile, requireMat, requireNum, requireReal, resized, setEl, str,
 } from './values.js';
 
@@ -192,6 +192,13 @@ const TRACE_LINES = 200;
 
 const truthy = (v: Value): boolean => requireNum(v, 'condition').re !== 0;
 const bool = (b: boolean): Num => num(b ? 1 : 0);
+
+/** Refuses range variables that would give a region more values than an array can hold. */
+function checkValues(names: string[], total: number): void {
+  if (total <= MAX_ELEMENTS) return;
+  const many = names.length > 1;
+  throw new EvalError('runtime', `The range variable${many ? 's' : ''} ${names.join(', ')} give${many ? '' : 's'} ${countText(total)} values here, and MathMath calculates at most ${countText(MAX_ELEMENTS)} at once, to keep within the page's memory`);
+}
 
 function rangeCount(r: Range): number {
   if (r.step === 0) throw new EvalError('runtime', 'range step is zero');
@@ -852,6 +859,7 @@ export class Evaluator implements Host {
     };
     const xpts = points(xpv, 'xpts', 6);
     const tpts = points(tpv, 'tpts', 2);
+    checkPoints(xpts * tpts, 'Pdesolve', 'grid, xpts × tpts,');
     const isId = (e: Expr | undefined, name: string): boolean => e?.k === 'id' && e.name === name;
     const callOf = (e: Expr): { name: string; args: Expr[] } | null => (e.k === 'call' && e.fn.k === 'id' ? { name: e.fn.name, args: e.args } : null);
     const known = new Set(names.flatMap((u) => [u, `${u}.x`, `${u}.xx`, `${u}.t`]));
@@ -947,6 +955,7 @@ export class Evaluator implements Host {
     const b = requireNum(this.eval(bv, s), "Odesolve's end");
     const steps = sv ? requireReal(this.eval(sv, s), "Odesolve's number of steps") : 1000;
     if (!Number.isInteger(steps) || steps < 1) throw new EvalError('runtime', "Odesolve's number of steps must be a positive whole number");
+    checkPoints(steps, 'Odesolve', 'number of steps');
     const primes = (n: string): number => /'*$/.exec(n)![0].length;
     const base = (n: string): string => n.slice(0, n.length - primes(n));
     // A derivative d/dt of an unknown is the same as a prime: d/dt y(t) is y'(t), and d²/dt² y(t) is y''(t).
@@ -1541,8 +1550,10 @@ export class Evaluator implements Host {
     // At a range or vector of points, the derivative at each one, as a vector.
     const point = this.eval({ k: 'id', name: e.varName }, s);
     if (point.t === 'range' || (point.t === 'mat' && point.rows * point.cols > 1)) {
-      const values = [...this.iterate(point)].map((v) => at(requireNum(v, 'derivative point')));
-      return fromValues(values.length, 1, values);
+      if (point.t === 'range') checkValues([e.varName], rangeCount(point));
+      const values = new ColumnBuilder(point.t === 'range' ? rangeCount(point) : point.rows * point.cols);
+      for (const v of this.iterate(point)) values.push(at(requireNum(v, 'derivative point')));
+      return values.build();
     }
     return at(requireNum(point, 'derivative point'));
   }
@@ -1767,7 +1778,11 @@ export class Evaluator implements Host {
     return out;
   }
 
-  private forEachBinding(vars: { name: string; range: Range }[], s: Scope, visit: (scope: Scope) => void): void {
+  private forEachBinding(vars: { name: string; range: Range }[], s: Scope, visit: (scope: Scope) => void, top = true): void {
+    // Each binding gives a value to keep, so all of them together are held to the size of an array.
+    if (top) {
+      checkValues(vars.map((v) => v.name), vars.reduce((n, v) => n * rangeCount(v.range), 1));
+    }
     const [head, ...tail] = vars;
     if (!head) {
       visit(s);
@@ -1776,16 +1791,16 @@ export class Evaluator implements Host {
     const n = rangeCount(head.range);
     for (let i = 0; i < n; i++) {
       const child = this.bindAt(head.name, num(head.range.first + i * head.range.step, head.range.dim), s);
-      this.forEachBinding(tail, child, visit);
+      this.forEachBinding(tail, child, visit, false);
     }
   }
 
   evalRegionExpr(e: Expr, s: Scope): Value {
     const vars = this.rangesIn(e, s);
     if (vars.length === 0) return this.eval(e, s);
-    const items: Value[] = [];
+    const items = new ColumnBuilder(vars.reduce((n, v) => n * rangeCount(v.range), 1));
     this.forEachBinding(vars, s, (scope) => items.push(this.eval(e, scope)));
-    return fromValues(items.length, 1, items);
+    return items.build();
   }
 
   define(c: Extract<Content, { k: 'define' }>, s: Scope): Value | undefined {
@@ -1816,7 +1831,7 @@ export class Evaluator implements Host {
     // Tested in Mathcad 14: `y := i^2` with a range variable `i` is an error.
     if (vars.length > 0 && t.k === 'var') throw new EvalError('runtime', 'range variable in a non-indexed definition');
     let last: Value | undefined;
-    const items: Value[] = [];
+    const items = new ColumnBuilder(vars.reduce((n, v) => n * rangeCount(v.range), 1));
     if (vars.length > 0) this.ranging++;
     try {
       this.forEachBinding(vars, s, (scope) => {
@@ -1832,7 +1847,7 @@ export class Evaluator implements Host {
     } finally {
       if (vars.length > 0) this.ranging--;
     }
-    return vars.length > 0 ? (items.length > 0 ? fromValues(items.length, 1, items) : undefined) : last;
+    return vars.length > 0 ? (items.length > 0 ? items.build() : undefined) : last;
   }
 
   markFailed(t: Target, error: EvalError, s: Scope): void {

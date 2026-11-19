@@ -19,7 +19,7 @@
  */
 import { emptyWorksheet } from '../format/native.js';
 import { readRegion } from '../latex/region.js';
-import { type Content, type OpaqueRegion, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
+import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
@@ -51,7 +51,10 @@ const HISTORY = 100;
 const SEPARATION = 6;
 
 export class Doc {
-  ws: Worksheet = emptyWorksheet();
+  /** `ws` is the worksheet it starts with, empty unless given: undo goes back to it, not before. */
+  constructor(public ws: Worksheet = emptyWorksheet()) {
+    this.saved = snapshot(ws);
+  }
   outcomes = new Map<string, Shown>();
   computing = false;
   /** LIVE recalculates after every change. EDIT calculates nothing until switched back to LIVE. */
@@ -79,6 +82,13 @@ export class Doc {
     let seed = this.ws.seed ?? 1;
     while (seed === (this.ws.seed ?? 1)) seed = 1 + Math.floor(Math.random() * 2147483646);
     this.ws.seed = seed;
+    this.touched();
+  }
+
+  /** Changes the paper, keeping the page's orientation. Regions stay where they are. One step to undo. */
+  setPaper(paper: Paper): void {
+    if (paperOf(this.ws.page) === paper) return;
+    this.ws.page = onPaper(this.ws.page, paper);
     this.touched();
   }
 
@@ -113,7 +123,7 @@ export class Doc {
   private seq = 0;
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
-  private saved: Snapshot = snapshot(this.ws);
+  private saved: Snapshot;
   private batching = false;
   private pending = false;
 

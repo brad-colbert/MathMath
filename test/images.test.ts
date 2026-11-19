@@ -55,6 +55,14 @@ describe('reading images', () => {
   const ev = new Evaluator({ origin: 0, tol: 0.001 }, files);
   const read = (path: string) => ev.eval({ k: 'call', fn: { k: 'id', name: 'readImage' }, args: [{ k: 'str', v: path }] }, new Scope(null)) as Mat;
 
+  test('a picture past the array limit is refused in terms of the picture', () => {
+    // 4000 × 3000 is 36 million numbers; the pixels themselves aren't looked at before it's refused.
+    const big = { width: 4000, height: 3000, rgba: new Uint8ClampedArray(0) };
+    const ev2 = new Evaluator({ origin: 0, tol: 0.001 }, { ...NO_FILES, image: () => big });
+    const read2 = () => ev2.eval({ k: 'call', fn: { k: 'id', name: 'readImage' }, args: [{ k: 'str', v: 'photo.jpg' }] }, new Scope(null));
+    expect(read2).toThrow(/photo.jpg is 4000 × 3000 pixels, 36,000,000 numbers in red, green and blue, and an array can have at most 10,000,000: about 3.3 megapixels/);
+  });
+
   test('an image is red, green and blue blocks side by side', () => {
     const m = read('tiny.png');
     expect([m.rows, m.cols]).toEqual([1, 6]);
