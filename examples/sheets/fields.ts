@@ -15,8 +15,6 @@
 
 import type { Example } from '../sheet.js';
 
-const d = (v: string, body: string) => `\\frac{\\mathrm{d}}{\\mathrm{d}${v}}${body}`;
-
 export const fields: Example = {
   slug: 'fields',
   title: 'Fields of arrows',
@@ -34,8 +32,8 @@ export const fields: Example = {
     s.gap(16);
     s.plots({ x: '', ys: ['P'], view: 'vector', width: 330, height: 240, colorMap: 'viridis', xMin: '-2\\cdot \\pi', xMax: '2\\cdot \\pi', yMin: '-3', yMax: '3', title: 'θ across, ω up' });
     s.text('Round the bottom, at θ = 0 and its turns 2π, the arrows circle: the pendulum swings back and forth. Near θ = ±π, the top, they part: it falls one way or the other.');
-    s.section('The gradient of a hill: ∇h, the parts d/dx and d/dy, points the way h rises fastest, and crosses its level curves at right angles.');
-    s.row('h\\left(x,y\\right)\\coloneq e^{-\\frac{x^{2}+y^{2}}{4}}+0.6\\cdot e^{-\\left(\\left(x-2\\right)^{2}+\\left(y+1\\right)^{2}\\right)}', { latex: `G\\left(x,y\\right)\\coloneq \\begin{pmatrix}${d('x', 'h\\left(x,y\\right)')}\\\\${d('y', 'h\\left(x,y\\right)')}\\end{pmatrix}`, x: 290 });
+    s.section('The gradient of a hill: ∇h, the parts ∂h/∂x and ∂h/∂y, points the way h rises fastest, and crosses its level curves at right angles.');
+    s.row('h\\left(x,y\\right)\\coloneq e^{-\\frac{x^{2}+y^{2}}{4}}+0.6\\cdot e^{-\\left(\\left(x-2\\right)^{2}+\\left(y+1\\right)^{2}\\right)}', { latex: 'G\\left(x,y\\right)\\coloneq \\nabla h\\left(x,y\\right)', x: 290 });
     s.gap(24);
     s.plots(
       { x: '', ys: ['G'], view: 'vector', width: 240, height: 230, xMin: '-4', xMax: '4', yMin: '-4', yMax: '4', title: '∇h' },

@@ -32,8 +32,11 @@ export type Expr =
   | { k: 'call'; fn: Expr; args: Expr[] }
   /** With no bounds it's an indefinite integral, which only the symbolic engine can do. */
   | { k: 'bigop'; op: 'integral' | 'summation' | 'product'; varName: string; body: Expr; lo: Expr | null; hi: Expr | null }
-  /** With a degree, the nth derivative (Mathcad's Ctrl+Shift+/); without one, the first. */
-  | { k: 'derivative'; varName: string; body: Expr; degree?: Expr }
+  /**
+   * With a degree, the nth derivative (Mathcad's Ctrl+Shift+/); without one, the first. `partial` only changes how
+   * it's written, ∂/∂x for d/dx: holding the other variables fixed is what a derivative does anyway.
+   */
+  | { k: 'derivative'; varName: string; body: Expr; degree?: Expr; partial?: true }
   | { k: 'limit'; varName: string; body: Expr; to: Expr; side: 'left' | 'right' | null }
   | { k: 'program'; body: Stmt[] }
   | { k: 'placeholder' }
@@ -262,3 +265,9 @@ export function realFrom(text: string): Extract<Expr, { k: 'real' }> {
   const significant = text.replace(/[eE].*$/, '').replace(/[^0-9]/g, '').replace(/^0+/, '').length;
   return significant > 17 ? { k: 'real', v, digits: text.trim() } : { k: 'real', v };
 }
+
+/**
+ * The ∇ operators, op nodes whose one argument is a call, f(x, y, z): ∇f, ∇·F, ∇×F and ∇²f differentiate f in each
+ * of its parameters in turn, at the point its arguments give. Each with the symbol it's written with.
+ */
+export const DEL_OPS: Record<string, string> = { gradient: '∇', divergence: '∇·', curl: '∇×', laplacian: '∇²' };

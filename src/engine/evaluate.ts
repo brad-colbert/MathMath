@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License along with this program. If not,
 // see <https://www.gnu.org/licenses/>.
 
-import type { Content, Expr, Region, Stmt, Target, Worksheet } from '../model/ast.js';
+import { type Content, DEL_OPS, type Expr, type Region, type Stmt, type Target, type Worksheet } from '../model/ast.js';
 import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, fileKey, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
@@ -288,6 +288,9 @@ const CONSTANTS: Record<string, Num> = {
   NaN: num(NaN),
 };
 
+/** î, ĵ and k̂, the unit vectors along x, y and z, unless the sheet defines its own. */
+const UNIT_VECTORS: Record<string, number> = { 'i\u0302': 0, 'j\u0302': 1, 'k\u0302': 2 };
+
 /** Functions that work on names rather than values, as root, and those that close a solve block. */
 export const SOLVE_FORMS = new Set(['Find', 'Minerr', 'Maximize', 'Minimize', 'Odesolve', 'Pdesolve', 'root', 'Jacob', 'until', 'SaveColormap', 'LoadColormap']);
 
@@ -458,6 +461,8 @@ export class Evaluator implements Host {
     if (name === 'CTOL') return num(this.ws.ctol ?? 0.001);
     const c = CONSTANTS[name];
     if (c) return c;
+    const axis = UNIT_VECTORS[name];
+    if (axis !== undefined) return fromValues(3, 1, [0, 1, 2].map((i) => num(i === axis ? 1 : 0)));
     const b = this.builtins.get(name);
     // µ, the micro sign many keyboards type, is read as μ, the Greek letter Mathcad uses.
     const u = UNITS[name] ?? UNITS[name.replace(/^µ/, 'μ')];
@@ -557,6 +562,7 @@ export class Evaluator implements Host {
 
   evalOp(op: string, args: Expr[], s: Scope, vec: boolean): Value {
     if (op === 'vectorize') return this.eval(args[0]!, s, true);
+    if (DEL_OPS[op]) return this.evalDel(op, args[0]!, s);
     const a = this.eval(args[0]!, s, vec);
     const b = args[1] ? this.eval(args[1], s, vec) : undefined;
     switch (op) {
@@ -1563,6 +1569,79 @@ export class Evaluator implements Host {
     const parts = [f(at.re - 2 * h), f(at.re - h), f(at.re + h), f(at.re + 2 * h)];
     const v = (parts[0]!.re - 8 * parts[1]!.re + 8 * parts[2]!.re - parts[3]!.re) / (12 * h);
     return num(v, parts[0]!.dim.map((d, i) => d - at.dim[i]!));
+  }
+
+  /**
+   * ∇f(a, b, c), ∇·F, ∇×F and ∇²f: the function's partial derivatives in each of its parameters in turn, at the
+   * point its arguments give, by the differences d/dx uses. ∇f and ∇²f take a function giving a number (∇² a vector
+   * too, part by part); ∇· and ∇× one giving a vector with a part for each parameter. With two parameters, ∇×F is
+   * the number ∂F₁/∂x − ∂F₀/∂y, the z part of the curl of a field in the plane.
+   */
+  private evalDel(which: string, call: Expr, s: Scope): Value {
+    const sym = DEL_OPS[which]!;
+    if (call.k !== 'call' || call.fn.k !== 'id') throw new EvalError('runtime', `${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);
+    const fname = call.fn.name;
+    const f = this.callee(call.fn, s);
+    const point = call.args.map((a, i) => {
+      const v = this.eval(a, s);
+      if (v.t !== 'num') throw new EvalError('runtime', `${sym} works at a point: each of ${fname}'s arguments must be a number, and argument ${i + 1} isn't`);
+      return v;
+    });
+    const n = point.length;
+    if (n === 0) throw new EvalError('runtime', `${sym}${fname}() has no variables to differentiate in: ${fname} needs arguments`);
+    const vector = which === 'divergence' || which === 'curl';
+    if (which === 'curl' && n !== 3 && n !== 2) throw new EvalError('runtime', `∇× is for a field in 3 variables, or 2: ${fname} has ${n}`);
+    // A part of the value: the whole, for a number, or part k of a vector of n.
+    const part = (v: Value, k: number | null): Num => {
+      if (k === null) {
+        if (v.t !== 'num') throw new EvalError('runtime', `${sym}${fname} needs ${fname} to give a number${which === 'gradient' ? ': for a vector field, ∇· and ∇× take it' : ''}`);
+        return v;
+      }
+      if (v.t !== 'mat' || v.cols !== 1 || v.rows !== n) throw new EvalError('runtime', `${sym}${fname} needs ${fname} to give a vector of ${n} parts, one for each of its ${n} arguments`);
+      return requireNum(getEl(v, k, 0));
+    };
+    const at = (i: number, t: number): Value => f.call(point.map((x, j) => (j === i ? num(t, x.dim) : x)));
+    // ∂(part k)/∂(parameter i), first or second.
+    const d = (i: number, k: number | null, order: 1 | 2): Num => {
+      const x = point[i]!;
+      const g = (t: number): Num => part(at(i, t), k);
+      if (order === 2) {
+        const dim = g(x.re).dim;
+        return num(nthDerivative((t) => g(t).re, x.re, 2), dim.map((e, j) => e - 2 * x.dim[j]!));
+      }
+      const h = Math.max(Math.abs(x.re), 1e-3) * 1e-3;
+      const v = [g(x.re - 2 * h), g(x.re - h), g(x.re + h), g(x.re + 2 * h)];
+      return num((v[0]!.re - 8 * v[1]!.re + 8 * v[2]!.re - v[3]!.re) / (12 * h), v[0]!.dim.map((e, j) => e - x.dim[j]!));
+    };
+    const sum = (items: Value[]): Value => items.reduce((a, b) => addV(a, b));
+    const indices = [...Array(n).keys()];
+    switch (which) {
+      case 'gradient': return fromValues(n, 1, indices.map((i) => d(i, null, 1)));
+      case 'divergence': return sum(indices.map((i) => d(i, i, 1)));
+      case 'curl':
+        if (n === 2) return subV(d(0, 1, 1), d(1, 0, 1));
+        return fromValues(3, 1, [subV(d(1, 2, 1), d(2, 1, 1)), subV(d(2, 0, 1), d(0, 2, 1)), subV(d(0, 1, 1), d(1, 0, 1))]);
+      default: {
+        // ∇²: of a number, or of each part of a vector, whatever its length.
+        const first = f.call(point);
+        if (first.t === 'num') return sum(indices.map((i) => d(i, null, 2)));
+        if (first.t !== 'mat' || first.cols !== 1) throw new EvalError('runtime', `∇²${fname} needs ${fname} to give a number or a vector`);
+        const parts = first.rows;
+        const one = (k: number): Num => {
+          const g = (i: number, t: number): Num => {
+            const v = at(i, t);
+            if (v.t !== 'mat' || v.rows !== parts || v.cols !== 1) throw new EvalError('runtime', `∇²${fname} needs ${fname} to give a vector of the same length everywhere`);
+            return requireNum(getEl(v, k, 0));
+          };
+          return requireNum(sum(indices.map((i) => {
+            const x = point[i]!;
+            const dim = g(i, x.re).dim;
+            return num(nthDerivative((t) => g(i, t).re, x.re, 2), dim.map((e, j) => e - 2 * x.dim[j]!));
+          })));
+        };
+        return fromValues(parts, 1, Array.from({ length: parts }, (_, k) => one(k)));
+      }
+    }
   }
 
   private closure(name: string, params: string[], body: Expr, scope: Scope): Fn {

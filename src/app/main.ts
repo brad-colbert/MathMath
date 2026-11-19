@@ -515,6 +515,39 @@ for (const [label, help, latex] of booleanItems) {
   });
   booleanList.appendChild(b);
 }
+// Vector calculus: ∂, the ∇ operators, which go before a function and its arguments, and marks over a name.
+const delMenu = document.createElement('details');
+delMenu.className = 'menu';
+const delSummary = document.createElement('summary');
+delSummary.textContent = '∇';
+delSummary.title = 'Vector calculus: partial derivatives, gradient, divergence, curl, Laplacian, and unit vectors';
+delSummary.addEventListener('mousedown', (e) => e.preventDefault());
+const delList = document.createElement('div');
+delMenu.append(delSummary, delList);
+toolbar.appendChild(delMenu);
+const OF_A_FUNCTION = 'before a function and its arguments, as f(x, y, z): it differentiates in each of the function\'s parameters';
+const delItems: [string, string, string][] = [
+  ['Partial derivative  ∂/∂x', 'Works as d/dx does. Two in a row, in different variables, show as ∂²/∂x∂y. Tab moves to the next blank', TEMPLATES.partial],
+  ['Nth partial derivative  ∂ⁿ/∂xⁿ', 'Of order 0 to 5. Tab moves to the next blank', TEMPLATES.nthPartial],
+  ['Gradient  ∇f', `The vector of partial derivatives, ${OF_A_FUNCTION}`, '\\nabla #?'],
+  ['Divergence  ∇·F', `Of a vector field, ${OF_A_FUNCTION}`, '\\nabla \\cdot #?'],
+  ['Curl  ∇×F', `Of a vector field in 3 variables, or 2, ${OF_A_FUNCTION}`, '\\nabla \\times #?'],
+  ['Laplacian  ∇²f', `The sum of the second partial derivatives, ${OF_A_FUNCTION}`, '\\nabla^{2}#?'],
+  ['Hat  î', 'A hat over a letter, part of its name. î, ĵ and k̂ are the unit vectors along x, y and z', '\\hat{#?}'],
+  ['Arrow over a letter', 'An arrow over a letter, part of its name, for a vector. Not the vectorize arrow, which is in Matrix', '\\vec{#?}'],
+];
+for (const [label, help, latex] of delItems) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.title = help;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    delMenu.open = false;
+    if (paper.mathEditor.isOpen) paper.mathEditor.insert(latex);
+    else doc.onProblem('Click into some math first');
+  });
+  delList.appendChild(b);
+}
 separator();
 button('→', 'Evaluate symbolically (Ctrl+.)', () => {
   if (paper.mathEditor.isOpen) paper.mathEditor.arrow();

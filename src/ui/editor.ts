@@ -102,6 +102,8 @@ export const TEMPLATES = {
   derivative: '\\frac{\\mathrm{d}}{\\mathrm{d}#?}#?',
   /** The order goes in above only; it's printed below too once the region is done. */
   nthDerivative: '\\frac{\\mathrm{d}^{#?}}{\\mathrm{d}#?}#?',
+  partial: '\\frac{\\partial}{\\partial #?}#?',
+  nthPartial: '\\frac{\\partial^{#?}}{\\partial #?}#?',
   sum: '\\sum_{#?=#?}^{#?}#?',
   product: '\\prod_{#?=#?}^{#?}#?',
   /** Over every value of a range variable, with no limits written, as Mathcad's `$` and `#`. */

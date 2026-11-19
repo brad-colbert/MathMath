@@ -153,5 +153,10 @@
     "slug": "neighbourhoods",
     "title": "Fitting by neighbourhoods",
     "summary": "loess: a curve through noisy readings at two spans, and a surface through scattered points in two variables."
+  },
+  {
+    "slug": "charges",
+    "title": "Fields from a potential",
+    "summary": "Vector calculus with ∇: the field of two charges as −∇V, its divergence and curl, a spinning body, and the wave equation in partial derivatives."
   }
 ]

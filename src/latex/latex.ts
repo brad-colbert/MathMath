@@ -15,7 +15,7 @@
 
 // Prints the worksheet tree as LaTeX and reads it back. An editor built on LaTeX needs both, so its
 // size and its failures are part of what this spike measures.
-import { type Expr, type Stmt, type Target, realFrom } from '../model/ast.js';
+import { DEL_OPS, type Expr, type Stmt, type Target, realFrom } from '../model/ast.js';
 import { MATHCAD_WRITES } from '../xmcd/names.js';
 
 const GREEK: Record<string, string> = {
@@ -32,13 +32,27 @@ const GREEK_WORDS = Object.fromEntries(
 );
 const UNGREEK = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
 
+/**
+ * A mark over a one-letter name is part of the name, kept as the combining character after the letter: a hat for a
+ * unit vector, as î, ĵ and k̂, or an arrow for a vector, as v⃗. The arrow is \vec, not \overrightarrow, which is
+ * the vectorize operator.
+ */
+export const HAT = '\u0302';
+export const ARROW = '\u20d7';
+const ACCENTS: Record<string, string> = { [HAT]: '\\hat', [ARROW]: '\\vec' };
+/** A dotless i or j under a hat, as written by hand and in print. */
+const DOTLESS: Record<string, string> = { i: '\\imath', j: '\\jmath' };
+
 function name(whole: string): string {
   // Primes, as y'' for y″, print after the name, subscript and all.
   const marks = /'*$/.exec(whole)![0];
   const id = whole.slice(0, whole.length - marks.length);
   const dot = id.indexOf('.');
   const [base, sub] = dot > 0 ? [id.slice(0, dot), id.slice(dot + 1)] : [id, null];
-  const b = GREEK[base] ?? (/^[A-Za-z]$/.test(base) ? base : `\\mathrm{${escapeText(base)}}`);
+  const accent = ACCENTS[base.slice(-1)];
+  const letter = accent ? base.slice(0, -1) : base;
+  const plain = GREEK[letter] ?? (/^[A-Za-z]$/.test(letter) ? letter : `\\mathrm{${escapeText(letter)}}`);
+  const b = accent ? `${accent}{${(accent === '\\hat' && DOTLESS[letter]) || plain}}` : plain;
   return (sub ? `${b}_{\\text{${escapeText(sub)}}}` : b) + marks;
 }
 
@@ -166,9 +180,19 @@ function print(e: Expr, tail: boolean): string {
       return `\\lim_{${name(e.varName)}\\to ${tex(e.to)}${side}}${at(e.body, 3)}`;
     }
     case 'derivative': {
-      if (!e.degree) return `\\frac{\\mathrm{d}}{\\mathrm{d}${name(e.varName)}}${at(e.body, 3)}`;
+      if (e.partial && !e.degree) {
+        // First partial derivatives in turn, in different variables, as one: ∂/∂x ∂/∂y f is ∂²/∂x∂y f.
+        const chain = [e];
+        for (let d = e.body; d.k === 'derivative' && d.partial && !d.degree && d.varName !== chain.at(-1)!.varName; d = d.body) chain.push(d);
+        if (chain.length > 1) {
+          const below = chain.map((d) => `\\partial ${name(d.varName)}`).join('\\,');
+          return `\\frac{\\partial^{${chain.length}}}{${below}}${at(chain.at(-1)!.body, 3)}`;
+        }
+      }
+      const d = e.partial ? '\\partial ' : '\\mathrm{d}';
+      if (!e.degree) return `\\frac{${d.trim()}}{${d}${name(e.varName)}}${at(e.body, 3)}`;
       const n = tex(e.degree);
-      return `\\frac{\\mathrm{d}^{${n}}}{\\mathrm{d}${name(e.varName)}^{${n}}}${at(e.body, 3)}`;
+      return `\\frac{${d.trim()}^{${n}}}{${d}${name(e.varName)}^{${n}}}${at(e.body, 3)}`;
     }
     case 'op': {
       const [a, b] = e.args;
@@ -188,6 +212,10 @@ function print(e: Expr, tail: boolean): string {
         case 'factorial': return `${at(a!, 5)}!`;
         case 'indexer': return `${grouped(a!)}_{${e.args.slice(1).map(tex).join(',')}}`;
         case 'matcol': return `{${at(a!, 5)}}^{\\langle ${tex(b!)}\\rangle}`;
+        case 'gradient': return `\\nabla ${tex(a!)}`;
+        case 'divergence': return `\\nabla \\cdot ${tex(a!)}`;
+        case 'curl': return `\\nabla \\times ${tex(a!)}`;
+        case 'laplacian': return `\\nabla^{2}${tex(a!)}`;
         default: return `\\mathrm{op:${e.op}}`;
       }
     }
@@ -569,6 +597,61 @@ export function readTex(src: string): Expr {
     }
     return text === undefined ? { k: 'real', v } : realFrom(text);
   }
+  /** The letter under a hat or an arrow: one letter, Latin or Greek, braced or not, a dotless i or j as i or j. */
+  function accented(): string {
+    const braced = is('{');
+    if (braced) p++;
+    const t = toks[p++];
+    const letter = t?.v === '\\imath' ? 'i' : t?.v === '\\jmath' ? 'j' : t?.t === 'ch' && /^[A-Za-z]$/.test(t.v) ? t.v : t && t.v !== '\\infty' && t.v !== '\\%' ? UNGREEK[t.v] : undefined;
+    if (!letter || (braced && !is('}'))) throw new Error('A hat or an arrow goes over a single letter, as î');
+    if (braced) p++;
+    return letter;
+  }
+  /**
+   * ∂/∂x, ∂ⁿ/∂xⁿ, and ∂²/∂x∂y, the last read as ∂/∂x of ∂/∂y: written with ∂, they work as d/dx does. Below, each
+   * variable may have a power, and the powers add up to the order above.
+   */
+  function partialDerivative(): Expr {
+    p += 2;
+    let degree: Expr | undefined;
+    if (is('^')) {
+      p++;
+      degree = group();
+    }
+    eat('}');
+    eat('{');
+    const below: { varName: string; power: Expr | undefined }[] = [];
+    while (is('\\partial')) {
+      p++;
+      const v = atom();
+      if (v.k !== 'id') throw new Error('∂ below goes before a variable\'s name, as ∂x');
+      let power: Expr | undefined;
+      if (is('^')) {
+        p++;
+        power = group();
+      }
+      below.push({ varName: v.name, power });
+    }
+    if (below.length === 0) throw new Error('A partial derivative needs its variable below, as ∂/∂x');
+    eat('}');
+    const body = product();
+    if (below.length === 1) {
+      const [{ varName, power }] = below as [{ varName: string; power: Expr | undefined }];
+      if (power && (!degree || JSON.stringify(power) !== JSON.stringify(degree))) {
+        throw new Error(`the derivative's order is ${degree ? tex(degree) : '1'} above and ${tex(power)} below: make them the same`);
+      }
+      return { k: 'derivative', varName, body, partial: true, ...(degree ? { degree } : {}) };
+    }
+    const powers = below.map((b) => (b.power ? (b.power.k === 'real' && Number.isInteger(b.power.v) && b.power.v > 0 ? b.power.v : NaN) : 1));
+    const total = powers.reduce((a, b) => a + b, 0);
+    if (Number.isNaN(total)) throw new Error('With more than one variable below, each power must be a whole number, as ∂³/∂x²∂y');
+    if (!degree || degree.k !== 'real' || degree.v !== total) {
+      throw new Error(`the order above must be ${total}, the powers below added up: ∂${total === 2 ? '²' : `^${total}`}/${below.map((b) => `∂${b.varName}`).join('')}`);
+    }
+    return below.reduceRight<Expr>((inner, b, i) => ({
+      k: 'derivative', varName: b.varName, body: inner, partial: true, ...(powers[i]! > 1 ? { degree: { k: 'real', v: powers[i]! } } : {}),
+    }), body);
+  }
   function atom(): Expr {
     const t = peek();
     if (!t) throw new Error('unexpected end');
@@ -608,6 +691,7 @@ export function readTex(src: string): Expr {
       }
       case '\\operatorname': return callOrId(rawBetween());
       case '\\frac': {
+        if (is('{') && toks[p + 1]?.v === '\\partial') return partialDerivative();
         // d/dx is `\\frac{\\mathrm{d}}{…}`, with d alone. `\\frac{\\mathrm{dL}}{…}` is an ordinary fraction.
         if (is('{') && toks[p + 1]?.v === '\\mathrm' && toks[p + 3]?.v === 'd' && toks[p + 4]?.v === '}' && toks[p + 5]?.v === '}') {
           p += 6;
@@ -683,6 +767,26 @@ export function readTex(src: string): Expr {
         return { k: 'str', v: raw.replace(/^(''|")/, '').replace(/(''|")$/, '') };
       }
       case '\\overrightarrow': return op('vectorize', group());
+      case '\\hat':
+      case '\\vec': return callOrId(accented() + (t.v === '\\hat' ? HAT : ARROW));
+      case '\\nabla': {
+        let which = 'gradient';
+        if (is('\\cdot')) which = 'divergence';
+        else if (is('\\times')) which = 'curl';
+        else if (is('^')) {
+          p++;
+          const power = group();
+          if (power.k !== 'real' || power.v !== 2) throw new Error('∇², ∇ squared, is the Laplacian: ∇ takes no other power');
+          which = 'laplacian';
+        }
+        if (which === 'divergence' || which === 'curl') p++;
+        const sym = DEL_OPS[which]!;
+        if (!peek()) throw new Error(`${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);
+        const f = atom();
+        if (f.k !== 'call' || f.fn.k !== 'id') throw new Error(`${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);
+        return op(which, f);
+      }
+      case '\\partial': throw new Error('∂ is written in a partial derivative, ∂/∂x: the ∂/∂x button makes one');
       case '\\lnot': return op('not', group());
       case '\\placeholder': {
         if (is('{')) rawBetween();
@@ -778,7 +882,7 @@ export function readTex(src: string): Expr {
     // Inside an integral, an upright word starting with d is the differential that ends it.
     if (t.v === '\\mathrm' && toks[p + 2]?.v === 'd' && (integrals > 0 || toks[p + 3]?.v === '}')) return false;
     return t.v === '\\mathrm' || t.v === '\\lim' || t.v === '\\frac' || t.v === '\\sqrt' || t.v === '\\operatorname'
-      || TYPED_FUNCTIONS.has(t.v) || UNGREEK[t.v] !== undefined;
+      || t.v === '\\nabla' || t.v === '\\hat' || t.v === '\\vec' || TYPED_FUNCTIONS.has(t.v) || UNGREEK[t.v] !== undefined;
   };
   function unary(): Expr {
     if (is('-')) {
