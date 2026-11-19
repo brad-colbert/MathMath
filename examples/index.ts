@@ -36,6 +36,7 @@ import { trials } from './sheets/trials.js';
 import { terrain } from './sheets/terrain.js';
 import { polyhedra } from './sheets/polyhedra.js';
 import { fields } from './sheets/fields.js';
+import { charges } from './sheets/charges.js';
 import { neighbourhoods } from './sheets/neighbourhoods.js';
 import { orbits } from './sheets/orbits.js';
 import { phasors } from './sheets/phasors.js';
@@ -48,7 +49,7 @@ import { wall } from './sheets/wall.js';
 import { washer } from './sheets/washer.js';
 import { tour } from './sheets/tour.js';
 
-export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace, phasors, cooling, hardware, drum, skin, mortgage, shapes, noisy, stairs, sway, hues, shooting, heat, fringes, trials, terrain, polyhedra, fields, neighbourhoods];
+export const EXAMPLES: Example[] = [tour, projectile, filter, matching, tolerance, washer, earth, beam, wall, orbits, spectrum, laplace, phasors, cooling, hardware, drum, skin, mortgage, shapes, noisy, stairs, sway, hues, shooting, heat, fringes, trials, terrain, polyhedra, fields, neighbourhoods, charges];
 
 export interface Built { slug: string; title: string; summary: string; text: string; sheet: Sheet; symbolic: boolean }
 

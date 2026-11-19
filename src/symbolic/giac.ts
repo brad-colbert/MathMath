@@ -53,7 +53,7 @@ const FUNCTIONS: Record<string, string> = {
 /** Two-argument forms Giac takes the other way round: Mathcad's Psi(n, x) is Giac's Psi(x, n), and so on. */
 const SWAPPED = new Set(['Ei', 'Psi', 'LambertW']);
 
-const CONSTANTS: Record<string, string> = { 'π': 'pi', e: 'e', '∞': '(+infinity)' };
+const CONSTANTS: Record<string, string> = { 'π': 'pi', e: 'e', '∞': '(+infinity)', 'i\u0302': '[1,0,0]', 'j\u0302': '[0,1,0]', 'k\u0302': '[0,0,1]' };
 
 /** What comes back. Generated names map back separately. */
 const FROM_GIAC: Record<string, Expr> = {
@@ -298,6 +298,21 @@ export class Printer {
       case 'indexer': return `(${a})[${args.slice(1).map((x) => this.print(x)).join(',')}]`;
       case 'matcol': return `col(${a},${b})`;
       case 'factorial': return `factorial(${a})`;
+      // A derivative worked in a function's parameters, then the caller's arguments put in, all at once (see expand).
+      case 'atArguments': {
+        const pairs = args.slice(1);
+        const names = pairs.filter((_, i) => i % 2 === 0).map((x) => this.print(x));
+        const values = pairs.filter((_, i) => i % 2 === 1).map((x) => this.print(x));
+        return `subst(${a},[${names.join(',')}],[${values.join(',')}])`;
+      }
+      // After expand, the ∇ operators carry the expanded function, then the names it's differentiated in.
+      case 'gradient': case 'divergence': case 'curl': case 'laplacian': {
+        const vars = args.slice(1).map((x) => this.print(x));
+        // Giac's curl is for three variables; in the plane it's the one number ∂F₁/∂x − ∂F₀/∂y.
+        if (op === 'curl' && vars.length === 2) return `(diff((${a})[1],${vars[0]})-diff((${a})[0],${vars[1]}))`;
+        if (op === 'curl' && vars.length !== 3) throw new Error(`∇× is for a field in 3 variables, or 2, not ${vars.length}`);
+        return `${{ gradient: 'grad', divergence: 'divergence', curl: 'curl', laplacian: 'laplacian' }[op]}(${a},[${vars.join(',')}])`;
+      }
       default: throw new Error(`no symbolic form for ${op}`);
     }
   }

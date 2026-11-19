@@ -15,7 +15,7 @@
 
 /** Replaces sheet definitions with what they stand for, leaving only math the engine can read. */
 import { type Value, getEl, isNoDim, type Mat } from '../engine/values.js';
-import type { Expr } from '../model/ast.js';
+import { DEL_OPS, type Expr } from '../model/ast.js';
 import type { Definition, Defs } from './defs.js';
 
 export class NotSymbolic extends Error {}
@@ -62,6 +62,20 @@ function resolve(name: string, d: Definition, keep: Expr, depth: number): Expr {
   return literal;
 }
 
+/**
+ * A variable that is a parameter of a function being inlined stands for the caller's argument. So d/dx and ∇ work
+ * in the parameter's own name, and then the argument goes in: g(a) with g(x) := d/dx x² is 2x at x = a, 2a.
+ * The `atArguments` op carries the result, then each name and its argument, for the printer to substitute.
+ */
+function atArguments(e: Expr, names: string[], defs: Defs, bound: Set<string>): Expr {
+  const pairs: Expr[] = [];
+  for (const name of names) {
+    const d = bound.has(name) ? undefined : defs.find(name);
+    if (d?.bound && d.body) pairs.push({ k: 'id', name }, d.body);
+  }
+  return pairs.length ? { k: 'op', op: 'atArguments', args: [e, ...pairs] } : e;
+}
+
 export function expand(e: Expr, defs: Defs, bound: Set<string>, depth = 0): Expr {
   if (depth > MAX_DEPTH) throw new NotSymbolic('definitions are too deeply nested, or call themselves');
   const go = (x: Expr): Expr => expand(x, defs, bound, depth);
@@ -81,12 +95,28 @@ export function expand(e: Expr, defs: Defs, bound: Set<string>, depth = 0): Expr
       return resolve(e.name, d, e, depth);
     }
     case 'matrix': return { ...e, items: e.items.map(go) };
-    case 'op': return { ...e, args: e.args.map(go) };
+    case 'op': {
+      if (!DEL_OPS[e.op]) return { ...e, args: e.args.map(go) };
+      // ∇ differentiates in the call's arguments, which must be names: held as variables, as d/dx holds x, and passed
+      // on after the expanded call, for the printer to name.
+      const call = e.args[0];
+      const sym = DEL_OPS[e.op];
+      const names = call?.k === 'call' ? call.args.map((a) => (a.k === 'id' ? a.name : '')) : [];
+      if (names.length === 0 || names.includes('') || new Set(names).size < names.length) {
+        throw new NotSymbolic(`${sym} with → needs a function of names, as ${sym}f(x, y, z), each different`);
+      }
+      const inner = new Set([...bound, ...names]);
+      const worked: Expr = { ...e, args: [expand(call!, defs, inner, depth), ...names.map((name): Expr => ({ k: 'id', name }))] };
+      return atArguments(worked, names, defs, bound);
+    }
     case 'bigop': {
       const inner = under(e.varName);
       return { ...e, body: expand(e.body, defs, inner, depth), lo: e.lo && go(e.lo), hi: e.hi && go(e.hi) };
     }
-    case 'derivative': return { ...e, body: expand(e.body, defs, under(e.varName), depth), ...(e.degree ? { degree: go(e.degree) } : {}) };
+    case 'derivative': {
+      const worked: Expr = { ...e, body: expand(e.body, defs, under(e.varName), depth), ...(e.degree ? { degree: go(e.degree) } : {}) };
+      return atArguments(worked, [e.varName], defs, bound);
+    }
     case 'limit': return { ...e, body: expand(e.body, defs, under(e.varName), depth), to: go(e.to) };
     case 'call': {
       const args = e.args.map(go);

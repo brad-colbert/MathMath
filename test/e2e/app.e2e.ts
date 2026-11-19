@@ -2910,6 +2910,49 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Vector calculus from the ∇ menu: ∇ before a call, ∂/∂x typed twice showing as one, and a hat making î.
+{
+  const page = await fresh();
+  const del = (start: string) => page.evaluate((start) => {
+    const m = [...document.querySelectorAll<HTMLDetailsElement>('details.menu')].find((d) => d.querySelector('summary')!.textContent === '∇')!;
+    m.open = true;
+    [...m.querySelectorAll('button')].find((b) => b.textContent!.startsWith(start))!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }, start);
+  await type(page, 72, 60, 'f(x,y', R, ':x^2', R, '*y');
+  await type(page, 72, 110, 'x:1');
+  await type(page, 160, 110, 'y:2');
+  await clickAt(page, 72, 160);
+  await del('Gradient');
+  await keys(page, 'f(1,2)=');
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 230);
+  await del('Partial derivative');
+  await keys(page, 'x');
+  await page.keyboard.press('Tab');
+  await del('Partial derivative');
+  await keys(page, 'y');
+  await page.keyboard.press('Tab');
+  await keys(page, 'f(x,y)=');
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 300);
+  await keys(page, '3*');
+  await del('Hat');
+  await keys(page, 'i');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '+');
+  await del('Hat');
+  await keys(page, 'k');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '=');
+  await page.keyboard.press('Escape');
+  const s = (await shown(page)).map((x) => x.replace(/[\s\u200b]/g, ''));
+  const ws = await model(page);
+  // ∂/∂x of ∂/∂y shows as one, ∂²/∂x∂y; î shows as a dotless i under a hat.
+  check('the ∇ menu types ∇f, ∂/∂x and î, and they calculate', ws.regions.every((r: any) => r.content.k !== 'draft')
+    && s.includes('∇f(1,2)=(41)') && s.includes('∂x∂y∂2f(x,y)=2') && s.includes('3⋅ı^+k^=⎝⎛301⎠⎞'), s);
+  await page.close();
+}
+
 // Examples: the gallery, from the splash, the toolbar and Help, and every example opens and calculates cleanly.
 {
   const page = await fresh(true);

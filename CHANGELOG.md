@@ -8,6 +8,35 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.58.0] - 2026-11-18
+
+Vector calculus: ∇ for gradient, divergence, curl and Laplacian, partial derivatives, and unit vectors.
+
+### Added
+
+- Vector calculus. The new ∇ menu on the toolbar gives the gradient ∇f, divergence ∇·F, curl ∇×F and Laplacian
+  ∇²f. Each goes before a function and its arguments, as ∇f(x, y, z), and differentiates in each of the
+  function's parameters at the point the arguments give. So E(x, y, z) := −∇V(x, y, z) defines a field from a
+  potential. In two variables, ∇×F is the single number for the turning in the plane. Units carry through. With
+  →, each gives the exact answer in the argument names.
+- Partial derivatives, ∂/∂x and ∂ⁿ/∂xⁿ, from the same menu. They calculate exactly as d/dx does and only look
+  different. Two in a row in different variables show as one, ∂²/∂x∂y, which can also be typed that way.
+- A hat or an arrow over a single letter is now part of its name, as n̂ or an arrow on v for a vector. î, ĵ and
+  k̂ are the unit vectors along x, y and z unless a worksheet defines them, so 3î + 2ĵ is (3, 2, 0).
+- Help has a Vector calculus page, and the gallery has a new example, Fields from a potential. The Fields of
+  arrows example now uses ∇ for its gradient.
+
+### Fixed
+
+- → on a derivative inside a function called with other arguments now puts the arguments in. With
+  g(x) := d/dx x², g(a) → gives 2a, where before it gave 2x. ∇ works the same way, so E(a, b, c) → is the
+  gradient at (a, b, c).
+
+### Known limits
+
+- ∇ takes a function and its arguments, as ∇f(x, y, z), not an expression such as ∇(x²y), which doesn't say
+  which variables to differentiate in. Define the function first.
+
 ## [0.57.0] - 2026-11-18
 
 Sharing worksheets as links through GitHub gists, and loop bodies that take more lines.
