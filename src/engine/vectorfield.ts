@@ -69,6 +69,8 @@ function longest(u: Float64Array, v: Float64Array, w: Float64Array): number {
 
 function finish(dims: 2 | 3, x: Float64Array, y: Float64Array, z: Float64Array, u: Float64Array, v: Float64Array, w: Float64Array, step: number, sampled: boolean, every: number): FieldData {
   const big = longest(u, v, w);
+  // One arrow has no neighbours to keep clear of, so it's drawn as long as it is.
+  if (x.length === 1) return { dims, x, y, z, u, v, w, scale: 1, step: Math.max(big, 1e-12), sampled, every };
   return { dims, x, y, z, u, v, w, scale: big > 0 ? step / big : 0, step, sampled, every };
 }
 

@@ -20,7 +20,7 @@
 import { type Doc, GRID, type Item } from '../app/document.js';
 import { tex } from '../latex/latex.js';
 import { isEditable, regionLatex } from '../latex/region.js';
-import type { Content, NumberFormat, Region, TextRegion } from '../model/ast.js';
+import { type Content, type NumberFormat, type Region, type TextRegion, textStyleOf } from '../model/ast.js';
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
 import { mathMarkup } from './markup.js';
@@ -240,6 +240,12 @@ export class Paper {
       // Fonts differ a little from the original program's, so stored widths need some room to spare.
       if (item.region.width > 0) el.style.width = `${item.region.width * 1.15}pt`;
       el.textContent = item.region.text;
+      // Its style, set on the element, never written into markup.
+      const look = textStyleOf(item.region.style);
+      el.style.fontWeight = look.bold ? 'bold' : '';
+      el.style.fontStyle = look.italic ? 'italic' : '';
+      el.style.fontSize = look.size ? `${look.size}pt` : '';
+      el.style.color = look.color ?? '';
       return;
     }
     // A plot or image keeps its last picture, faded, until it's recalculated. Not while a calculation
@@ -475,6 +481,22 @@ export class Paper {
     if (this.selected.size !== 1) return null;
     const item = this.doc.find([...this.selected][0]!);
     return item?.kind === 'math' && item.region.content.k === kind ? item.region : null;
+  }
+
+  /**
+   * The selected text regions, or the one being typed in, for Format to style. Typing is finished first, and they
+   * stay selected, so several styles can be given one after another.
+   */
+  selectedTexts(): TextRegion[] {
+    const texts = this.textEdit ? [this.textEdit.region] : [...this.selected].flatMap((id) => {
+      const item = this.doc.find(id);
+      return item?.kind === 'text' ? [item.region] : [];
+    });
+    this.commitAll();
+    // Finishing an empty one removes it.
+    const kept = texts.filter((t) => this.doc.ws.texts.includes(t));
+    this.select(kept.map((t) => t.id));
+    return kept;
   }
 
   /** The selected regions that calculate a result: definitions and evaluations. */

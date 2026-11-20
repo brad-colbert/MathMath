@@ -19,7 +19,7 @@
  */
 import { emptyWorksheet } from '../format/native.js';
 import { readRegion } from '../latex/region.js';
-import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Region, type TextRegion, type Worksheet, autoAxis } from '../model/ast.js';
+import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Region, type TextRegion, type TextStyle, type Worksheet, autoAxis, textStyleOf } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
@@ -451,6 +451,17 @@ export class Doc {
   setText(region: TextRegion, text: string): void {
     region.text = text;
     this.touched(new Set([region.id]));
+  }
+
+  /** Restyles text regions together, as one step to undo. A style left empty is removed. */
+  setTextStyle(regions: TextRegion[], change: (s: TextStyle) => TextStyle): void {
+    if (regions.length === 0) return;
+    for (const r of regions) {
+      const style = textStyleOf(change(textStyleOf(r.style)));
+      if (Object.keys(style).length > 0) r.style = style;
+      else delete r.style;
+    }
+    this.touched(new Set(regions.map((r) => r.id)));
   }
 
   remove(ids: Set<string>): void {

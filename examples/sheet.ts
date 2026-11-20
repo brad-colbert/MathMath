@@ -75,6 +75,8 @@ export interface PlotOptions {
   yMin?: string;
   yMax?: string;
   traces?: Plot['traces'];
+  /** A surface plot's first surface's contour lines, drawn on the floor below it. */
+  floorContours?: boolean;
   /** Indent from the left margin, in points. */
   at?: number;
 }
@@ -144,6 +146,14 @@ export class Sheet {
   /** Blank space, in points. */
   gap(points = 12): this {
     this.y += points;
+    return this;
+  }
+
+  /** A title in large bold type, as Format → Heading gives. */
+  heading(title: string): this {
+    this.room(70);
+    this.ws.texts.push({ id: String(this.id++), left: LEFT, top: this.y, width: TEXT_WIDTH, height: 22, text: title, style: { bold: true, size: 16 } });
+    this.y += 30;
     return this;
   }
 
@@ -241,6 +251,7 @@ export class Sheet {
       ...(o.colorMap ? { colorMap: o.colorMap } : {}),
       ...(o.title !== undefined ? { title: o.title } : {}),
       ...(o.traces ? { traces: o.traces } : {}),
+      ...(o.floorContours ? { floorContours: true as const } : {}),
     };
     this.ws.regions.push({ id: String(this.id++), left, top: this.y, alignX: left, alignY: this.y, disabled: false, content });
   }
