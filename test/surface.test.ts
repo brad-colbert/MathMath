@@ -107,3 +107,55 @@ describe('contour lines', () => {
     for (const [x1, y1] of segs) expect(Math.max(Math.abs(x1 - 1), Math.abs(y1 - 1))).toBeCloseTo(0.5);
   });
 });
+
+describe('several things in one surface plot', () => {
+  const lines = [
+    'f\\left(x,y\\right)\\coloneq x+y',
+    'P\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\end{pmatrix}',
+    'X\\coloneq \\begin{pmatrix}0\\\\1\\end{pmatrix}',
+    'A\\coloneq \\begin{pmatrix}X\\\\X\\\\X\\\\X\\\\X\\\\X\\end{pmatrix}',
+    'C\\coloneq \\begin{pmatrix}X\\\\X\\\\X\\end{pmatrix}',
+  ];
+  const layered = (...ys: string[]) => surfaceOf(lines, ys[0]!, { ys: ys.map((y) => readTex(y)) });
+
+  test('a point, arrows, a curve and another surface each draw over the first', () => {
+    const { data, error } = layered('f', 'P', 'A', 'C', 'f');
+    expect(error).toBeUndefined();
+    const [point, arrows, curve, again] = data!.layers!;
+    expect([point!.surface!.rows, point!.surface!.cols, point!.surface!.x[0], point!.surface!.y[0], point!.surface!.z[0]]).toEqual([1, 1, 1, 2, 3]);
+    expect([arrows!.field!.dims, arrows!.field!.x.length]).toEqual([3, 2]);
+    expect([curve!.surface!.rows * curve!.surface!.cols, curve!.surface!.regular]).toEqual([2, false]);
+    expect([again!.surface!.rows, again!.surface!.sampled]).toEqual([31, true]);
+  });
+
+  test('six plain numbers are one arrow, drawn as long as it is', () => {
+    const f = layered('f', '\\begin{pmatrix}1\\\\2\\\\3\\\\0\\\\0\\\\2\\end{pmatrix}').data!.layers![0]!.field!;
+    expect([f.x.length, f.x[0], f.z[0], f.w[0], f.scale]).toEqual([1, 1, 3, 2, 1]);
+  });
+
+  test('a point alone is a surface plot of its own', () => {
+    const s = surfaceOf(lines, 'P').data!.surface!;
+    expect([s.rows, s.cols, s.z[0]]).toEqual([1, 1, 3]);
+  });
+
+  test('a layer that fails keeps its message, and the first expression still draws', () => {
+    const { data, error } = layered('f', 'q', '\\mathrm{Polyhedron}\\left(\\text{"cube"}\\right)', '\\begin{pmatrix}1\\\\2\\end{pmatrix}');
+    expect(error).toBeUndefined();
+    expect(data!.surface!.rows).toBe(31);
+    expect(data!.layers!.map((l) => l.error)).toEqual([
+      'q isn\'t defined',
+      'A polyhedron is drawn alone: put it in a plot of its own',
+      expect.stringMatching(/three numbers \(x, y, z\) in a vector mark a point/),
+    ]);
+  });
+
+  test('a contour plot has the layers too, so switching to a surface plot needn\'t calculate again', () => {
+    expect(surfaceOf(lines, 'f', { ys: [readTex('f'), readTex('P')], view: 'contour' }).data!.layers![0]!.surface!.z[0]).toBe(3);
+  });
+
+  test('a point in other units than its x and y, as (x, y, f(x, y)) with f in metres', () => {
+    const p = surfaceOf([...lines, 'g\\left(x,y\\right)\\coloneq \\left(x+y\\right)\\cdot \\mathrm{m}'], 'g',
+      { ys: [readTex('g'), readTex('\\begin{pmatrix}1\\\\2\\\\g\\left(1,2\\right)\\end{pmatrix}')] }).data!.layers![0]!;
+    expect([p.error, p.surface!.rows, p.surface!.z[0], p.surface!.zDim[0]]).toEqual([undefined, 1, 3, 1]);
+  });
+});

@@ -167,7 +167,15 @@ export interface PlotData {
   poly?: Polyhedron;
   /** For a vector field plot: its arrows. */
   field?: FieldData;
+  /** For a surface plot, what its second expression on draw over the first, each a layer or its error. */
+  layers?: Layer[];
 }
+
+/**
+ * Something more drawn in a surface plot: another surface, a curve, points, or arrows in space. A layer that can't
+ * be drawn keeps its message, and the rest of the plot still draws.
+ */
+export interface Layer { surface?: SurfaceData; field?: FieldData; error?: string }
 
 
 export interface Outcome {
@@ -2144,11 +2152,37 @@ function thin(x: Float64Array, y: Float64Array): [Float64Array, Float64Array] {
 /** How many points a function is sampled at along each side of a surface. */
 const SURFACE_SAMPLES = 31;
 
-/** The data for a surface or contour plot, from its first y expression. */
+/** The data for a surface or contour plot, from its first y expression; a surface plot's others are layers. */
 function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope): PlotData {
   const e = c.ys[0];
   if (!e) return { traces: [], limits: {} };
-  let v = ev.eval(e, scope);
+  const data = surfaceOf(ev, c, scope, ev.eval(e, scope));
+  // A contour plot draws the first only, but has the rest too: switching views doesn't calculate again.
+  if (c.ys.length < 2 || data.poly) return data;
+  const limit = (x: Expr | null, fallback: number): number => (x ? requireReal(ev.eval(x, scope), 'a limit') : fallback);
+  const layers = c.ys.slice(1).map((y): Layer => {
+    try {
+      const v = ev.eval(y, scope);
+      // Six arrays X, Y, Z, U, V, W are arrows in space, as a vector field plot takes them; six numbers, one arrow.
+      if (v.t === 'mat' && v.rows * v.cols === 6 && (v.cells || v.rows === 1 || v.cols === 1)) {
+        // Each number as a 1 × 1 array, so the six are the arrays of one arrow rather than a matrix of six.
+        const six = v.cells ? v : fromValues(6, 1, Array.from({ length: 6 }, (_, k) => fromValues(1, 1, [getEl(v, v.rows === 1 ? 0 : k, v.rows === 1 ? k : 0)])));
+        return { field: fieldOf(six, ev.origin, { x0: limit(c.xAxis.min, -5), x1: limit(c.xAxis.max, 5), y0: limit(c.yAxis.min, -5), y1: limit(c.yAxis.max, 5) }) };
+      }
+      const layer = surfaceOf(ev, c, scope, v);
+      if (!layer.surface) throw new EvalError('runtime', 'A polyhedron is drawn alone: put it in a plot of its own');
+      return { surface: layer.surface };
+    } catch (err) {
+      const e = toEvalError(err);
+      return { error: e.kind === 'undefined' || e.kind === 'undefined-function' ? `${e.reason} isn't defined` : e.reason };
+    }
+  });
+  return { ...data, layers };
+}
+
+/** One expression's surface, curve, point or polyhedron, for a surface or contour plot. */
+function surfaceOf(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: Scope, value: Value): PlotData {
+  let v = value;
   // Polyhedron("cube"), or the string alone, as Mathcad draws either.
   if (v.t === 'str') {
     const poly = polyhedron(v.v);
@@ -2183,6 +2217,11 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     }
     return { traces: [], limits: {}, surface: { rows: n, cols: n, x, y, z, regular: true, zDim, sampled: true } };
   }
+  if (v.t === 'mat' && v.cells && v.rows * v.cols === 3 && v.cells.every((e) => e.t === 'num')) {
+    // Three numbers in different units, as (x, y, f(x, y)) with f in metres: a point. Only its height keeps its unit.
+    const [x, y, z] = v.cells.map((e) => Float64Array.of(real(e, 'each of x, y and z')));
+    return { traces: [], limits: {}, surface: { rows: 1, cols: 1, x: x!, y: y!, z: z!, regular: false, zDim: (v.cells[2] as Num).dim, sampled: false } };
+  }
   if (v.t === 'mat' && v.cells && v.rows * v.cols === 3) {
     // Three matrices of the same size: the x, y and z of each grid point, for shapes such as a sphere.
     const [X, Y, Z] = v.cells.map((m) => requireMat(m, 'each of X, Y and Z'));
@@ -2193,9 +2232,14 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     const flat = (m: Mat): Float64Array => Float64Array.from({ length: m.rows * m.cols }, (_, k) => real(getEl(m, k % m.rows, Math.floor(k / m.rows)), 'each value'));
     return { traces: [], limits: {}, surface: { rows: X!.rows, cols: X!.cols, x: flat(X!), y: flat(Y!), z: flat(Z!), regular: false, zDim: Z!.dim, sampled: false } };
   }
+  if (v.t === 'mat' && !v.cells && v.rows * v.cols === 3 && (v.rows === 1 || v.cols === 1)) {
+    // Three numbers (x, y, z): a point, marked.
+    const [x, y, z] = [0, 1, 2].map((k) => Float64Array.of(real(getEl(v, v.rows === 1 ? 0 : k, v.rows === 1 ? k : 0), 'each of x, y and z')));
+    return { traces: [], limits: {}, surface: { rows: 1, cols: 1, x: x!, y: y!, z: z!, regular: false, zDim: v.dim, sampled: false } };
+  }
   if (v.t === 'mat' && !v.cells) {
     // A matrix of heights: x is the row number, y the column number, counted from ORIGIN.
-    if (v.rows < 2 || v.cols < 2) throw new EvalError('runtime', 'A surface needs a matrix with at least two rows and two columns');
+    if (v.rows < 2 || v.cols < 2) throw new EvalError('runtime', 'A surface needs a matrix with at least two rows and two columns; three numbers (x, y, z) in a vector mark a point');
     const n = v.rows * v.cols;
     const [x, y] = [new Float64Array(n), new Float64Array(n)];
     for (let k = 0; k < n; k++) {
@@ -2205,7 +2249,7 @@ function surfaceData(ev: Evaluator, c: Extract<Content, { k: 'plot' }>, scope: S
     const z = v.im ? Float64Array.from(v.re, (re, k) => (v.im![k] === 0 ? re : NaN)) : Float64Array.from(v.re);
     return { traces: [], limits: {}, surface: { rows: v.rows, cols: v.cols, x, y, z, regular: true, zDim: v.dim, sampled: false } };
   }
-  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, or a polyhedron, as Polyhedron gives');
+  throw new EvalError('runtime', 'A surface needs a matrix of heights, a function of two variables, three matrices X, Y and Z in a vector, as CreateMesh gives, three numbers (x, y, z) for a point, or a polyhedron, as Polyhedron gives');
 }
 
 /** A Smith chart's data: each trace's x and y are the real and imaginary parts of Γ, with no units. */

@@ -17,13 +17,15 @@
  * Surface and contour plots, drawn as SVG so they print as vectors. A surface is shaded patches seen from
  * an angle the reader can drag round; a contour plot is the same heights seen from above, as lines at even
  * levels. Both color height on one blue ramp, light to dark (the dataviz palette's sequential hue), with a
- * color bar to read it by.
+ * color bar to read it by. A surface plot draws its other expressions in the same box: more surfaces, curves,
+ * marked points and arrows, all back to front together, and can draw the first surface's contours on the floor.
  */
 import type { PlotData, SurfaceData } from '../engine/evaluate.js';
+import type { FieldData } from '../engine/vectorfield.js';
 import { tex } from '../latex/latex.js';
-import type { Content } from '../model/ast.js';
+import type { Content, TraceStyle } from '../model/ast.js';
 import { mathMarkup } from './markup.js';
-import { label, svgId, ticks } from './plot.js';
+import { label, svgId, symbol, ticks, traceLook } from './plot.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { type MapRows, mapColor } from '../engine/colormaps.js';
 import type { Polyhedron } from '../engine/polyhedra.js';
@@ -170,13 +172,37 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
     return;
   }
   // A curve, one point wide, keeps more of its points than a surface needs.
-  const curve = s0.rows === 1 || s0.cols === 1;
-  const s = thinned(s0, curve ? 600 : 48);
+  const isCurve = (t: SurfaceData): boolean => t.rows === 1 || t.cols === 1;
+  const fewer = (t: SurfaceData): SurfaceData => thinned(t, isCurve(t) ? 600 : 48);
+  const s = fewer(s0);
+  // What the second expression on draw over the first, in the same box: surfaces, curves, points and arrows.
+  const layers = (data.layers ?? []).map((l) => (l.surface ? { ...l, surface: fewer(l.surface) } : l));
   const { area } = frame(c);
-  const [[x0, x1], [y0, y1], [z0, z1]] = [range(s.x), range(s.y), range(s.z)];
-  const nx = (v: number): number => (x1 > x0 ? ((v - x0) / (x1 - x0)) * 2 - 1 : 0);
-  const ny = (v: number): number => (y1 > y0 ? ((v - y0) / (y1 - y0)) * 2 - 1 : 0);
-  const nz = (v: number): number => (z1 > z0 ? ((v - z0) / (z1 - z0)) * 1.4 - 0.7 : 0);
+  // The box holds everything drawn, each axis to its own scale; colors go by the heights of the surfaces and curves.
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  const grow = (...p: number[]): void => p.forEach((v, a) => {
+    if (Number.isFinite(v)) [lo[a], hi[a]] = [Math.min(lo[a]!, v), Math.max(hi[a]!, v)];
+  });
+  const grids = [s, ...layers.flatMap((l) => (l.surface ? [l.surface] : []))];
+  for (const t of grids) for (let k = 0; k < t.rows * t.cols; k++) grow(t.x[k]!, t.y[k]!, t.z[k]!);
+  const [z0, z1] = Number.isFinite(lo[2]!) ? [lo[2]!, hi[2]!] : [0, 0];
+  const tipOf = (f: FieldData, k: number): [number, number, number] => [f.x[k]! + f.u[k]! * f.scale, f.y[k]! + f.v[k]! * f.scale, f.z[k]! + f.w[k]! * f.scale];
+  for (const l of layers) {
+    if (!l.field) continue;
+    for (let k = 0; k < l.field.x.length; k++) {
+      grow(l.field.x[k]!, l.field.y[k]!, l.field.z[k]!);
+      grow(...tipOf(l.field, k));
+    }
+  }
+  const [[x0, x1], [y0, y1], [bottom, b1]] = [0, 1, 2].map((a) => (Number.isFinite(lo[a]!) ? [lo[a]!, hi[a]!] : [0, 0]));
+  // Contours on the floor need the floor clear of the surface, so the box reaches down below it.
+  const floored = c.floorContours === true && s0.regular && !isCurve(s0);
+  const b0 = floored && b1! > bottom! ? bottom! - 0.75 * (b1! - bottom!) : bottom!;
+  const nx = (v: number): number => (x1! > x0! ? ((v - x0!) / (x1! - x0!)) * 2 - 1 : 0);
+  const ny = (v: number): number => (y1! > y0! ? ((v - y0!) / (y1! - y0!)) * 2 - 1 : 0);
+  const nz = (v: number): number => (b1! > b0! ? ((v - b0!) / (b1! - b0!)) * 1.4 - 0.7 : 0);
+  const shade = (z: number): number => (z1 > z0 ? (z - z0) / (z1 - z0) : 0.5);
   const view = c.view3d ?? DEFAULT_VIEW;
   const [a, e] = [(view.azimuth * Math.PI) / 180, (view.elevation * Math.PI) / 180];
   const [ca, sa, ce, se] = [Math.cos(a), Math.sin(a), Math.cos(e), Math.sin(e)];
@@ -192,9 +218,11 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
   const scale = Math.min(area.w / (bx1 - bx0), area.h / (by1 - by0)) * 0.92;
   const [ox, oy] = [area.x + area.w / 2 - ((bx0 + bx1) / 2) * scale, area.y + area.h / 2 + ((by0 + by1) / 2) * scale];
   const screen = (p: [number, number, number]): [number, number] => [ox + p[0] * scale, oy - p[1] * scale];
+  const at = (x: number, y: number, z: number): [number, number, number] => project(nx(x), ny(y), nz(z));
+  const xy = (p: [number, number, number]): string => screen(p).map((v) => v.toFixed(2)).join(' ');
   const parts: string[] = [`<svg class="plot-svg" width="${c.width}pt" height="${c.height}pt" viewBox="0 0 ${c.width} ${c.height}" font-family="system-ui, sans-serif" font-size="8">`];
   // The box's edges, behind the surface, and the range of each axis at its ends.
-  const box = (p: [number, number, number]): string => screen(project(...p)).map((v) => v.toFixed(2)).join(' ');
+  const box = (p: [number, number, number]): string => xy(project(...p));
   const edges: [[number, number, number], [number, number, number]][] = [];
   for (const py of [-1, 1]) for (const pz of [-0.7, 0.7]) edges.push([[-1, py, pz], [1, py, pz]]);
   for (const px of [-1, 1]) for (const pz of [-0.7, 0.7]) edges.push([[px, -1, pz], [px, 1, pz]]);
@@ -204,57 +232,160 @@ export function drawSurface(el: HTMLElement, c: Plot, data: PlotData | undefined
     const [sx, sy] = screen(project(...p));
     parts.push(`<text x="${(sx + dx).toFixed(2)}" y="${(sy + dy).toFixed(2)}" text-anchor="middle" fill="${SECONDARY}">${esc(text)}</text>`);
   };
-  tag([-1, -1, -0.7], `x ${label(x0)}`, 0, 10);
-  tag([1, -1, -0.7], label(x1), 0, 10);
-  tag([1, 1, -0.7], `y ${label(y1)}`, 0, 10);
-  // Patches back to front, each colored by its mean height.
-  const quads: { depth: number; z: number; d: string }[] = [];
-  const at = (i: number, j: number): number => i + j * s.rows;
-  for (let j = 0; j + 1 < s.cols; j++) {
-    for (let i = 0; i + 1 < s.rows; i++) {
-      const ids = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-      if (ids.some((k) => !Number.isFinite(s.z[k]!) || !Number.isFinite(s.x[k]!) || !Number.isFinite(s.y[k]!))) continue;
-      const pts = ids.map((k) => project(nx(s.x[k]!), ny(s.y[k]!), nz(s.z[k]!)));
-      const depth = pts.reduce((t, p) => t + p[2], 0) / 4;
-      const z = ids.reduce((t, k) => t + s.z[k]!, 0) / 4;
-      const d = pts.map((p, n) => `${n ? 'L' : 'M'}${screen(p).map((v) => v.toFixed(2)).join(' ')}`).join('') + 'Z';
-      quads.push({ depth, z, d });
+  tag([-1, -1, -0.7], `x ${label(x0!)}`, 0, 10);
+  tag([1, -1, -0.7], label(x1!), 0, 10);
+  tag([1, 1, -0.7], `y ${label(y1!)}`, 0, 10);
+  // Everything is drawn back to front in one list, so a hill hides a point behind it. What lies on a surface, as a
+  // marked point or an arrow from it, is drawn over the patches unless one is truly in front of it, found from the
+  // depth across the patch under it: sorting alone lets the patch it sits on cover half of it.
+  const marks: { depth: number; svg: string }[] = [];
+  const NEAR = 0.04;
+  const faces: [number, number, number][][] = [];
+  // The patches by where they fall on the plot, in a grid of cells, so each mark tests only those under it: a big
+  // arrow grid over a surface would otherwise test thousands of patches per arrow on every step of a drag.
+  const CELLS = 24;
+  let buckets: number[][] | null = null;
+  const cellOf = (x: number, y: number): [number, number] => [
+    Math.min(CELLS - 1, Math.max(0, Math.floor(((x - area.x) / area.w) * CELLS))), Math.min(CELLS - 1, Math.max(0, Math.floor(((y - area.y) / area.h) * CELLS))),
+  ];
+  const bucketed = (): number[][] => {
+    const out: number[][] = Array.from({ length: CELLS * CELLS }, () => []);
+    faces.forEach((f, n) => {
+      const [c0, r0] = cellOf(Math.min(...f.map((v) => v[0])), Math.min(...f.map((v) => v[1])));
+      const [c1, r1] = cellOf(Math.max(...f.map((v) => v[0])), Math.max(...f.map((v) => v[1])));
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out[r * CELLS + c]!.push(n);
+    });
+    return out;
+  };
+  const hidden = (p: [number, number, number]): boolean => {
+    const [px, py] = screen(p);
+    buckets ??= bucketed();
+    const [c, r] = cellOf(px, py);
+    for (const n of buckets[r * CELLS + c]!) {
+      const f = faces[n]!;
+      for (const [a, b, c2] of [[f[0]!, f[1]!, f[2]!], [f[0]!, f[2]!, f[3]!]]) {
+        const det = (b![1] - c2![1]) * (a![0] - c2![0]) + (c2![0] - b![0]) * (a![1] - c2![1]);
+        if (Math.abs(det) < 1e-12) continue;
+        const l1 = ((b![1] - c2![1]) * (px - c2![0]) + (c2![0] - b![0]) * (py - c2![1])) / det;
+        const l2 = ((c2![1] - a![1]) * (px - c2![0]) + (a![0] - c2![0]) * (py - c2![1])) / det;
+        const l3 = 1 - l1 - l2;
+        if (l1 < 0 || l2 < 0 || l3 < 0) continue;
+        if (l1 * a![2] + l2 * b![2] + l3 * c2![2] > p[2] + 0.03) return true;
+      }
+    }
+    return false;
+  };
+  /** Where a mark goes in the drawing order: last, over the patches, unless one hides it. */
+  const placed = (p: [number, number, number], depth: number): number => (hidden(p) ? depth : depth + 1e6);
+  const finite = (t: SurfaceData, k: number): boolean => Number.isFinite(t.x[k]!) && Number.isFinite(t.y[k]!) && Number.isFinite(t.z[k]!);
+  const patches = (t: SurfaceData): void => {
+    const id = (i: number, j: number): number => i + j * t.rows;
+    for (let j = 0; j + 1 < t.cols; j++) {
+      for (let i = 0; i + 1 < t.rows; i++) {
+        const ids = [id(i, j), id(i + 1, j), id(i + 1, j + 1), id(i, j + 1)];
+        if (!ids.every((k) => finite(t, k))) continue;
+        const pts = ids.map((k) => at(t.x[k]!, t.y[k]!, t.z[k]!));
+        const depth = pts.reduce((sum, p) => sum + p[2], 0) / 4;
+        const z = ids.reduce((sum, k) => sum + t.z[k]!, 0) / 4;
+        const d = pts.map((p, n) => `${n ? 'L' : 'M'}${xy(p)}`).join('') + 'Z';
+        faces.push(pts.map((p) => [...screen(p), p[2]] as [number, number, number]));
+        marks.push({ depth, svg: `<path d="${d}" fill="${rampColor(shade(z))}" stroke="#0b0b0b" stroke-opacity="0.22" stroke-width="0.35" stroke-linejoin="round"/>` });
+      }
+    }
+  };
+  /** A line through the points, each segment colored by its height or in the trace's own look. */
+  const line = (t: SurfaceData, look: ReturnType<typeof traceLook> | null, near: number): void => {
+    for (let k = 0; k + 1 < t.rows * t.cols; k++) {
+      if (!finite(t, k) || !finite(t, k + 1)) continue;
+      const [p, q] = [k, k + 1].map((m) => at(t.x[m]!, t.y[m]!, t.z[m]!)) as [[number, number, number], [number, number, number]];
+      const stroke = look ? `stroke="${look.color}" stroke-width="${look.weight}"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}`
+        : `stroke="${rampColor(shade((t.z[k]! + t.z[k + 1]!) / 2))}" stroke-width="1.75"`;
+      const mid: [number, number, number] = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
+      marks.push({ depth: placed(mid, mid[2] + near), svg: `<path class="curve3d" d="M${xy(p)}L${xy(q)}" ${stroke} stroke-linecap="round" fill="none"/>` });
+    }
+  };
+  /** A symbol at each point: a point marked on its own is drawn large enough to find. */
+  const points = (t: SurfaceData, look: ReturnType<typeof traceLook>, kind: NonNullable<TraceStyle['points']>): void => {
+    for (let k = 0; k < t.rows * t.cols; k++) {
+      if (!finite(t, k)) continue;
+      const p = at(t.x[k]!, t.y[k]!, t.z[k]!);
+      const [sx, sy] = screen(p);
+      marks.push({ depth: placed(p, p[2] + NEAR), svg: `<g class="point3d">${symbol(kind, sx, sy, look.color, Math.max(look.weight, t.rows * t.cols === 1 ? 4 : 1.5))}</g>` });
+    }
+  };
+  /** Draws one expression's surface, curve or point: n counts the expressions from 0, for its trace style. */
+  const drawn = (t: SurfaceData, n: number): void => {
+    if (!isCurve(t)) return;
+    const look = traceLook(c, n);
+    if (t.rows * t.cols === 1) return points(t, look, look.points === 'none' ? 'circle' : look.points);
+    // The first expression's curve is colored by height, as a space curve always was, unless it's given a style.
+    const styled = n > 0 || c.traces?.[n] != null;
+    if (look.line) line(t, styled ? look : null, n > 0 ? NEAR : 0);
+    if (look.points !== 'none') points(t, look, look.points);
+  };
+  // The patches first, so a point or arrow can tell whether one hides it.
+  for (const t of grids) if (!isCurve(t)) patches(t);
+  drawn(s, 0);
+  layers.forEach((l, i) => {
+    if (l.surface) drawn(l.surface, i + 1);
+    const f = l.field;
+    if (!f) return;
+    const look = traceLook(c, i + 1);
+    for (let k = 0; k < f.x.length; k++) {
+      const tip = tipOf(f, k);
+      if (![f.x[k]!, f.y[k]!, f.z[k]!, ...tip].every(Number.isFinite)) continue;
+      const [p, q] = [at(f.x[k]!, f.y[k]!, f.z[k]!), at(...tip)];
+      const [[ax, ay], [bx, by]] = [screen(p), screen(q)];
+      marks.push({ depth: placed(p, (p[2] + q[2]) / 2 + NEAR), svg: arrow(ax, ay, bx, by, look.color, 1, look.weight * 0.6) });
+    }
+  });
+  // Contour lines on the floor of the box, below the first surface, colored by level as a contour plot's are.
+  if (floored) {
+    const g = thinned(s0, 96);
+    const levels = z1 > z0 ? ticks({ lo: z0, hi: z1, log: false }, 8).filter((v) => v > z0 && v < z1) : [];
+    for (const level of levels) {
+      const stroke = rampColor(shade(level), 0.25);
+      for (const [ax, ay, bx, by] of contourLines(g, level)) {
+        const [p, q] = [project(nx(ax), ny(ay), -0.7), project(nx(bx), ny(by), -0.7)];
+        marks.push({ depth: (p[2] + q[2]) / 2, svg: `<path class="floor-contour" d="M${xy(p)}L${xy(q)}" stroke="${stroke}" stroke-width="1" stroke-linecap="round" fill="none"/>` });
+      }
     }
   }
-  quads.sort((p, q) => p.depth - q.depth);
-  for (const q of quads) {
-    const fill = rampColor(z1 > z0 ? (q.z - z0) / (z1 - z0) : 0.5);
-    parts.push(`<path d="${q.d}" fill="${fill}" stroke="#0b0b0b" stroke-opacity="0.22" stroke-width="0.35" stroke-linejoin="round"/>`);
-  }
-  // A space curve, as CreateSpace gives: three vectors make a line through the points, back to front, each
-  // segment colored by its height.
-  if (curve) {
-    const n = s.rows * s.cols;
-    const segs: { depth: number; z: number; d: string }[] = [];
-    for (let k = 0; k + 1 < n; k++) {
-      if ([k, k + 1].some((m) => !Number.isFinite(s.z[m]!) || !Number.isFinite(s.x[m]!) || !Number.isFinite(s.y[m]!))) continue;
-      const [p, q] = [k, k + 1].map((m) => project(nx(s.x[m]!), ny(s.y[m]!), nz(s.z[m]!)));
-      segs.push({ depth: (p![2] + q![2]) / 2, z: (s.z[k]! + s.z[k + 1]!) / 2, d: `M${screen(p!).map((v) => v.toFixed(2)).join(' ')}L${screen(q!).map((v) => v.toFixed(2)).join(' ')}` });
-    }
-    segs.sort((p, q) => p.depth - q.depth);
-    for (const g of segs) parts.push(`<path class="curve3d" d="${g.d}" stroke="${rampColor(z1 > z0 ? (g.z - z0) / (z1 - z0) : 0.5)}" stroke-width="1.75" stroke-linecap="round" fill="none"/>`);
-  }
+  marks.sort((p, q) => p.depth - q.depth);
+  for (const m of marks) parts.push(m.svg);
   parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 's', 0, rampColor, palette !== undefined));
+  // A layer that can't be drawn says why, at the top, in order, with a halo to read it over the box.
+  layers.flatMap((l, i) => (l.error ? [`Expression ${i + 2}: ${l.error}`] : [])).forEach((text, n) => {
+    parts.push(`<text class="layer-problem" x="${area.x + 2}" y="${area.y + 8 + n * 10}" fill="#c00" stroke="#fff" stroke-width="2.5" paint-order="stroke">${esc(text)}</text>`);
+  });
   // Dragging across the plot turns it.
   parts.push(`<rect class="rotate-area" x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}" fill="transparent"/>`);
   parts.push('</svg>');
   el.innerHTML = parts.join('') + slots(c, data, area);
   el.style.width = `${c.width}pt`;
   el.style.height = `${c.height}pt`;
-  const vertices = Array.from({ length: s.rows * s.cols }, (_, k) => ({ k, at: screen(project(nx(s.x[k]!), ny(s.y[k]!), nz(s.z[k]!))) }));
-  hoverNearest(el, (px, py) => {
-    let best: { d: number; k: number } | null = null;
-    for (const v of vertices) {
-      if (!Number.isFinite(s.z[v.k]!)) continue;
-      const d = (v.at[0] - px) ** 2 + (v.at[1] - py) ** 2;
-      if (!best || d < best.d) best = { d, k: v.k };
+  // The pointer reads the nearest point of any surface, curve or point, or the nearest arrow's tail.
+  const vertices: { at: [number, number]; text: string }[] = [];
+  for (const t of grids) {
+    for (let k = 0; k < t.rows * t.cols; k++) {
+      if (finite(t, k)) vertices.push({ at: screen(at(t.x[k]!, t.y[k]!, t.z[k]!)), text: `x = ${num(t.x[k]!)}, y = ${num(t.y[k]!)}, z = ${num(t.z[k]!)}` });
     }
-    return best && best.d < 400 ? `x = ${num(s.x[best.k]!)}, y = ${num(s.y[best.k]!)}, z = ${num(s.z[best.k]!)}` : null;
+  }
+  for (const l of layers) {
+    const f = l.field;
+    if (!f) continue;
+    for (let k = 0; k < f.x.length; k++) {
+      if (![f.x[k], f.y[k], f.z[k]].every((v) => Number.isFinite(v!))) continue;
+      vertices.push({ at: screen(at(f.x[k]!, f.y[k]!, f.z[k]!)), text: `(${num(f.x[k]!)}, ${num(f.y[k]!)}, ${num(f.z[k]!)}): (${num(f.u[k]!)}, ${num(f.v[k]!)}, ${num(f.w[k]!)})` });
+    }
+  }
+  hoverNearest(el, (px, py) => {
+    let best: { d: number; text: string } | null = null;
+    for (const v of vertices) {
+      const d = (v.at[0] - px) ** 2 + (v.at[1] - py) ** 2;
+      if (!best || d < best.d) best = { d, text: v.text };
+    }
+    return best && best.d < 400 ? best.text : null;
   }, area);
 }
 
@@ -431,6 +562,19 @@ const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? '
 /** Dark ink for arrows, as Mathcad draws a vector field: thin black arrows. */
 const INK = '#1f1f1f';
 
+/** An arrow from (ax, ay) to (bx, by) on the page, its head two strokes a third of its length, or a dot. */
+function arrow(ax: number, ay: number, bx: number, by: number, col: string, opacity = 1, width = 0.8): string {
+  const [dx, dy] = [bx - ax, by - ay];
+  const len = Math.hypot(dx, dy);
+  const faded = opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : '';
+  if (!(len > 0.4)) return `<circle cx="${ax.toFixed(2)}" cy="${ay.toFixed(2)}" r="${(0.7 * Math.max(1, width / 0.8)).toFixed(2)}" fill="${col}"${faded}/>`;
+  const h = Math.min(len * 0.32, 6);
+  const [ux, uy] = [dx / len, dy / len];
+  const [c1, s1] = [Math.cos(0.45), Math.sin(0.45)];
+  const head = (sign: number): string => `${(bx - h * (ux * c1 - sign * uy * s1)).toFixed(2)} ${(by - h * (sign * ux * s1 + uy * c1)).toFixed(2)}`;
+  return `<path d="M${ax.toFixed(2)} ${ay.toFixed(2)}L${bx.toFixed(2)} ${by.toFixed(2)}M${head(1)}L${bx.toFixed(2)} ${by.toFixed(2)}L${head(-1)}" stroke="${col}" stroke-width="${width}" fill="none" stroke-linecap="round" stroke-linejoin="round"${faded}/>`;
+}
+
 /**
  * A vector field: an arrow from each point, its length in proportion, the longest reaching the next point (see
  * vectorfield.ts). Arrows in the plane are drawn flat with axes, x and y to one scale so each arrow points the way
@@ -452,17 +596,6 @@ export function drawVector(el: HTMLElement, c: Plot, data: PlotData | undefined,
   const colour = (k: number): string => (palette ? `rgb(${mapColor(palette, big > 0 ? lengths[k]! / big : 0).join(',')})` : INK);
   const tip = (k: number): [number, number, number] => [f.x[k]! + f.u[k]! * f.scale, f.y[k]! + f.v[k]! * f.scale, f.z[k]! + f.w[k]! * f.scale];
   const parts: string[] = [`<svg class="plot-svg" width="${c.width}pt" height="${c.height}pt" viewBox="0 0 ${c.width} ${c.height}" font-family="system-ui, sans-serif" font-size="8">`];
-  /** An arrow from (ax, ay) to (bx, by) on the page, its head two strokes a third of its length, or a dot. */
-  const arrow = (ax: number, ay: number, bx: number, by: number, col: string, opacity = 1): string => {
-    const [dx, dy] = [bx - ax, by - ay];
-    const len = Math.hypot(dx, dy);
-    if (!(len > 0.4)) return `<circle cx="${ax.toFixed(2)}" cy="${ay.toFixed(2)}" r="0.7" fill="${col}"${opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : ''}/>`;
-    const h = Math.min(len * 0.32, 6);
-    const [ux, uy] = [dx / len, dy / len];
-    const [c1, s1] = [Math.cos(0.45), Math.sin(0.45)];
-    const head = (sign: number): string => `${(bx - h * (ux * c1 - sign * uy * s1)).toFixed(2)} ${(by - h * (sign * ux * s1 + uy * c1)).toFixed(2)}`;
-    return `<path d="M${ax.toFixed(2)} ${ay.toFixed(2)}L${bx.toFixed(2)} ${by.toFixed(2)}M${head(1)}L${bx.toFixed(2)} ${by.toFixed(2)}L${head(-1)}" stroke="${col}" stroke-width="0.8" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : ''}/>`;
-  };
   if (f.dims === 2) {
     // The points and the arrows' tips, with half a step round them, to one scale both ways.
     let [x0, x1, y0, y1] = [Infinity, -Infinity, Infinity, -Infinity];

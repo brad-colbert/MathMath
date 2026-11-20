@@ -157,14 +157,18 @@ export type Content =
        * Surface and contour plot the first y expression: a matrix of heights, a function of two variables
        * (sampled over the x and y limits, −5 to 5 by default), or three matrices X, Y and Z. A Smith chart
        * takes each y as complex reflection coefficients Γ; x, if given, is what they're swept over, shown on hover.
-       * A vector field draws arrows from the first y expression (see vectorfield.ts).
+       * A vector field draws arrows from the first y expression (see vectorfield.ts). In a surface plot, each y
+       * expression after the first is drawn over it in the same box: another surface, a curve, a point (x, y, z),
+       * or six arrays X, Y, Z, U, V, W as arrows.
        */
       view?: 'polar' | 'surface' | 'contour' | 'smith' | 'vector';
       /** For a surface, contour or vector field plot: the colour map by name (see colormaps.ts). Left out, a
        *  surface uses MathMath's ramp and a vector field dark ink. */
       colorMap?: string;
       /** The angle a surface is seen from, in degrees: round the vertical, and above the horizontal. */
-      view3d?: { azimuth: number; elevation: number } }
+      view3d?: { azimuth: number; elevation: number };
+      /** For a surface plot: the first surface's contour lines drawn on the floor of the box, below it. */
+      floorContours?: true }
   /**
    * Another worksheet's definitions, available from here on as if its regions were here. `file` is a file
    * name, matched without its extension against attached worksheets.
@@ -190,8 +194,36 @@ export interface TextRegion {
   top: number;
   width: number;
   height: number;
-  /** Plain text. Styling isn't imported yet. */
+  /** Plain text. Styling isn't imported from other programs' files yet. */
   text: string;
+  /** How the whole region's words look; left out, plain 10-point text. */
+  style?: TextStyle;
+}
+
+/** A text region's look: bold, italic, its size in points, and a color as #rrggbb. */
+export interface TextStyle {
+  bold?: true;
+  italic?: true;
+  size?: number;
+  color?: string;
+}
+
+/** The smallest and largest text, in points. */
+export const TEXT_SIZES = { min: 6, max: 48 } as const;
+
+/**
+ * A text region's style as it can be drawn: a file can come from anyone, so only what Format could have set is
+ * kept, a size within TEXT_SIZES and a color written #rrggbb.
+ */
+export function textStyleOf(given: unknown): TextStyle {
+  if (typeof given !== 'object' || given === null) return {};
+  const g = given as Record<string, unknown>;
+  const out: TextStyle = {};
+  if (g.bold === true) out.bold = true;
+  if (g.italic === true) out.italic = true;
+  if (typeof g.size === 'number' && Number.isFinite(g.size)) out.size = Math.min(TEXT_SIZES.max, Math.max(TEXT_SIZES.min, g.size));
+  if (typeof g.color === 'string' && /^#[0-9a-f]{6}$/i.test(g.color)) out.color = g.color;
+  return out;
 }
 
 /** A region this version can show but not edit, kept intact so saving never destroys it. */

@@ -36,7 +36,7 @@ const INK = 'ink';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
-import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type Worksheet, onPaper, paperOf } from '../model/ast.js';
+import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type TextStyle, type Worksheet, onPaper, paperOf, textStyleOf } from '../model/ast.js';
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { isCmpFile } from '../engine/colormaps.js';
 import { Doc } from './document.js';
@@ -643,7 +643,7 @@ const plotMenu = document.createElement('details');
 plotMenu.className = 'menu';
 const plotSummary = document.createElement('summary');
 plotSummary.textContent = 'Format';
-plotSummary.title = 'Options for the selected plot, image or results';
+plotSummary.title = 'Options for the selected plot, image, text or results';
 plotSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const plotList = document.createElement('div');
 plotMenu.append(plotSummary, plotList);
@@ -659,6 +659,11 @@ const formats: [string, 'plot' | 'image', (c: Content) => Content][] = [
   ['Surface plot (3-D)', 'plot', (c) => (c.k === 'plot' ? withView(c, 'surface') : c)],
   ['Contour plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'contour') : c)],
   ['Vector field plot', 'plot', (c) => (c.k === 'plot' ? withView(c, 'vector') : c)],
+  ['Contour lines below a surface', 'plot', (c) => {
+    if (c.k !== 'plot') return c;
+    const { floorContours: on, ...rest } = c;
+    return on ? rest : { ...rest, floorContours: true };
+  }],
   ['Reset the 3-D view', 'plot', (c) => {
     if (c.k !== 'plot') return c;
     const { view3d: _, ...rest } = c;
@@ -782,6 +787,62 @@ for (const [label, kind, change] of formats) {
   });
   plotList.appendChild(b);
 }
+// Text regions: a heading's size and weight, bold, italic and a color, for the whole region.
+plotList.appendChild(document.createElement('hr'));
+/** The colors text can take: dark enough to read on the page. */
+const TEXT_COLORS: [string, string | undefined][] = [
+  ['Black', undefined], ['Blue', '#1c5cab'], ['Red', '#b3261e'], ['Green', '#1d7a3e'], ['Purple', '#5a3fc0'], ['Orange', '#b45309'], ['Gray', '#52514e'],
+];
+const textFormats: [string, string, (s: TextStyle) => TextStyle][] = [
+  ['Heading', 'Large bold text, for a title or a section', () => ({ bold: true, size: 16 })],
+  ['Subheading', 'Bold text a little larger than the rest', () => ({ bold: true, size: 12 })],
+  ['Plain text', 'Back to plain 10-point text', () => ({})],
+  ['Bold text', 'Bold, or back to normal weight', (st) => ({ ...st, bold: st.bold ? undefined : true } as TextStyle)],
+  ['Italic text', 'Italic, or back to upright', (st) => ({ ...st, italic: st.italic ? undefined : true } as TextStyle)],
+  ['Larger text', 'Two points larger', (st) => ({ ...st, size: (st.size ?? 10) + 2 })],
+  ['Smaller text', 'Two points smaller', (st) => ({ ...st, size: (st.size ?? 10) - 2 })],
+];
+for (const [label, hint, change] of textFormats) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.title = hint;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const texts = paper.selectedTexts();
+    if (texts.length === 0) {
+      doc.onProblem('Select one or more text regions first');
+      return;
+    }
+    doc.setTextStyle(texts, change);
+  });
+  plotList.appendChild(b);
+}
+{
+  const b = document.createElement('button');
+  b.textContent = 'Text color…';
+  b.title = 'The color of the selected text regions';
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const texts = paper.selectedTexts();
+    if (texts.length === 0) {
+      doc.onProblem('Select one or more text regions first');
+      return;
+    }
+    const current = TEXT_COLORS.find(([, hex]) => hex === textStyleOf(texts[0]!.style).color)?.[0];
+    const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+    chooseMap(plotSummary, TEXT_COLORS.map(([name]) => name), current, (name) => {
+      const hex = TEXT_COLORS.find(([n]) => n === name)?.[1] ?? '#000000';
+      return [rgb(hex), rgb(hex)];
+    }, (name) => {
+      const hex = TEXT_COLORS.find(([n]) => n === name)?.[1];
+      doc.setTextStyle(texts, (st) => ({ ...st, color: hex } as TextStyle));
+    }, 'Black');
+  });
+  plotList.appendChild(b);
+}
+plotList.appendChild(document.createElement('hr'));
 {
   // Several results can be switched at once: an AC sheet is full of them.
   const b = document.createElement('button');

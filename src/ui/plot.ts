@@ -60,7 +60,7 @@ export function traceLook(c: Plot, n: number): { color: string; dash: string; li
 }
 
 /** A point symbol at (x, y), its size following the line weight. */
-function symbol(kind: NonNullable<TraceStyle['points']>, x: number, y: number, color: string, weight: number): string {
+export function symbol(kind: NonNullable<TraceStyle['points']>, x: number, y: number, color: string, weight: number): string {
   const r = 1.6 + weight * 0.4;
   switch (kind) {
     case 'circle': return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="${color}" stroke="#fff" stroke-width="0.75"/>`;

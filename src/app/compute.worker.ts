@@ -20,7 +20,7 @@ import { type DecodedImage, type Files, SHEET_MIME, fileKey, isSheetName, sheetK
 import { type DecodedAudio, isWavFile, parseWav } from '../engine/wav.js';
 import { type MapRows, isCmpFile, readCmp } from '../engine/colormaps.js';
 import { SCALED_DISPLAYS, scaledDisplay } from '../engine/scaling.js';
-import { EvalError } from '../engine/values.js';
+import { EvalError, dimEq } from '../engine/values.js';
 import { loadWorksheet } from '../format/native.js';
 import { tex } from '../latex/latex.js';
 import type { Content, Expr, NumberFormat, Region, Worksheet } from '../model/ast.js';
@@ -118,6 +118,17 @@ function inUnits(p: PlotData, c: Plot): PlotData {
     const z = zs.divide === 1 && zs.zero === 0 ? p.surface.z : p.surface.z.map((v) => (v - zs.zero) / zs.divide);
     out.surface = { ...p.surface, z };
     out.zLabel = zs.latex;
+    // The surface plot's layers share its heights' unit, so one color bar and box read them all.
+    if (p.layers) {
+      const plain = zs.divide === 1 && zs.zero === 0;
+      out.layers = p.layers.map((l) => {
+        // Arrows have no units, but their heights are drawn on the same axis, so they move with it.
+        if (l.field) return plain ? l : { field: { ...l.field, z: l.field.z.map((v) => (v - zs.zero) / zs.divide), w: l.field.w.map((v) => v / zs.divide) } };
+        if (!l.surface) return l;
+        if (!dimEq(l.surface.zDim, p.surface!.zDim)) return { error: 'Its heights are in other units than the first\'s' };
+        return { surface: { ...l.surface, z: zs.divide === 1 && zs.zero === 0 ? l.surface.z : l.surface.z.map((v) => (v - zs.zero) / zs.divide) } };
+      });
+    }
   }
   return out;
 }
@@ -305,7 +316,12 @@ function shownValue(o: Outcome, format: NumberFormat): Shown {
     const surface = plot.surface ? { ...plot.surface, x: plot.surface.x.slice(), y: plot.surface.y.slice(), z: plot.surface.z.slice() } : undefined;
     const f = plot.field;
     const field = f ? { ...f, x: f.x.slice(), y: f.y.slice(), z: f.z.slice(), u: f.u.slice(), v: f.v.slice(), w: f.w.slice() } : undefined;
-    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice(), ...(t.param ? { param: t.param.slice() } : {}) })), ...(surface ? { surface } : {}), ...(field ? { field } : {}) } };
+    const layers = plot.layers?.map((l) => ({
+      ...l,
+      ...(l.surface ? { surface: { ...l.surface, x: l.surface.x.slice(), y: l.surface.y.slice(), z: l.surface.z.slice() } } : {}),
+      ...(l.field ? { field: { ...l.field, x: l.field.x.slice(), y: l.field.y.slice(), z: l.field.z.slice(), u: l.field.u.slice(), v: l.field.v.slice(), w: l.field.w.slice() } } : {}),
+    }));
+    return { id, plot: { ...plot, traces: plot.traces.map((t) => ({ ...t, x: t.x.slice(), y: t.y.slice(), ...(t.param ? { param: t.param.slice() } : {}) })), ...(surface ? { surface } : {}), ...(field ? { field } : {}), ...(layers ? { layers } : {}) } };
   }
   if (o.image) return { id, image: { ...o.image, rgba: o.image.rgba.slice() } };
   if (o.unevaluated) return { id, unevaluated: true };
@@ -336,6 +352,10 @@ function buffersOf(shown: Shown[]): ArrayBuffer[] {
     ...(s.plot?.traces.flatMap((t) => [t.x.buffer, t.y.buffer]) ?? []),
     ...(s.plot?.surface ? [s.plot.surface.x.buffer, s.plot.surface.y.buffer, s.plot.surface.z.buffer] : []),
     ...(s.plot?.field ? [s.plot.field.x, s.plot.field.y, s.plot.field.z, s.plot.field.u, s.plot.field.v, s.plot.field.w].map((a) => a.buffer) : []),
+    ...(s.plot?.layers?.flatMap((l) => [
+      ...(l.surface ? [l.surface.x.buffer, l.surface.y.buffer, l.surface.z.buffer] : []),
+      ...(l.field ? [l.field.x, l.field.y, l.field.z, l.field.u, l.field.v, l.field.w].map((a) => a.buffer) : []),
+    ]) ?? []),
     ...(s.image ? [s.image.rgba.buffer] : []),
     ...(s.files?.flatMap((f) => (f.image ? [f.image.rgba.buffer] : [])) ?? []),
   ]))] as ArrayBuffer[];

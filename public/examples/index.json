@@ -158,5 +158,15 @@
     "slug": "charges",
     "title": "Fields from a potential",
     "summary": "Vector calculus with ∇: the field of two charges as −∇V, its divergence and curl, a spinning body, and the wave equation in partial derivatives."
+  },
+  {
+    "slug": "summit",
+    "title": "The way up a hill",
+    "summary": "A surface with its gradient arrows lying on it, the path of steepest ascent, the summit marked, and its contours below."
+  },
+  {
+    "slug": "extremes",
+    "title": "Floods, signals and winds",
+    "summary": "Distributions for real questions: a hundred-year flood from Gumbel, a radar threshold from Rayleigh and Rice, wind from von Mises, gas speeds from Maxwell, and a triangular estimate."
   }
 ]

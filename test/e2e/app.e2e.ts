@@ -3230,6 +3230,121 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// A surface plot with more drawn over it: a marked point, arrows on the surface, one that can't be drawn, one in other
+// units; Format → Contour lines below a surface, and undo.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['f\\left(x,y\\right)\\coloneq x\\cdot e^{-x^{2}-y^{2}}', 'P\\coloneq \\begin{pmatrix}0.7\\\\0\\\\f\\left(0.7,0\\right)\\end{pmatrix}',
+    'X\\coloneq \\begin{pmatrix}0\\\\0.5\\end{pmatrix}', 'A\\coloneq \\begin{pmatrix}X\\\\X\\\\X\\\\X\\\\X\\\\X\\end{pmatrix}', 'L\\coloneq \\begin{pmatrix}1\\\\1\\\\1\\end{pmatrix}\\cdot \\mathrm{m}'];
+  ws.regions = lines.map((l, i) => ({ id: `m${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'p', left: 60, top: 300, alignX: 60, alignY: 300, disabled: false, content: {
+    k: 'plot', x: null, ys: ['f', 'P', 'A', 'q', 'L'].map((e) => readTex(e)), markers: false, width: 300, height: 240, view: 'surface',
+    xAxis: { ...autoAxis(), min: readTex('-2'), max: readTex('2') }, yAxis: { ...autoAxis(), min: readTex('-2'), max: readTex('2') },
+  } as never });
+  await page.evaluate((t) => (window as any).mathmath.load('layers.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const look = () => page.evaluate(() => {
+    const el = document.querySelector('[data-id="p"]')!;
+    return {
+      points: el.querySelectorAll('.point3d').length, problems: [...el.querySelectorAll('.layer-problem')].map((x) => x.textContent),
+      // The first arrow has length 0, so it's a dot.
+      arrows: [...el.querySelectorAll<SVGPathElement>('.plot-svg path')].filter((x) => x.getAttribute('stroke') === '#1baf7a').length
+        + [...el.querySelectorAll('.plot-svg circle')].filter((x) => x.getAttribute('fill') === '#1baf7a').length,
+      floor: el.querySelectorAll('.floor-contour').length, whole: !el.querySelector('.plot-problem'),
+      on: (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'p').content.floorContours,
+    };
+  });
+  const before = await look();
+  check('a surface plot draws a marked point and arrows over the surface, in the series colors', before.whole && before.points === 1 && before.arrows === 2, before);
+  check('an expression that can\'t be drawn says why, and so does one in other units, while the rest draw',
+    JSON.stringify(before.problems) === JSON.stringify(['Expression 4: q isn\'t defined', 'Expression 5: Its heights are in other units than the first\'s']), before.problems);
+  const b = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('[data-id="p"]')!.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
+  });
+  await page.mouse.click(b.x, b.y);
+  await sleep(80);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Contour lines below a surface')!.click());
+  await sleep(150);
+  const floored = await look();
+  check('Format → Contour lines below a surface draws them on the floor, calculating nothing new', floored.on === true && floored.floor > 20 && floored.points === 1, floored);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(150);
+  const undone = await look();
+  check('and undo takes them away', undone.on === undefined && undone.floor === 0, undone);
+  // To a contour plot and back: the layers come back without calculating again.
+  for (const kind of ['Contour plot', 'Surface plot (3-D)']) {
+    await page.mouse.click(b.x, b.y);
+    await sleep(80);
+    await page.evaluate((k) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === k)!.click(), kind);
+    await sleep(150);
+  }
+  const switched = await look();
+  check('switching to a contour plot and back keeps the point and arrows', switched.points === 1 && switched.arrows === 2 && switched.problems.length === 2, switched);
+  await page.close();
+}
+
+// Text styles: Format → Heading, Text color… and Plain text on the selected text, undo, and a file's styles held in range.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.texts = [
+    { id: 't1', left: 72, top: 80, width: 0, height: 0, text: 'Vector calculus' },
+    { id: 't2', left: 72, top: 140, width: 0, height: 0, text: 'From a file', style: { size: 4000, color: 'red;background:url(https://example.com/x)', bold: 'yes' } as never },
+  ];
+  await page.evaluate((t) => (window as any).mathmath.load('styles.mathmath', t), saveWorksheet(ws));
+  await sleep(100);
+  const css = (id: string) => page.evaluate((i) => {
+    const el = document.querySelector<HTMLElement>(`[data-id="${i}"]`)!;
+    const cs = getComputedStyle(el);
+    return { size: parseFloat(cs.fontSize) * 72 / 96, weight: cs.fontWeight, italic: cs.fontStyle, color: cs.color, inline: el.getAttribute('style') ?? '', style: (window as any).mathmath.doc.ws.texts.find((t: any) => t.id === i).style };
+  }, id);
+  const hostile = await css('t2');
+  check('a text style from a file is held to what Format could set', Math.abs(hostile.size - 48) < 0.01 && hostile.weight === '400' && !hostile.inline.includes('url'), hostile);
+  const t = await page.evaluate(() => {
+    const r = document.querySelector<HTMLElement>('[data-id="t1"]')!.getBoundingClientRect();
+    return { x: r.left + 5, y: r.top + r.height / 2 };
+  });
+  const pick = async (label: string) => {
+    await page.mouse.click(t.x, t.y);
+    await sleep(80);
+    await page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === l)!.click(), label);
+    await sleep(120);
+  };
+  await pick('Heading');
+  const heading = await css('t1');
+  check('Format → Heading makes the selected text large and bold', Math.abs(heading.size - 16) < 0.01 && heading.weight === '700', heading);
+  // A second style straight after, without clicking the text again: it stays selected.
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Italic text')!.click());
+  await sleep(120);
+  const twice = await css('t1');
+  check('a second style applies straight after the first, the text still selected', twice.italic === 'italic' && twice.weight === '700', twice);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Italic text')!.click());
+  await sleep(120);
+  await pick('Text color…');
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('.map-chooser button')].find((x) => x.textContent === 'Red')!.click());
+  await sleep(120);
+  const red = await css('t1');
+  check('Text color… colors it, keeping the heading', red.color === 'rgb(179, 38, 30)' && red.weight === '700' && JSON.stringify(red.style) === JSON.stringify({ bold: true, size: 16, color: '#b3261e' }), red);
+  await page.keyboard.press('Escape');
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(120);
+  const back = await css('t1');
+  check('undo takes the color off again', back.color !== 'rgb(179, 38, 30)' && back.weight === '700', back);
+  await pick('Plain text');
+  const plain = await css('t1');
+  check('Plain text puts it back to plain 10-point text', plain.style === undefined && Math.abs(plain.size - 10) < 0.01 && plain.weight === '400', plain);
+  const text = await page.evaluate(() => (window as any).mathmath.doc.ws.texts.find((x: any) => x.id === 't1').text);
+  check('styling leaves the words alone', text === 'Vector calculus', text);
+  await page.close();
+}
+
 check('no page errors, console errors or policy violations', problems.length === 0, problems);
 console.log(`\n${passed} passed, ${failed} failed`);
 await browser.close();

@@ -31,6 +31,8 @@ interface Dist {
   ps: string;
   /** More about it, a sentence or two. */
   note?: string;
+  /** A family MathMath adds, beyond Mathcad's. */
+  added?: true;
 }
 
 const DISTS: Dist[] = [
@@ -40,16 +42,24 @@ const DISTS: Dist[] = [
   { name: 'chisq', what: 'the chi-squared distribution', params: 'd', meaning: 'd is its degrees of freedom, above 0.', discrete: false, at: '2.5', ps: '3' },
   { name: 'exp', what: 'the exponential distribution', params: 'r', meaning: 'r is its rate, above 0; the mean is 1/r.', discrete: false, at: '0.7', ps: '2' },
   { name: 'F', what: 'the F distribution', params: 'd1, d2', meaning: 'd1 and d2 are its degrees of freedom, above 0.', discrete: false, at: '1.5', ps: '4,7' },
+  { name: 'gumbel', what: 'the Gumbel (extreme value) distribution', params: 'μ, β', meaning: 'the largest of many draws: μ is its location (the peak) and β its scale, above 0.', discrete: false, at: '1.5', ps: '0.5,2', note: 'Floods, gusts and other yearly maxima follow it.', added: true },
   { name: 'gamma', what: 'the gamma distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1. For a scale θ, divide x by θ (and the density by θ).', discrete: false, at: '2.5', ps: '3' },
   { name: 'geom', what: 'the geometric distribution', params: 'p', meaning: 'the number of failures before the first success, each trial a success with probability p.', discrete: true, at: '2', ps: '0.3' },
   { name: 'hypergeom', what: 'the hypergeometric distribution', params: 'a, b, n', meaning: 'the number of successes in a sample of n, drawn without replacement from a successes and b failures.', discrete: true, at: '2', ps: '5,8,6' },
+  { name: 'laplace', what: 'the Laplace (double exponential) distribution', params: 'μ, b', meaning: 'μ is its location (the peak) and b its scale, above 0; it falls away exponentially on both sides.', discrete: false, at: '1.5', ps: '0.5,2', added: true },
   { name: 'lnorm', what: 'the lognormal distribution', params: 'μ, σ', meaning: 'μ and σ are the mean and standard deviation of its logarithm; σ is above 0.', discrete: false, at: '1.5', ps: '0.2,0.8' },
   { name: 'logis', what: 'the logistic distribution', params: 'l, s', meaning: 'l is its location and s its scale, above 0.', discrete: false, at: '1.5', ps: '0.5,2' },
+  { name: 'maxwell', what: 'the Maxwell–Boltzmann distribution', params: 'a', meaning: 'the speed of a particle in a gas, a = √(kT/m) its scale, above 0.', discrete: false, at: '1.5', ps: '1', added: true },
   { name: 'nbinom', what: 'the negative binomial distribution', params: 'n, p', meaning: 'the number of failures before the nth success, each trial a success with probability p. n is a whole number, 1 or more.', discrete: true, at: '3', ps: '4,0.6' },
   { name: 'norm', what: 'the normal distribution', params: 'μ, σ', meaning: 'μ is its mean and σ its standard deviation, above 0.', discrete: false, at: '1.5', ps: '0.5,2' },
+  { name: 'pareto', what: 'the Pareto distribution', params: 'm, α', meaning: 'm is its least value and α its shape, both above 0; the chance of more than x is (m/x)^α.', discrete: false, at: '2', ps: '1,3', added: true },
   { name: 'pois', what: 'the Poisson distribution', params: 'λ', meaning: 'the number of events in an interval where λ, above 0, are expected.', discrete: true, at: '2', ps: '3.5' },
+  { name: 'rayleigh', what: 'the Rayleigh distribution', params: 'σ', meaning: 'the length of a vector whose two parts are normal with mean 0 and standard deviation σ, above 0.', discrete: false, at: '1.5', ps: '1', added: true },
+  { name: 'rice', what: 'the Rice distribution', params: 'ν, σ', meaning: 'the length of a vector at distance ν, 0 or more, from the origin, plus normal noise of standard deviation σ, above 0, in each part. With ν = 0 it is Rayleigh.', discrete: false, at: '1.5', ps: '1,0.5', note: 'A signal\'s amplitude in noise follows it.', added: true },
   { name: 't', what: "Student's t distribution", params: 'd', meaning: 'd is its degrees of freedom, above 0.', discrete: false, at: '1.5', ps: '4' },
+  { name: 'tri', what: 'the triangular distribution', params: 'a, b, c', meaning: 'from a to b, b above a, rising in a straight line to its peak at c, from a to b, and falling again.', discrete: false, at: '1.5', ps: '0,4,1', note: 'A quick model from a least, most and likeliest value.', added: true },
   { name: 'unif', what: 'the uniform distribution', params: 'a, b', meaning: 'every value from a to b is equally likely; b is above a.', discrete: false, at: '1.5', ps: '1,4' },
+  { name: 'vonmises', what: 'the von Mises distribution', params: 'μ, κ', meaning: 'an angle in radians, from μ − π to μ + π: μ is the mean direction and κ, from 0 to 10⁶, how closely angles gather round it. κ = 0 is uniform; above 10⁶, use the normal distribution with σ = 1/√κ.', discrete: false, at: '0.5', ps: '0,2', note: 'The normal distribution of directions.', added: true },
   { name: 'weibull', what: 'the Weibull distribution', params: 's', meaning: 's is its shape, above 0; its scale is 1. For a scale λ, divide x by λ (and the density by λ).', discrete: false, at: '1.5', ps: '2' },
 ];
 
@@ -63,21 +73,21 @@ function entries(d: Dist): Entry[] {
   const family = `See also [[d${d.name}]], [[p${d.name}]], [[q${d.name}]] and [[r${d.name}]].`;
   const out: Entry[] = [
     {
-      name: `d${d.name}`, group: 'Probability distributions', usage: `d${d.name}(${x}, ${d.params})`, mathcad: true,
+      name: `d${d.name}`, group: 'Probability distributions', usage: `d${d.name}(${x}, ${d.params})`, mathcad: !d.added,
       summary: d.discrete ? `The probability of exactly k in ${d.what}.` : `The probability density of ${d.what} at x.`,
       details: [meaning + counts, `A vector of ${what === 'x' ? 'values' : 'counts'} gives a vector. ${family}`, ...(d.note ? [d.note] : [])],
       units: 'Plain numbers, without units.',
       example: [call(`d${d.name}`, `${d.at},${d.ps}`)],
     },
     {
-      name: `p${d.name}`, group: 'Probability distributions', usage: `p${d.name}(${x}, ${d.params})`, mathcad: true,
+      name: `p${d.name}`, group: 'Probability distributions', usage: `p${d.name}(${x}, ${d.params})`, mathcad: !d.added,
       summary: `The cumulative probability of ${d.what}: the chance of a value at or below ${x}.`,
       details: [meaning + counts, `[[q${d.name}]] goes back. ${family}`],
       units: 'Plain numbers, without units.',
       example: [call(`p${d.name}`, `${d.at},${d.ps}`)],
     },
     {
-      name: `q${d.name}`, group: 'Probability distributions', usage: `q${d.name}(p, ${d.params})`, mathcad: true,
+      name: `q${d.name}`, group: 'Probability distributions', usage: `q${d.name}(p, ${d.params})`, mathcad: !d.added,
       summary: d.discrete ? `The inverse of [[p${d.name}]]: the smallest count whose cumulative probability reaches p.` : `The inverse of [[p${d.name}]]: the value below which a fraction p of ${d.what} lies.`,
       details: [meaning, `p is a probability, from 0 to 1. ${family}`],
       errors: ['A p below 0 or above 1.'],
@@ -86,7 +96,7 @@ function entries(d: Dist): Entry[] {
   ];
   if (d.name !== 'norm' && d.name !== 'unif') {
     out.push({
-      name: `r${d.name}`, group: 'Random numbers', usage: `r${d.name}(m, ${d.params})`, mathcad: true, results: 'varies',
+      name: `r${d.name}`, group: 'Random numbers', usage: `r${d.name}(m, ${d.params})`, mathcad: !d.added, results: 'varies',
       summary: `A vector of m random numbers from ${d.what}.`,
       details: [meaning, `m is a whole number, 1 or more. The numbers stay the same each time the worksheet calculates; [[random]] says how to draw new ones. ${family}`],
       example: [call(`r${d.name}`, `5,${d.ps}`)],

@@ -8,6 +8,46 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.60.0] - 2026-11-19
+
+Several things in one surface plot, styled text, and eight more probability distributions.
+
+### Added
+
+- A surface plot can draw several things in one box. Type them at the left, separated by commas, as traces.
+  After the first come more surfaces, curves, a point marked by its three numbers (x, y, z), and arrows from six
+  arrays X, Y, Z, U, V, W. Everything is drawn back to front together, so a hill hides what is behind it. A point,
+  arrow or path lying on a surface stays in view. Trace styles set the color and weight of each, and one that
+  can't be drawn says why while the rest still draw.
+- In a surface plot, six numbers (x, y, z and its three parts) are a single arrow, drawn at its own length.
+  Arrows from arrays are still scaled so the longest reaches the next point, and a vector field plot with only
+  one arrow now draws it at its own length too.
+- Format → Contour lines below a surface draws a surface's contours on the floor of its box, colored by level.
+- Styled text. Format → Heading, Subheading, Bold text, Italic text, Larger or Smaller text and Text color… style
+  the selected text regions as a whole, and Plain text puts them back. A file's styles are held to what Format
+  can set.
+- Eight more probability distributions, each with a density, a cumulative probability, an inverse and random
+  draws, checked against SciPy and, for von Mises, against direct integration:
+  - Gumbel, for yearly maxima (dgumbel, pgumbel, qgumbel, rgumbel)
+  - Laplace
+  - Maxwell–Boltzmann
+  - Pareto
+  - Rayleigh and Rice, for amplitudes in noise
+  - triangular (dtri, ptri, qtri, rtri)
+  - von Mises, for angles
+- Two gallery examples: The way up a hill (gradient arrows, the path of steepest ascent and the summit on one
+  surface) and Floods, signals and winds (the new distributions at work).
+- Help's Plots, Typing math and Random numbers pages cover these, and each new function has its entry.
+- The `.mathmath` format keeps text styles and the contours-below setting as new optional fields. Older
+  versions open these files and ignore both; the format's version number is unchanged.
+
+### Known limits
+
+- Text is styled a region at a time, not word by word, and styles in imported files aren't read yet.
+- A contour plot still draws its first expression only.
+- The von Mises concentration κ can be up to 10⁶. Beyond that, angles are normal round μ with σ = 1/√κ, and the
+  message says so.
+
 ## [0.59.0] - 2026-11-18
 
 Paper sizes, and limits that keep a worksheet from filling the page's memory.

@@ -14,15 +14,17 @@
 // see <https://www.gnu.org/licenses/>.
 
 /**
- * Probability distributions as Mathcad 14 has them: for each, a density d…, a cumulative probability p…, its
- * inverse q… and random numbers r…, as dnorm, pnorm, qnorm and rnorm. Also erf, erfc and cnorm, and the
- * statistics Mathcad has beside mean and stdev. Every value here was checked against Mathcad 14.
+ * Probability distributions: for each, a density d…, a cumulative probability p…, its inverse q… and random
+ * numbers r…, as dnorm, pnorm, qnorm and rnorm. Also erf, erfc and cnorm, and the statistics Mathcad has beside
+ * mean and stdev. The seventeen families Mathcad 14 has were checked against it; the eight MathMath adds (gumbel,
+ * laplace, maxwell, pareto, rayleigh, rice, tri, vonmises) against SciPy, in test/distributions-more.test.ts.
  *
  * Conventions, probed: gamma and Weibull take a shape only; a discrete distribution's density is 0 away from
  * a whole number and its cumulative counts up to the whole number below; a discrete inverse is the smallest
  * count whose cumulative probability reaches p. Random numbers come from the region's stream, so a sheet's
  * draws are the same each time it calculates, until the worksheet's seed changes.
  */
+import { bessikScaled } from './bessel.js';
 import { mapMat } from './ops.js';
 import { EvalError, type Mat, type Num, type Value, getEl, newMat, num, requireNum } from './values.js';
 
@@ -286,6 +288,90 @@ const tCdf = (x: number, d: number): number => {
 const hypergeomPmf = (k: number, [a, b, n]: number[]): number =>
   k < Math.max(0, n! - b!) || k > Math.min(a!, n!) ? 0 : Math.exp(lnChoose(a!, k) + lnChoose(b!, n! - k) - lnChoose(a! + b!, n!));
 
+/** I₀(z)·e^(−z), for z ≥ 0; past 700 by its asymptotic series, to full precision and many times faster. */
+function i0Scaled(z: number): number {
+  if (z === 0) return 1;
+  if (z < 700) return bessikScaled(z, 0).i;
+  let term = 1;
+  let sum = 1;
+  for (let k = 1; k < 30; k++) {
+    term *= ((2 * k - 1) ** 2) / (8 * k * z);
+    sum += term;
+    if (term < 1e-17 * sum) break;
+  }
+  return sum / Math.sqrt(2 * Math.PI * z);
+}
+
+/**
+ * The Rice cumulative probability at x/σ = r for ν/σ = a: the chance that a noncentral χ² with two degrees of freedom
+ * and noncentrality a² is below r², a Poisson mixture of gamma probabilities, summed out from its largest term.
+ */
+function riceCdf(r: number, a: number): number {
+  // Far from the origin the mixture needs gamma probabilities of shape a²/2, past where gammaP's series is good, so
+  // the density is integrated instead: it is a smooth bump of width about 1 round a.
+  if (a > 40) return riceIntegral(r, a);
+  const half = (a * a) / 2;
+  const x = (r * r) / 2;
+  if (half === 0) return -Math.expm1(-x);
+  const weight = (j: number): number => Math.exp(j * Math.log(half) - half - lnGamma(j + 1));
+  const peak = Math.floor(half);
+  let sum = 0;
+  for (let j = peak; j < peak + 100000; j++) {
+    const w = weight(j);
+    sum += w * gammaP(j + 1, x).p;
+    if (j > peak && w < 1e-18) break;
+  }
+  for (let j = peak - 1; j >= 0; j--) {
+    const w = weight(j);
+    sum += w * gammaP(j + 1, x).p;
+    if (w < 1e-18) break;
+  }
+  return Math.min(1, sum);
+}
+
+/** Eight-point Gauss–Legendre nodes and weights on [−1, 1]. */
+const GL8 = {
+  x: [-0.9602898564975363, -0.7966664774136267, -0.5255324099163290, -0.1834346424956498, 0.1834346424956498, 0.5255324099163290, 0.7966664774136267, 0.9602898564975363],
+  w: [0.1012285362903763, 0.2223810344533745, 0.3137066458778873, 0.3626837833783620, 0.3626837833783620, 0.3137066458778873, 0.2223810344533745, 0.1012285362903763],
+};
+
+/** The Rice cumulative probability for σ = 1 and a = ν above 40: the density integrated from a − 40, in steps of ½. */
+function riceIntegral(r: number, a: number): number {
+  const lo = a - 40;
+  if (r <= lo) return 0;
+  if (r >= a + 40) return 1;
+  const density = (t: number): number => t * Math.exp(-((t - a) ** 2) / 2) * i0Scaled(t * a);
+  const steps = Math.ceil((r - lo) / 0.5);
+  const h = (r - lo) / steps;
+  let sum = 0;
+  for (let k = 0; k < steps; k++) {
+    const mid = lo + (k + 0.5) * h;
+    for (let n = 0; n < 8; n++) sum += GL8.w[n]! * density(mid + (GL8.x[n]! * h) / 2);
+  }
+  return Math.min(1, (sum * h) / 2);
+}
+
+/**
+ * The von Mises cumulative probability at θ from −π to π from the mean: θ/2π + ½ + Σ Iₙ(κ)/I₀(κ) · sin(nθ)/(nπ), the
+ * ratios Iₙ/Iₙ₋₁ by backward recurrence, which is stable.
+ */
+function vonMisesCdf(t: number, k: number): number {
+  let sum = 0.5 + t / (2 * Math.PI);
+  if (k === 0) return sum;
+  // The ratios fall off as e^(−n²/2κ), so terms are below 10⁻¹⁸ by n ≈ 9√κ; starting the recurrence at 16√κ leaves
+  // its error damped by e^(−87) there.
+  const top = Math.ceil(50 + 16 * Math.sqrt(k));
+  const ratio = new Float64Array(top + 2);
+  for (let n = top; n >= 1; n--) ratio[n] = 1 / ((2 * n) / k + ratio[n + 1]!);
+  let r = 1;
+  for (let n = 1; n <= top; n++) {
+    r *= ratio[n]!;
+    if (r < 1e-18) break;
+    sum += (r * Math.sin(n * t)) / (n * Math.PI);
+  }
+  return Math.min(1, Math.max(0, sum));
+}
+
 const FAMILIES: Record<string, Family> = {
   beta: {
     kind: 'continuous', names: ['s1', 's2'],
@@ -396,6 +482,92 @@ const FAMILIES: Record<string, Family> = {
     cdf: (x, [s]) => (x <= 0 ? 0 : -Math.expm1(-(x ** s!))),
     inv: (p, [s]) => (-Math.log1p(-p)) ** (1 / s!),
     support: () => [0, Infinity],
+  },
+  // Beyond the seventeen above: families MathMath adds, each a location and scale or shape as is usual for it.
+  gumbel: {
+    kind: 'continuous', names: ['μ', 'β'],
+    params: (a, fn) => [real(a[0]!, shape(fn, 'location, μ')), positive(a[1]!, shape(fn, 'scale, β'))],
+    pdf: (x, [m, b]) => {
+      const z = (x - m!) / b!;
+      return Math.exp(-(z + Math.exp(-z))) / b!;
+    },
+    cdf: (x, [m, b]) => Math.exp(-Math.exp(-(x - m!) / b!)),
+    inv: (p, [m, b]) => m! - b! * Math.log(-Math.log(p)),
+    support: () => [-Infinity, Infinity],
+  },
+  laplace: {
+    kind: 'continuous', names: ['μ', 'b'],
+    params: (a, fn) => [real(a[0]!, shape(fn, 'location, μ')), positive(a[1]!, shape(fn, 'scale, b'))],
+    pdf: (x, [m, b]) => Math.exp(-Math.abs(x - m!) / b!) / (2 * b!),
+    cdf: (x, [m, b]) => (x < m! ? 0.5 * Math.exp((x - m!) / b!) : 1 - 0.5 * Math.exp(-(x - m!) / b!)),
+    inv: (p, [m, b]) => (p < 0.5 ? m! + b! * Math.log(2 * p) : m! - b! * Math.log(2 * (1 - p))),
+    support: () => [-Infinity, Infinity],
+  },
+  maxwell: {
+    kind: 'continuous', names: ['a'],
+    params: (a, fn) => [positive(a[0]!, shape(fn, 'scale, a'))],
+    pdf: (x, [s]) => (x < 0 ? 0 : Math.sqrt(2 / Math.PI) * x * x * Math.exp(-(x * x) / (2 * s! * s!)) / s! ** 3),
+    cdf: (x, [s]) => (x <= 0 ? 0 : gammaP(1.5, (x * x) / (2 * s! * s!)).p),
+    support: () => [0, Infinity],
+    draw: (next, [s]) => s! * Math.sqrt(2 * gammaDraw(next, 1.5)),
+  },
+  pareto: {
+    kind: 'continuous', names: ['m', 'α'],
+    params: (a, fn) => [positive(a[0]!, shape(fn, 'least value, m')), positive(a[1]!, shape(fn, 'shape, α'))],
+    pdf: (x, [m, k]) => (x < m! ? 0 : (k! / m!) * (m! / x) ** (k! + 1)),
+    cdf: (x, [m, k]) => (x <= m! ? 0 : -Math.expm1(k! * Math.log(m! / x))),
+    inv: (p, [m, k]) => m! * Math.exp(-Math.log1p(-p) / k!),
+    support: ([m]) => [m!, Infinity],
+  },
+  rayleigh: {
+    kind: 'continuous', names: ['σ'],
+    params: (a, fn) => [positive(a[0]!, shape(fn, 'scale, σ'))],
+    pdf: (x, [s]) => (x < 0 ? 0 : (x / (s! * s!)) * Math.exp(-(x * x) / (2 * s! * s!))),
+    cdf: (x, [s]) => (x <= 0 ? 0 : -Math.expm1(-(x * x) / (2 * s! * s!))),
+    inv: (p, [s]) => s! * Math.sqrt(-2 * Math.log1p(-p)),
+    support: () => [0, Infinity],
+  },
+  rice: {
+    kind: 'continuous', names: ['ν', 'σ'],
+    params: (a, fn) => {
+      const v = real(a[0]!, shape(fn, 'distance, ν'));
+      if (v < 0) throw new EvalError('runtime', `${shape(fn, 'distance, ν')} must be 0 or more`);
+      return [v, positive(a[1]!, shape(fn, 'scale, σ'))];
+    },
+    // I₀ scaled by e^(−z) keeps it finite: the density is x/σ² · e^(−(x−ν)²/2σ²) · I₀(xν/σ²)e^(−xν/σ²).
+    pdf: (x, [v, s]) => (x < 0 ? 0 : (x / (s! * s!)) * Math.exp(-((x - v!) ** 2) / (2 * s! * s!)) * i0Scaled((x * v!) / (s! * s!))),
+    cdf: (x, [v, s]) => (x <= 0 ? 0 : riceCdf(x / s!, v! / s!)),
+    support: () => [0, Infinity],
+    draw: (next, [v, s]) => Math.hypot(v! + s! * gaussian(next), s! * gaussian(next)),
+  },
+  tri: {
+    kind: 'continuous', names: ['a', 'b', 'c'],
+    params: (a, fn) => {
+      const [lo, hi, c] = [real(a[0]!, shape(fn, 'lower end, a')), real(a[1]!, shape(fn, 'upper end, b')), real(a[2]!, shape(fn, 'peak, c'))];
+      if (!(hi > lo)) throw new EvalError('runtime', `${fn}'s upper end, b, must be above its lower end, a`);
+      if (!(c >= lo && c <= hi)) throw new EvalError('runtime', `${fn}'s peak, c, must be from a to b`);
+      return [lo, hi, c];
+    },
+    pdf: (x, [a, b, c]) => (x < a! || x > b! ? 0 : x < c! ? (2 * (x - a!)) / ((b! - a!) * (c! - a!)) : x === c! ? 2 / (b! - a!) : (2 * (b! - x)) / ((b! - a!) * (b! - c!))),
+    cdf: (x, [a, b, c]) => (x <= a! ? 0 : x >= b! ? 1 : x <= c! ? (x - a!) ** 2 / ((b! - a!) * (c! - a!)) : 1 - (b! - x) ** 2 / ((b! - a!) * (b! - c!))),
+    inv: (p, [a, b, c]) => (p <= (c! - a!) / (b! - a!) ? a! + Math.sqrt(p * (b! - a!) * (c! - a!)) : b! - Math.sqrt((1 - p) * (b! - a!) * (b! - c!))),
+    support: ([a, b]) => [a!, b!],
+  },
+  vonmises: {
+    kind: 'continuous', names: ['μ', 'κ'],
+    params: (a, fn) => {
+      const m = real(a[0]!, shape(fn, 'mean direction, μ'));
+      const k = real(a[1]!, shape(fn, 'concentration, κ'));
+      if (k < 0) throw new EvalError('runtime', `${shape(fn, 'concentration, κ')} must be 0 or more`);
+      // Beyond this the angles are normal round μ with σ = 1/√κ, to more digits than are shown.
+      if (k > 1e6) throw new EvalError('runtime', `${shape(fn, 'concentration, κ')} can be up to 10⁶; above that, use the normal distribution with σ = 1/√κ`);
+      return [m, k];
+    },
+    // An angle in radians, on the turn from μ − π to μ + π. cos θ − 1 is written −2 sin²(θ/2), which keeps its digits
+    // near θ = 0, where a large κ puts all the probability.
+    pdf: (x, [m, k]) => (Math.abs(x - m!) > Math.PI ? 0 : Math.exp(-2 * k! * Math.sin((x - m!) / 2) ** 2) / (2 * Math.PI * i0Scaled(k!))),
+    cdf: (x, [m, k]) => (x - m! <= -Math.PI ? 0 : x - m! >= Math.PI ? 1 : vonMisesCdf(x - m!, k!)),
+    support: ([m]) => [m! - Math.PI, m! + Math.PI],
   },
   binom: {
     kind: 'discrete', names: ['n', 'p'],
