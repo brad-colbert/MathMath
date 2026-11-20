@@ -55,6 +55,8 @@ export interface Shown {
   files?: Written[];
   /** What trace and pause printed, for the page to show under the region. */
   trace?: string[];
+  /** Something to know about a region that calculated, shown on hover with a word beside it. */
+  note?: string;
 }
 
 /** Sent as each region starts, so the page can show which one is calculating. */
@@ -297,7 +299,8 @@ function shownOf(o: Outcome, format: NumberFormat): Shown {
   const shown = shownValue(o, format);
   const withFiles = o.files ? { ...shown, files: o.files.map((f) => (f.image ? { ...f, image: { ...f.image, rgba: f.image.rgba.slice() } } : { ...f })) } : shown;
   // Kept even when the region failed: what it printed on the way is what finds the mistake.
-  return o.trace ? { ...withFiles, trace: o.trace } : withFiles;
+  const noted = o.note && !o.error ? { ...withFiles, note: o.note } : withFiles;
+  return o.trace ? { ...noted, trace: o.trace } : noted;
 }
 
 /** What the page shows for one region. Values can't cross to the page, so they go as LaTeX. */

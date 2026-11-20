@@ -360,7 +360,10 @@ export class Paper {
       const shown = `\\text{Reference: ${name}}`;
       // Found, though it needs more files: shown as found, as Mathcad does, with what's missing on hover.
       if (failed && outcome.partial) return { latex: shown, state: 'ok', note: failed };
-      return failed ? { latex: shown, state: 'stale', note: failed } : { latex: shown, state: 'ok', note: `Definitions from ${c.file} hold from here on` };
+      if (failed) return { latex: shown, state: 'stale', note: failed };
+      // Its sheet's own settings differ: said beside it, as it may change answers, with how on hover.
+      if (outcome?.note) return { latex: `${shown}\\ {\\scriptsize\\text{settings differ}}`, state: 'ok', note: outcome.note };
+      return { latex: shown, state: 'ok', note: `Definitions from ${c.file} hold from here on` };
     }
     const outcome = this.doc.outcomes.get(region.id);
     const math = display(regionLatex(c)).replace(/=$/, '');
