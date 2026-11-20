@@ -8,6 +8,38 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.61.0] - 2026-11-19
+
+ORIGIN, TOL and CTOL defined in a sheet now take effect, and references say when their sheet's settings differ.
+
+### Added
+
+- A reference whose sheet has other settings than this one says "settings differ" beside it, and its note lists
+  them: ORIGIN, TOL, CTOL, the random seed, exact comparisons or 0/0. Its regions are still calculated with this
+  sheet's settings, as references always are, but answers can then differ from that sheet's own, and now that
+  isn't silent.
+- Help's Ranges, vectors and matrices page covers defining ORIGIN, TOL and CTOL, and the Files and images page
+  covers references.
+
+### Fixed
+
+- ORIGIN := 1 in a worksheet now makes arrays count from 1 from there down: subscripts, ranges built into vectors,
+  and functions such as match, last and submatrix. Before, only ORIGIN itself changed and arrays still counted from
+  the worksheet's setting. TOL := and CTOL := now apply from there down too: how nearly root, the lookups and
+  solve blocks must hold before they accept an answer.
+- A function keeps the ORIGIN, TOL and CTOL that hold where it's defined, wherever it's called. ORIGIN ≡ 1 holds over
+  the whole worksheet. ORIGIN must be a whole number; after a definition of it is refused, what counts from it says
+  so rather than counting from 0.
+- A definition such as ORIGIN := 1 in a referenced sheet now carries over, as its other definitions do.
+- A TOL or CTOL tighter than rounding allows no longer refuses an answer found as exactly as numbers can hold, such as
+  a root near 10⁶ under TOL = 10⁻¹².
+- Convert on the toolbar numbers image channels from the ORIGIN where each region is.
+
+### Known limits
+
+- ORIGIN ← 1 inside a program changes the name ORIGIN there, but arrays in the program still count from the ORIGIN
+  outside it.
+
 ## [0.60.0] - 2026-11-19
 
 Several things in one surface plot, styled text, and eight more probability distributions.

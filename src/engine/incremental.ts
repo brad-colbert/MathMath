@@ -129,6 +129,8 @@ function readsOf(c: Content): Set<string> {
   if (closesBlock(c)) used.add(SOLVE_BLOCK);
   // The sheet's colour maps, which SaveColormap adds to and LoadColormap and the surface and contour plots read.
   if (used.has('SaveColormap') || used.has('LoadColormap') || (c.k === 'plot' && (c.view === 'surface' || c.view === 'contour' || c.view === 'vector'))) used.add(COLORMAPS);
+  // Every region counts with ORIGIN, TOL and CTOL, which a definition above changes without being named.
+  for (const name of ['ORIGIN', 'TOL', 'CTOL']) used.add(name);
   return used;
 }
 

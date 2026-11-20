@@ -193,6 +193,8 @@ export interface Outcome {
   /** The evaluated unit override, for results shown in a sheet-defined unit. */
   unit?: Value;
   error?: EvalError;
+  /** Something to know about a region that calculated, such as a reference's sheet having other settings. */
+  note?: string;
 }
 
 /** Lines of trace kept for one region; a trace in a long loop shows these and a count of the rest. */
@@ -391,18 +393,25 @@ export class Evaluator implements Host {
   solveError: number | null = null;
   /** Expressions and programs as closures, built once per tree node. */
   private compiler = new Compiler(this);
+  /**
+   * ORIGIN, TOL and CTOL in force: the sheet's settings, or a definition above where the region being worked out
+   * is written. A function keeps those where it was defined, wherever it's called, as Mathcad 14 does (probed
+   * 2026-11-19).
+   */
+  private now: Settings;
   /** While an integral samples its integrand: tables interpolated at the integration variable. */
   private corners: { at: number; tables: Set<Float64Array> } | null = null;
   private files: Files;
   constructor(private ws: Pick<Worksheet, 'origin' | 'tol'> & { ctol?: number; exactCompare?: boolean; zeroOverZero?: boolean; seed?: number }, files?: Files) {
     this.files = files ?? NO_FILES;
-    this.builtins = makeBuiltins(ws.origin, files, {
+    this.now = { origin: ws.origin, tol: ws.tol, ctol: ws.ctol ?? 0.001 };
+    this.builtins = makeBuiltins(() => this.origin, files, {
       interpolated: (xs, at) => {
         if (this.corners && at === this.corners.at) this.corners.tables.add(xs);
       },
       random: () => this.random(),
       wrote: (file) => this.writes.at(-1)?.set(file.name, file),
-      tol: () => this.ws.tol,
+      tol: () => this.now.tol,
       seed: (x) => {
         const before = this.seeded?.seed ?? this.ws.seed ?? 1;
         this.seeded = seeded(x);
@@ -463,8 +472,25 @@ export class Evaluator implements Host {
     this.random = s ? () => drawFrom(s) : stream(key, this.ws.seed ?? 1);
   }
 
+  /** ORIGIN in force. A definition of it that was refused leaves it with none, so what counts from it fails. */
   get origin(): number {
-    return this.ws.origin;
+    if (Number.isNaN(this.now.origin)) throw new EvalError('runtime', 'ORIGIN has no value here: its definition above was refused');
+    return this.now.origin;
+  }
+
+  /** The ORIGIN, TOL and CTOL that hold where scope `s` is: defined above it, or else the sheet's. */
+  settingsIn(s: Scope): Settings {
+    const value = (name: string, sheet: number): number => {
+      const v = s.lookup(name);
+      if (v?.t === 'failed') return NaN;
+      return v?.t === 'num' && v.im === 0 && Number.isFinite(v.re) ? v.re : sheet;
+    };
+    return { origin: value('ORIGIN', this.ws.origin), tol: value('TOL', this.ws.tol), ctol: value('CTOL', this.ws.ctol ?? 0.001) };
+  }
+
+  /** Works out what follows with the settings that hold at `s`, as a region starts. */
+  settle(s: Scope): void {
+    this.now = this.settingsIn(s);
   }
 
   /** `min` is a unit as a value and a function when called, so the two lookups differ. */
@@ -643,7 +669,7 @@ export class Evaluator implements Host {
 
   position(v: Value): number {
     const x = requireReal(v, 'index');
-    return Math.trunc(x + 1e-9 * Math.sign(x)) - this.ws.origin;
+    return Math.trunc(x + 1e-9 * Math.sign(x)) - this.origin;
   }
 
   index(base: Value, idx: Value[]): Value {
@@ -1218,7 +1244,7 @@ export class Evaluator implements Host {
    * a − b for each element of a constraint's sides, which may be arrays of one size, or an array and a number,
    * which is compared with each element.
    */
-  private differences(c: Expr, scope: Scope): { re: number; im: number; complex: boolean }[] {
+  private differences(c: Expr, scope: Scope): { re: number; im: number; complex: boolean; size: number }[] {
     if (c.k !== 'op') return [];
     const a = this.eval(c.args[0]!, scope);
     const b = this.eval(c.args[1]!, scope);
@@ -1234,7 +1260,7 @@ export class Evaluator implements Host {
       if (!dimEq(p.dim, q.dim) && !(p.re === 0 && p.im === 0) && !(q.re === 0 && q.im === 0)) {
         throw new EvalError('runtime', 'units do not match: the two sides of a constraint need the same units');
       }
-      return { re: p.re - q.re, im: p.im - q.im, complex: p.im !== 0 || q.im !== 0 };
+      return { re: p.re - q.re, im: p.im - q.im, complex: p.im !== 0 || q.im !== 0, size: Math.max(Math.hypot(p.re, p.im), Math.hypot(q.re, q.im)) };
     });
   }
 
@@ -1242,19 +1268,34 @@ export class Evaluator implements Host {
    * Each constraint as residuals that vanish when it holds: a − b for =, and how far off for <, >, ≤, ≥. An
    * equation's imaginary part is a residual of its own when the variables are complex, or either side is.
    */
-  private residuals(constraints: Expr[], scope: Scope, complex = false): number[] {
+  private residuals(constraints: Expr[], scope: Scope, complex = false, rounding?: number[]): number[] {
     const out: number[] = [];
     for (const c of constraints) {
       if (c.k !== 'op') continue;
       for (const d of this.differences(c, scope)) {
+        // How far off rounding alone leaves a side as large as this one: a CTOL tighter than that can't be met.
+        const level = 16 * Number.EPSILON * d.size;
         if (c.op === 'equal') {
           out.push(d.re);
-          if (complex || d.complex) out.push(d.im);
-        } else if (c.op === 'lessThan' || c.op === 'lessOrEqual') out.push(Math.max(0, d.re));
-        else out.push(Math.max(0, -d.re));
+          rounding?.push(level);
+          if (complex || d.complex) {
+            out.push(d.im);
+            rounding?.push(level);
+          }
+        } else {
+          out.push(c.op === 'lessThan' || c.op === 'lessOrEqual' ? Math.max(0, d.re) : Math.max(0, -d.re));
+          rounding?.push(level);
+        }
       }
     }
     return out;
+  }
+
+  /** Whether the constraints hold at `scope` within CTOL, or as nearly as rounding allows when CTOL is tighter. */
+  private holdWithin(constraints: Expr[], scope: Scope, complex = false): boolean {
+    const rounding: number[] = [];
+    const r = this.residuals(constraints, scope, complex, rounding);
+    return r.every((v, k) => Math.abs(v) <= Math.max(this.now.ctol, rounding[k]!));
   }
 
   /** The answer: one variable alone, several as a vector, each in its own units (a vector or matrix nested). */
@@ -1280,8 +1321,7 @@ export class Evaluator implements Host {
     const u = this.guesses(fn, args, s);
     const { x0, complex } = u;
     const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints, this.trial(u, x, s), complex));
-    const ctol = this.ws.ctol ?? 0.001;
-    const holds = (r: Float64Array): boolean => r.every((v) => Math.abs(v) <= ctol);
+    const holds = (x: Float64Array): boolean => this.holdWithin(constraints, this.trial(u, x, s), complex);
     // Each inequality becomes an equation with a slack variable: a < b is a − b + z² = 0. A one-sided penalty
     // would stall where an equation's residual is flat (from u = −1, u > 0 and u² = 4 stop at u = 0).
     const sides = constraints.map((c) => (c.k !== 'op' || c.op === 'equal' ? 0 : c.op === 'lessThan' || c.op === 'lessOrEqual' ? 1 : -1));
@@ -1321,12 +1361,12 @@ export class Evaluator implements Host {
     let r = res(x);
     // When the constraints can't all hold, Minerr's answer is the least squares of how far off each one is, as
     // Mathcad's: a slack stalls short of it, near 0, where its square has no slope.
-    if (fn === 'Minerr' && !holds(r)) {
+    if (fn === 'Minerr' && !holds(x)) {
       const polished = leastSquares(res, x);
       const cost = (v: ArrayLike<number>): number => Array.from(v).reduce((t, e) => t + e * e, 0);
       if (cost(polished.r) < cost(r)) [x, r] = [Float64Array.from(polished.x), Float64Array.from(polished.r)];
     }
-    if (fn === 'Find' && !holds(r)) {
+    if (fn === 'Find' && !holds(x)) {
       throw new EvalError('runtime', 'No solution was found. Try other guess values, or check that the constraints can all hold (CTOL sets how nearly they must)');
     }
     // As in Mathcad, ERR is how far from holding the constraints are: the length of the residuals.
@@ -1346,10 +1386,10 @@ export class Evaluator implements Host {
       return sign * v.re;
     };
     const res = (x: Float64Array): Float64Array => Float64Array.from(this.residuals(constraints ?? [], this.trial(u, x, s)));
-    const ctol = this.ws.ctol ?? 0.001;
+    const ctol = this.now.ctol;
     const x = constraints && constraints.length > 0 ? minimizeWithin(value, res, u.x0, ctol) : minimize(value, u.x0);
     if (!x) throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found: the function keeps ${fn === 'Maximize' ? 'rising' : 'falling'} without bound`);
-    if (constraints && constraints.length > 0 && !res(x).every((v) => Math.abs(v) <= ctol)) {
+    if (constraints && constraints.length > 0 && !this.holdWithin(constraints, this.trial(u, x, s))) {
       throw new EvalError('runtime', `No ${fn === 'Maximize' ? 'maximum' : 'minimum'} was found that meets the constraints. Try other guess values`);
     }
     return this.answer(u, x);
@@ -1425,7 +1465,14 @@ export class Evaluator implements Host {
     if (guess.t !== 'num' || guess.im !== 0) throw new EvalError('unsupported', `root finds real roots from a real guess: ${name} must be a real number`);
     dim = guess.dim;
     const x = secant(f, guess.re);
-    if (x === null || !(Math.abs(f(x)) <= this.ws.tol)) throw new EvalError('runtime', 'root found no root near the guess. Try another guess, or give a and b to search between');
+    // Accepted within TOL, or when f changes sign within a few rounding steps of x, so a TOL tighter than rounding
+    // allows for f's size there doesn't refuse a root found as exactly as numbers can hold.
+    const exact = (p: number): boolean => {
+      const d = 8 * Number.EPSILON * Math.max(Math.abs(p), Number.MIN_VALUE);
+      const [lo, hi] = [f(p - d), f(p + d)];
+      return lo === 0 || hi === 0 || Math.sign(lo) !== Math.sign(hi);
+    };
+    if (x === null || !(Math.abs(f(x)) <= this.now.tol || exact(x))) throw new EvalError('runtime', 'root found no root near the guess. Try another guess, or give a and b to search between');
     return num(x, dim);
   }
 
@@ -1663,33 +1710,34 @@ export class Evaluator implements Host {
     }
   }
 
-  private closure(name: string, params: string[], body: Expr, scope: Scope): Fn {
+  private closure(name: string, params: string[], body: Expr, scope: Scope, settings = this.settingsIn(scope)): Fn {
     // A function defined from a solve block, as f(a) := Find(x), keeps its block, whose constraints may use
-    // its parameters, for when it's called later.
+    // its parameters, for when it's called later. It keeps the ORIGIN, TOL and CTOL where it's defined too.
     const block = this.solveContext;
     return {
       t: 'fn',
       name,
       arity: params.length,
       call: (args) => {
-        if (!block) return this.callClosure(name, params, body, scope, args);
-        const outer = this.solveContext;
-        this.solveContext = block;
+        const [outer, outerNow] = [this.solveContext, this.now];
+        if (block) this.solveContext = block;
+        this.now = settings;
         try {
-          return this.callClosure(name, params, body, scope, args);
+          return this.callClosure(name, params, body, scope, args, settings);
         } finally {
           this.solveContext = outer;
+          this.now = outerNow;
         }
       },
     };
   }
 
-  private callClosure(name: string, params: string[], body: Expr, scope: Scope, args: Value[]): Value {
+  private callClosure(name: string, params: string[], body: Expr, scope: Scope, args: Value[], settings: Settings): Value {
     // Given fewer arguments, as in Mathcad, the result is a function of the rest.
     if (args.length > 0 && args.length < params.length) {
       const frame = new Scope(scope);
       params.slice(0, args.length).forEach((p, i) => frame.set(p, args[i]!));
-      return this.closure(name, params.slice(args.length), body, frame);
+      return this.closure(name, params.slice(args.length), body, frame, settings);
     }
     if (args.length !== params.length) throw new EvalError('runtime', `${name} takes ${params.length} arguments`);
     const frame = new Scope(scope);
@@ -1703,6 +1751,7 @@ export class Evaluator implements Host {
     switch (t.k) {
       case 'var': {
         const v = value();
+        if (t.name === 'ORIGIN') checkOrigin(v);
         if (v.t === 'mat') delete v.owner;
         store.set(t.name, v);
         return;
@@ -1892,6 +1941,52 @@ export interface SymAnswer {
 export type SymSolver = (c: Sym, defs: Defs, scope: Scope, ws: Worksheet) => Promise<SymAnswer>;
 
 /** Where a run picks up: the evaluator, and the scope and definitions as they stood. */
+/** ORIGIN, TOL and CTOL as they hold at some point in a sheet. */
+export interface Settings { origin: number; tol: number; ctol: number }
+
+/** ORIGIN counts array elements, so it's a whole number, as Mathcad 14 requires (probed 2026-11-19: 2.5 is refused). */
+function checkOrigin(v: Value): void {
+  if (v.t !== 'num' || v.im !== 0 || !Number.isInteger(v.re) || v.dim.some((e) => e !== 0)) {
+    throw new EvalError('runtime', 'ORIGIN must be a whole number, as 0 or 1: it is where arrays start counting');
+  }
+}
+
+/** The settings a sheet calculates with, as an absent one defaults. */
+function settingsOf(ws: Worksheet): { origin: number; tol: number; ctol: number; seed: number; exact: boolean; zero: boolean } {
+  return { origin: ws.origin, tol: ws.tol, ctol: ws.ctol ?? 0.001, seed: ws.seed ?? 1, exact: ws.exactCompare ?? true, zero: ws.zeroOverZero ?? false };
+}
+
+/**
+ * How a referenced sheet's own settings differ from those of the sheet referencing it, which its regions are
+ * calculated with. A definition in the referenced sheet itself, as ORIGIN := 1, carries over, so one that sets
+ * its own setting's value isn't counted.
+ */
+export function settingsDiffer(here: Worksheet, there: Worksheet, file: string): string[] {
+  const [a, b] = [settingsOf(there), settingsOf(here)];
+  const literal = (e: Expr): number | null => (e.k === 'real' ? e.v : e.k === 'op' && e.op === 'neg' && e.args[0]?.k === 'real' ? -e.args[0].v : null);
+  const sets = (name: string, value: number): boolean =>
+    there.regions.some((r) => !r.disabled && r.content.k === 'define' && r.content.target.k === 'var' && r.content.target.name === name && literal(r.content.value) === value);
+  const out: string[] = [];
+  const named = (name: string, x: number, y: number): void => {
+    if (x !== y && !sets(name, x)) out.push(`${name} is ${x} in ${file}, ${y} here`);
+  };
+  named('ORIGIN', a.origin, b.origin);
+  named('TOL', a.tol, b.tol);
+  named('CTOL', a.ctol, b.ctol);
+  if (a.seed !== b.seed) out.push(`random numbers are seeded with ${a.seed} in ${file}, ${b.seed} here`);
+  const compare = (exact: boolean): string => (exact ? 'exact' : 'within 10⁻¹²');
+  if (a.exact !== b.exact) out.push(`comparisons are ${compare(a.exact)} in ${file}, ${compare(b.exact)} here`);
+  const zero = (z: boolean): string => (z ? '0' : 'an error');
+  if (a.zero !== b.zero) out.push(`0/0 gives ${zero(a.zero)} in ${file}, ${zero(b.zero)} here`);
+  return out;
+}
+
+/** The note on a reference whose sheets' settings differ from this one's. */
+export function settingsNote(file: string, differs: string[]): string {
+  const carried = differs.some((d) => /^(ORIGIN|TOL|CTOL) /.test(d));
+  return `Definitions from ${file} hold from here on. They are calculated with this sheet's settings, which differ: ${differs.join('; ')}.${carried ? ' To carry ORIGIN, TOL or CTOL with a sheet, define it in that sheet, as ORIGIN := 1.' : ''}`;
+}
+
 export interface RunStart { ev: Evaluator; scope: Scope; defs: Defs }
 
 /** Keeps a worksheet's state as regions run in order. */
@@ -1945,14 +2040,17 @@ export class Run {
   /**
    * Runs another worksheet's regions here, in its own order, so its definitions hold from here on.
    * Its results aren't shown: they belong to that sheet. Symbolic regions use their saved answers.
+   * They're calculated with this sheet's settings, as a reference always is; how that sheet's own differ, in it
+   * and in sheets it references, is returned, for a note on the reference.
    */
-  private include(file: string): void {
+  private include(file: string): string[] {
     if (!file.trim()) throw new EvalError('runtime', 'This reference names no file');
     const key = sheetKey(file);
     if (this.including.includes(key)) throw new EvalError('runtime', `${file} includes itself, through ${this.including.join(', ')}`);
     if (this.including.length >= 16) throw new EvalError('runtime', 'References are nested too deeply');
     const sheet = this.files.sheet(key);
     if (!sheet) throw needsFile(file);
+    const differs = settingsDiffer(this.ws, sheet, file);
     const shown = this.outcomes.length;
     this.including.push(key);
     // A solve block in the referenced sheet is read in that sheet's order.
@@ -1968,7 +2066,7 @@ export class Run {
         const c = region.content;
         if (c.k === 'include') {
           try {
-            this.include(c.file);
+            differs.push(...this.include(c.file));
           } catch (err) {
             if (err instanceof EvalError && err.needs.length > 0) err.needs.forEach((n) => needs.add(n));
             else inner ??= err;
@@ -1989,6 +2087,7 @@ export class Run {
       throw new EvalError('needs-file', `${file} is attached, but it needs ${named} too. Load ${list.length === 1 ? 'it' : 'them'} with Files on the toolbar`, list);
     }
     if (inner) throw inner;
+    return differs;
   }
 
   /** The value of a display unit. Units resolve before functions here, so `°C` isn't a function. */
@@ -2025,6 +2124,7 @@ export class Run {
   }
 
   private plainRegion(region: Region): void {
+    this.ev.settle(this.scope);
     this.ev.randomFor([...this.including, region.id].join('/'));
     const c = region.content;
     if (c.k === 'image') {
@@ -2046,8 +2146,8 @@ export class Run {
     }
     if (c.k === 'include') {
       try {
-        this.include(c.file);
-        this.outcomes.push({ region });
+        const differs = this.include(c.file);
+        this.outcomes.push(differs.length > 0 ? { region, note: settingsNote(c.file, differs) } : { region });
       } catch (err) {
         this.outcomes.push({ region, error: toEvalError(err) });
       }
@@ -2102,6 +2202,7 @@ export class Run {
 
   /** An arrow on a definition defines the result, so `h(x) := d/dx x³ → 3x²` gives h(2) = 12. */
   symbolic(region: Region, c: Sym, answer: SymAnswer): void {
+    this.ev.settle(this.scope);
     const outcome: Outcome = { region };
     if (answer.result) outcome.symbolic = answer.result;
     if (answer.error) outcome.error = new EvalError('runtime', answer.error);

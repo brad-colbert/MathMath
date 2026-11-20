@@ -21,7 +21,7 @@ import { emptyWorksheet } from '../format/native.js';
 import { readRegion } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Region, type TextRegion, type TextStyle, type Worksheet, autoAxis, textStyleOf } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
-import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible } from '../engine/convert.js';
+import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible, originAt } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
 import { Algebra } from './algebra.js';
 import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
@@ -376,7 +376,7 @@ export class Doc {
   /** Attached files as Convert reads them, decoded once each: the bar checks after every change. */
   private decodedAssets = new WeakMap<object, { audio?: ReturnType<typeof parseWav>; text?: string }>();
 
-  /** What converting reads: the sheet's ORIGIN, its attached sound and data files, and names it reads from two folders. */
+  /** What converting reads: the sheet's ORIGIN (each region's own is set by originAt), its attached sound and data files, and names it reads from two folders. */
   private convertContext(): ConvertContext {
     const decoded = (name: string) => {
       const asset = this.ws.assets[fileKey(name)];
@@ -406,7 +406,7 @@ export class Doc {
   convertible(): { region: Region; found: Found[] }[] {
     const ctx = this.convertContext();
     return this.ws.regions.flatMap((region) => {
-      const found = findConvertible(region.content, ctx);
+      const found = findConvertible(region.content, { ...ctx, origin: originAt(this.ws.regions, region, this.ws.origin) });
       return found.length ? [{ region, found }] : [];
     });
   }
@@ -414,9 +414,14 @@ export class Doc {
   /** Converts every Mathcad file-function call that can be, as one step to undo. Returns how many regions changed. */
   convertMathcad(): number {
     const ctx = this.convertContext();
-    const regions = this.ws.regions.filter((r) => convertContent(r.content, ctx) !== null);
-    if (regions.length > 0) this.updateAll(regions, (c) => convertContent(c, ctx) ?? c);
-    return regions.length;
+    // Channel numbers count from the ORIGIN where each region is.
+    const changed = this.ws.regions.flatMap((r) => {
+      const c = convertContent(r.content, { ...ctx, origin: originAt(this.ws.regions, r, this.ws.origin) });
+      return c ? [{ r, c }] : [];
+    });
+    const next = new Map(changed.map(({ r, c }) => [r.content, c]));
+    if (changed.length > 0) this.updateAll(changed.map(({ r }) => r), (c) => next.get(c) ?? c);
+    return changed.length;
   }
 
   /** Changes part of a region, such as a plot's axis. */

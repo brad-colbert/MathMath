@@ -19,12 +19,12 @@
  * numbers, as probed in Mathcad 14: `READRGB("a.bmp")` becomes `readImage("a.bmp")`, and so on (CONVERSIONS).
  * Some need the attached file to know how: READWAV's scale depends on the file's bits per sample.
  */
-import type { Content, Expr, Stmt, Target } from '../model/ast.js';
+import type { Content, Expr, Region, Stmt, Target } from '../model/ast.js';
 import type { DecodedAudio } from './wav.js';
 import { parseTable } from './table.js';
 import type { Value } from './values.js';
 
-/** What a conversion may look at: the sheet's ORIGIN, for channel numbers, and its attached sound files. */
+/** What a conversion may look at: the ORIGIN where the region is, for channel numbers, and its attached sound files. */
 export interface ConvertContext {
   origin: number;
   audio(name: string): DecodedAudio | string | undefined;
@@ -105,6 +105,25 @@ export interface Found {
   cannot?: string;
 }
 
+
+/**
+ * The ORIGIN where `at` stands: a global definition of it anywhere, or else the last definition above, read from the
+ * page as calculation reads it (down, then across); the sheet's setting when there's none. Only a plain number counts.
+ */
+export function originAt(regions: Region[], at: Region, sheet: number): number {
+  const value = (r: Region): number | null => {
+    const c = r.content;
+    if (r.disabled || c.k !== 'define' || c.target.k !== 'var' || c.target.name !== 'ORIGIN') return null;
+    const v = c.value;
+    const n = v.k === 'real' ? v.v : v.k === 'op' && v.op === 'neg' && v.args[0]?.k === 'real' ? -v.args[0].v : null;
+    return n !== null && Number.isInteger(n) ? n : null;
+  };
+  const global = regions.filter((r) => r.content.k === 'define' && r.content.global && value(r) !== null);
+  if (global.length > 0) return value(global.at(-1)!)!;
+  const above = regions.filter((r) => value(r) !== null && (r.alignY < at.alignY || (r.alignY === at.alignY && r.alignX < at.alignX)));
+  above.sort((a, b) => a.alignY - b.alignY || a.alignX - b.alignX);
+  return above.length > 0 ? value(above.at(-1)!)! : sheet;
+}
 /** The Mathcad file-function calls in a region's content that a conversion knows. */
 export function findConvertible(c: Content, ctx: ConvertContext): Found[] {
   const found: Found[] = [];
