@@ -83,12 +83,13 @@ const INFIX: Record<string, string> = {
  * A derivative, a limit, and a sum or product with its index written are open on the right: their body reads
  * on through any product after it (see product() below), so d/dx f·k is d/dx (f·k).
  */
-const openRight = (e: Expr): boolean => e.k === 'derivative' || e.k === 'limit' || (e.k === 'bigop' && e.op !== 'integral');
+const openRight = (e: Expr): boolean => e.k === 'derivative' || e.k === 'limit' || (e.k === 'bigop' && e.op !== 'integral')
+  || (e.k === 'op' && DEL_OPS[e.op] !== undefined && e.args.length > 1);
 
 function prec(e: Expr): number {
   if (e.k === 'real') return e.v < 0 ? 3 : 9;
-  if (e.k === 'op') return PREC[e.op] ?? 9;
   if (openRight(e)) return 2.5;
+  if (e.k === 'op') return PREC[e.op] ?? 9;
   // An integral ends at its dx, so it's a factor like any other, though a power of it is bracketed.
   if (e.k === 'bigop') return 4.5;
   return 9;
@@ -212,10 +213,13 @@ function print(e: Expr, tail: boolean): string {
         case 'factorial': return `${at(a!, 5)}!`;
         case 'indexer': return `${grouped(a!)}_{${e.args.slice(1).map(tex).join(',')}}`;
         case 'matcol': return `{${at(a!, 5)}}^{\\langle ${tex(b!)}\\rangle}`;
-        case 'gradient': return `\\nabla ${tex(a!)}`;
-        case 'divergence': return `\\nabla \\cdot ${tex(a!)}`;
-        case 'curl': return `\\nabla \\times ${tex(a!)}`;
-        case 'laplacian': return `\\nabla^{2}${tex(a!)}`;
+        case 'gradient': case 'divergence': case 'curl': case 'laplacian': {
+          // An expression, with the names it's differentiated in below ∇; or a call, which names them itself.
+          const below = e.args.length > 1 ? `_{${e.args.slice(1).map(tex).join(',')}}` : '';
+          const mark = { gradient: '', divergence: '\\cdot ', curl: '\\times ', laplacian: '^{2}' }[e.op];
+          if (below) return `\\nabla ${below}${mark}${at(a!, 3)}`;
+          return `\\nabla${e.op === 'laplacian' ? '' : ' '}${mark}${tex(a!)}`;
+        }
         default: return `\\mathrm{op:${e.op}}`;
       }
     }
@@ -770,6 +774,14 @@ export function readTex(src: string): Expr {
       case '\\hat':
       case '\\vec': return callOrId(accented() + (t.v === '\\hat' ? HAT : ARROW));
       case '\\nabla': {
+        // ∇ with its variables written below, as ∇_{x,y,z}(x²·y), takes an expression; without, a function call.
+        let vars: Expr[] | null = null;
+        const below = (): void => {
+          if (vars || !is('_')) return;
+          p++;
+          vars = scriptList();
+        };
+        below();
         let which = 'gradient';
         if (is('\\cdot')) which = 'divergence';
         else if (is('\\times')) which = 'curl';
@@ -780,7 +792,15 @@ export function readTex(src: string): Expr {
           which = 'laplacian';
         }
         if (which === 'divergence' || which === 'curl') p++;
+        below();
         const sym = DEL_OPS[which]!;
+        if (vars) {
+          const names = (vars as Expr[]).map((v) => (v.k === 'id' ? v.name : ''));
+          if (names.includes('') || new Set(names).size < names.length) throw new Error(`${sym} differentiates in the names written below it, as ${sym.replace('∇', '∇_{x,y,z}')}: each a different name`);
+          if (which === 'curl' && names.length !== 2 && names.length !== 3) throw new Error('∇× is for a field in 3 variables, or 2');
+          if (!peek()) throw new Error(`${sym} with its variables goes before an expression in them`);
+          return op(which, product(), ...(vars as Expr[]));
+        }
         if (!peek()) throw new Error(`${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);
         const f = atom();
         if (f.k !== 'call' || f.fn.k !== 'id') throw new Error(`${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);

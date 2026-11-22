@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { runWorksheet } from '../src/engine/evaluate.js';
-import type { Mat, Value } from '../src/engine/values.js';
+import { type Mat, type Num, type Value, getEl } from '../src/engine/values.js';
 import { readTex, tex } from '../src/latex/latex.js';
 import { readRegion } from '../src/latex/region.js';
 import { emptyWorksheet } from '../src/format/native.js';
@@ -224,5 +224,76 @@ describe('→ inside a function called with other arguments', () => {
     expect(giac('g\\left(a\\right)')).toBe('subst(diff((x^2),x),[x],[a])');
     // Called with its own name, nothing to put in.
     expect(giac('\\frac{\\mathrm{d}}{\\mathrm{d}x}x^{2}')).toBe('diff((x^2),x)');
+  });
+});
+
+describe('∇ on an expression, with its variables written below ∇', () => {
+  const v3 = col('x\\cdot y', 'y\\cdot z^{2}', '\\sin \\left(x\\right)');
+  const at3 = ['x\\coloneq 1', 'y\\coloneq 2', 'z\\coloneq 0.5'];
+
+  test('reads and writes back, the names below ∇ and the expression after them', () => {
+    for (const t of ['\\nabla _{x,y,z}{x}^{2}\\cdot y', '\\nabla _{x,y}\\cdot F\\left(x,y\\right)', '\\nabla _{x,y,z}\\times F\\left(x,y,z\\right)',
+      '\\nabla _{x,y}^{2}\\left(x+y\\right)', '2\\cdot \\nabla _{x}{x}^{2}']) expect(tex(readTex(t))).toBe(t);
+    // ∇² written either side of the names.
+    expect(readTex('\\nabla ^{2}_{x,y}x')).toEqual(readTex('\\nabla _{x,y}^{2}x'));
+    // The expression reads on through a product, as d/dx's does, and stops at a sum.
+    expect(readTex('\\nabla _{x,y}x\\cdot y+1')).toEqual({ k: 'op', op: 'plus', args: [readTex('\\nabla _{x,y}\\left(x\\cdot y\\right)'), { k: 'real', v: 1 }] });
+    // A call keeps its form.
+    expect(readTex('\\nabla f\\left(x,y\\right)')).toEqual({ k: 'op', op: 'gradient', args: [readTex('f\\left(x,y\\right)')] });
+  });
+
+  test('the names must be names, each different, and ∇× takes 2 or 3', () => {
+    expect(() => readTex('\\nabla _{x,x}x')).toThrow(/each a different name/);
+    expect(() => readTex('\\nabla _{1,y}x')).toThrow(/each a different name/);
+    expect(() => readTex('\\nabla _{x}\\times x')).toThrow(/3 variables, or 2/);
+    expect(() => readTex('\\nabla _{x,y}')).toThrow(/goes before an expression/);
+  });
+
+  test('calculates at the names\' values here, as the call form does', () => {
+    close(re(last(...at3, '\\nabla _{x,y,z}\\left(x^{2}\\cdot y+\\sin \\left(z\\right)\\right)=')), [4, 1, Math.cos(0.5)]);
+    close(re(last(...at3, `\\nabla _{x,y,z}\\cdot ${v3}=`)), [2.25]);
+    close(re(last(...at3, `\\nabla _{x,y,z}\\times ${v3}=`)), [-2, -Math.cos(1), -1]);
+    close(re(last(...at3, '\\nabla _{x,y}^{2}\\left(x^{2}+y^{3}\\right)=')), [14], 4);
+    close(re(last(...at3, `\\nabla _{x,y}\\times ${col('-y', 'x')}=`)), [2]);
+    // The same as ∇f(x, y, z) for the same function.
+    const f = 'f\\left(x,y,z\\right)\\coloneq x^{2}\\cdot y+\\sin \\left(z\\right)';
+    close(re(last(...at3, f, '\\nabla _{x,y,z}f\\left(x,y,z\\right)=')), re(last(...at3, f, '\\nabla f\\left(x,y,z\\right)=')));
+  });
+
+  test('in a function definition, a range variable, and with units', () => {
+    close(re(last('g\\left(x,y\\right)\\coloneq \\nabla _{x,y}\\left(x^{2}\\cdot y\\right)', 'g\\left(1,2\\right)=')), [4, 1]);
+    const r = last('r\\coloneq 0..2', '\\nabla _{r}r^{2}=') as Mat;
+    expect(r.rows).toBe(3);
+    const L = last('L\\coloneq 2\\cdot \\mathrm{m}', '\\nabla _{L}\\left(5\\cdot \\mathrm{V}\\cdot \\frac{L}{\\mathrm{m}}\\right)=') as Mat;
+    close(re(L), [5]);
+    expect((getEl(L, 0, 0) as Num).dim).toEqual((last('1\\cdot \\frac{\\mathrm{V}}{\\mathrm{m}}=') as Num).dim);
+  });
+
+  test('refuses a name without a number, and says what it needs', () => {
+    expect(() => last('x\\coloneq 1', '\\nabla _{x,q}\\left(x\\cdot q\\right)=')).toThrow();
+    expect(() => last('x\\coloneq 1', 'y\\coloneq 2', `\\nabla _{x,y}\\cdot ${col('x', 'y', 'x')}=`)).toThrow(/vector of 2 parts, one for each of the 2 variables below ∇/);
+    expect(() => last('x\\coloneq 1', 'y\\coloneq 2', `\\nabla _{x,y}${col('x', 'y')}=`)).toThrow(/^∇ needs the expression to give a number/);
+  });
+
+  test('with →, Giac\'s operator in the names written, even names with values on the sheet', () => {
+    const defs = new Defs().with({ k: 'var', name: 'x' }, readTex('7'), new Scope(null));
+    const giac = (latex: string): string => {
+      const p = new Printer();
+      return p.print(expand(readTex(latex), defs, new Set())).replace(/\bv\d+\b/g, (n) => p.back.get(n) ?? n);
+    };
+    expect(giac('\\nabla _{x,y}\\left(x^{2}\\cdot y\\right)')).toBe('grad(((x^2)*y),[x,y])');
+    expect(giac('\\nabla _{x,y}^{2}x^{3}')).toBe('laplacian((x^3),[x,y])');
+    expect(giac(`\\nabla _{x,y}\\cdot ${col('x', 'y')}`)).toBe('divergence([x,y],[x,y])');
+    expect(giac(`\\nabla _{x,y}\\times ${col('-y', 'x')}`)).toBe('(diff(([(-y),x])[1],x)-diff(([(-y),x])[0],y))');
+  });
+});
+
+describe('a square matrix to a power', () => {
+  test('takes a plain number: a power with units is refused, as a number\'s is', () => {
+    const A = 'A\\coloneq \\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}';
+    expect(() => last(A, 'A^{T}=')).toThrow(/exponent must be dimensionless/);
+    expect(() => last(A, 'A^{2\\cdot \\mathrm{m}}=')).toThrow(/exponent must be dimensionless/);
+    close(re(last(A, 'A^{\\frac{2\\cdot \\mathrm{m}}{\\mathrm{m}}}=')), [7, 15, 10, 22]);
+    close(re(last(A, 'A^{\\mathsf{T}}=')), [1, 2, 3, 4]);
   });
 });

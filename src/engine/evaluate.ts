@@ -603,7 +603,7 @@ export class Evaluator implements Host {
 
   evalOp(op: string, args: Expr[], s: Scope, vec: boolean): Value {
     if (op === 'vectorize') return this.eval(args[0]!, s, true);
-    if (DEL_OPS[op]) return this.evalDel(op, args[0]!, s);
+    if (DEL_OPS[op]) return this.evalDel(op, args, s);
     const a = this.eval(args[0]!, s, vec);
     const b = args[1] ? this.eval(args[1], s, vec) : undefined;
     switch (op) {
@@ -648,6 +648,8 @@ export class Evaluator implements Host {
   private power(a: Value, b: Value, vec: boolean): Value {
     if (vec || a.t !== 'mat' || a.rows !== a.cols || a.rows === 1) return powE(a, b);
     const p = requireReal(b, 'power');
+    // A matrix power counts multiplications, so it takes a plain number: T, the tesla, isn't 1.
+    if (b.t === 'num' && !isNoDim(b.dim)) throw new EvalError('runtime', 'exponent must be dimensionless');
     return Number.isInteger(p) ? matPow(a, p) : powE(a, b);
   }
 
@@ -1641,29 +1643,49 @@ export class Evaluator implements Host {
    * ∇f(a, b, c), ∇·F, ∇×F and ∇²f: the function's partial derivatives in each of its parameters in turn, at the
    * point its arguments give, by the differences d/dx uses. ∇f and ∇²f take a function giving a number (∇² a vector
    * too, part by part); ∇· and ∇× one giving a vector with a part for each parameter. With two parameters, ∇×F is
-   * the number ∂F₁/∂x − ∂F₀/∂y, the z part of the curl of a field in the plane.
+   * the number ∂F₁/∂x − ∂F₀/∂y, the z part of the curl of a field in the plane. ∇_{x,y,z} e, with the names written
+   * below it, takes an expression in them instead, at their values here, as d/dx e does.
    */
-  private evalDel(which: string, call: Expr, s: Scope): Value {
+  private evalDel(which: string, args: Expr[], s: Scope): Value {
     const sym = DEL_OPS[which]!;
-    if (call.k !== 'call' || call.fn.k !== 'id') throw new EvalError('runtime', `${sym} goes before a function and its arguments, as ${sym}f(x, y, z)`);
-    const fname = call.fn.name;
-    const f = this.callee(call.fn, s);
-    const point = call.args.map((a, i) => {
-      const v = this.eval(a, s);
-      if (v.t !== 'num') throw new EvalError('runtime', `${sym} works at a point: each of ${fname}'s arguments must be a number, and argument ${i + 1} isn't`);
-      return v;
-    });
+    const call = args[0]!;
+    let fname: string;
+    let f: Fn;
+    let point: Num[];
+    if (args.length > 1) {
+      const names = args.slice(1).map((a) => (a.k === 'id' ? a.name : ''));
+      fname = 'the expression';
+      f = this.closure(fname, names, call, s);
+      point = names.map((name) => {
+        const v = this.eval({ k: 'id', name }, s);
+        if (v.t !== 'num') throw new EvalError('runtime', `${sym} works at a point: ${name} must be a number here`);
+        return v;
+      });
+    } else {
+      if (call.k !== 'call' || call.fn.k !== 'id') throw new EvalError('runtime', `${sym} goes before a function and its arguments, as ${sym}f(x, y, z), or an expression with its variables below ∇, as ∇_{x,y}(x²·y)`);
+      fname = call.fn.name;
+      f = this.callee(call.fn, s);
+      point = call.args.map((a, i) => {
+        const v = this.eval(a, s);
+        if (v.t !== 'num') throw new EvalError('runtime', `${sym} works at a point: each of ${fname}'s arguments must be a number, and argument ${i + 1} isn't`);
+        return v;
+      });
+    }
     const n = point.length;
+    // How messages name what ∇ was given: ∇f and f, or ∇ and the expression.
+    const subject = args.length > 1 ? sym : `${sym}${fname}`;
+    const lap = args.length > 1 ? '∇²' : `∇²${fname}`;
+    const each = args.length > 1 ? `one for each of the ${n} variables below ∇` : `one for each of its ${n} arguments`;
     if (n === 0) throw new EvalError('runtime', `${sym}${fname}() has no variables to differentiate in: ${fname} needs arguments`);
     const vector = which === 'divergence' || which === 'curl';
-    if (which === 'curl' && n !== 3 && n !== 2) throw new EvalError('runtime', `∇× is for a field in 3 variables, or 2: ${fname} has ${n}`);
+    if (which === 'curl' && n !== 3 && n !== 2) throw new EvalError('runtime', `∇× is for a field in 3 variables, or 2: ${args.length > 1 ? `∇ has ${n} below it` : `${fname} has ${n}`}`);
     // A part of the value: the whole, for a number, or part k of a vector of n.
     const part = (v: Value, k: number | null): Num => {
       if (k === null) {
-        if (v.t !== 'num') throw new EvalError('runtime', `${sym}${fname} needs ${fname} to give a number${which === 'gradient' ? ': for a vector field, ∇· and ∇× take it' : ''}`);
+        if (v.t !== 'num') throw new EvalError('runtime', `${subject} needs ${fname} to give a number${which === 'gradient' ? ': for a vector field, ∇· and ∇× take it' : ''}`);
         return v;
       }
-      if (v.t !== 'mat' || v.cols !== 1 || v.rows !== n) throw new EvalError('runtime', `${sym}${fname} needs ${fname} to give a vector of ${n} parts, one for each of its ${n} arguments`);
+      if (v.t !== 'mat' || v.cols !== 1 || v.rows !== n) throw new EvalError('runtime', `${subject} needs ${fname} to give a vector of ${n} parts, ${each}`);
       return requireNum(getEl(v, k, 0));
     };
     const at = (i: number, t: number): Value => f.call(point.map((x, j) => (j === i ? num(t, x.dim) : x)));
@@ -1691,12 +1713,12 @@ export class Evaluator implements Host {
         // ∇²: of a number, or of each part of a vector, whatever its length.
         const first = f.call(point);
         if (first.t === 'num') return sum(indices.map((i) => d(i, null, 2)));
-        if (first.t !== 'mat' || first.cols !== 1) throw new EvalError('runtime', `∇²${fname} needs ${fname} to give a number or a vector`);
+        if (first.t !== 'mat' || first.cols !== 1) throw new EvalError('runtime', `${lap} needs ${fname} to give a number or a vector`);
         const parts = first.rows;
         const one = (k: number): Num => {
           const g = (i: number, t: number): Num => {
             const v = at(i, t);
-            if (v.t !== 'mat' || v.rows !== parts || v.cols !== 1) throw new EvalError('runtime', `∇²${fname} needs ${fname} to give a vector of the same length everywhere`);
+            if (v.t !== 'mat' || v.rows !== parts || v.cols !== 1) throw new EvalError('runtime', `${lap} needs ${fname} to give a vector of the same length everywhere`);
             return requireNum(getEl(v, k, 0));
           };
           return requireNum(sum(indices.map((i) => {

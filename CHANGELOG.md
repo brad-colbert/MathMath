@@ -8,6 +8,30 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.62.0] - 2026-11-22
+
+∇ takes an expression, and a contour plot draws all its expressions.
+
+### Added
+
+- ∇ takes an expression, with the names it differentiates in written below it: ∇_{x,y}(x²·y) is the gradient in x
+  and y at their values on the sheet, as d/dx works at x's value, and ∇_{x,y}·F, ∇_{x,y}×F and ∇_{x,y}²f work the
+  same way. Before, ∇ needed a function defined first. With → it gives the exact form. Choose Gradient of an
+  expression from the ∇ menu, or type _ just after ∇ in any of its items, for the names.
+- A contour plot draws all its expressions, not only the first: other surfaces as contour lines at the first's
+  levels in their own color, so one height is one line on each, curves and points where they lie, and arrows flat. One
+  that can't be drawn says why, and the rest still draw.
+- Help: the Vector calculus page covers ∇ on an expression, and Plots covers contour plots with more than one
+  expression.
+- Examples: The way up a hill ends with a contour plot of the same hill, arrows, walk and summit, and Fields from
+  a potential uses ∇ on an expression.
+
+### Fixed
+
+- A square matrix raised to a power with units, as A^T with T the tesla, now says the exponent must be
+  dimensionless, as a number raised to one does. Before, it quietly used the number and dropped the unit, so A^T
+  gave A. A transpose is A^𝖳, from the Matrix menu.
+
 ## [0.61.0] - 2026-11-19
 
 ORIGIN, TOL and CTOL defined in a sheet now take effect, and references say when their sheet's settings differ.

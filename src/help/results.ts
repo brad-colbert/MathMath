@@ -475,6 +475,7 @@ export const RESULTS: Record<string, string[]> = {
   "topic:vector-calculus-2": ["","2.25","\\begin{pmatrix}-2\\\\-0.54\\\\-1\\end{pmatrix}"],
   "topic:vector-calculus-3": ["","","4","2"],
   "topic:vector-calculus-4": ["","\\begin{pmatrix}3\\\\2\\\\-1\\end{pmatrix}","\\begin{pmatrix}0\\\\0\\\\1\\end{pmatrix}","3.742"],
+  "topic:vector-calculus-5": ["","","\\begin{pmatrix}4\\\\1\\end{pmatrix}","4"],
   "tr": ["","5"],
   "trace": ["0"],
   "trunc": ["2","-2"],

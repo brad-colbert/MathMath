@@ -538,7 +538,7 @@ delSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const delList = document.createElement('div');
 delMenu.append(delSummary, delList);
 toolbar.appendChild(delMenu);
-const OF_A_FUNCTION = 'before a function and its arguments, as f(x, y, z): it differentiates in each of the function\'s parameters';
+const OF_A_FUNCTION = 'before a function and its arguments, as f(x, y, z): it differentiates in each of the function\'s parameters. Or type _ just after ∇ to write the names, then an expression in them';
 const delItems: [string, string, string][] = [
   ['Partial derivative  ∂/∂x', 'Works as d/dx does. Two in a row, in different variables, show as ∂²/∂x∂y. Tab moves to the next blank', TEMPLATES.partial],
   ['Nth partial derivative  ∂ⁿ/∂xⁿ', 'Of order 0 to 5. Tab moves to the next blank', TEMPLATES.nthPartial],
@@ -546,6 +546,7 @@ const delItems: [string, string, string][] = [
   ['Divergence  ∇·F', `Of a vector field, ${OF_A_FUNCTION}`, '\\nabla \\cdot #?'],
   ['Curl  ∇×F', `Of a vector field in 3 variables, or 2, ${OF_A_FUNCTION}`, '\\nabla \\times #?'],
   ['Laplacian  ∇²f', `The sum of the second partial derivatives, ${OF_A_FUNCTION}`, '\\nabla^{2}#?'],
+  ['Gradient of an expression  ∇ₓ(…)', 'The names below ∇, as x,y,z, then an expression in them: ∇ differentiates in each at its value here, as d/dx does. Tab moves to the expression. For the divergence, curl or Laplacian of an expression, choose that item and type _ just after ∇', '\\nabla _{#?}#?'],
   ['Hat  î', 'A hat over a letter, part of its name. î, ĵ and k̂ are the unit vectors along x, y and z', '\\hat{#?}'],
   ['Arrow over a letter', 'An arrow over a letter, part of its name, for a vector. Not the vectorize arrow, which is in Matrix', '\\vec{#?}'],
 ];

@@ -24,7 +24,7 @@ export const charges: Example = {
   summary: 'Vector calculus with ∇: the field of two charges as −∇V, its divergence and curl, a spinning body, and the wave equation in partial derivatives.',
   symbolic: true,
   build(s) {
-    s.text('∇ goes before a function and its arguments, and differentiates in each argument in turn: ∇f(x, y, z) is the gradient, ∇·F the divergence, ∇×F the curl and ∇²f the Laplacian. They are in the ∇ menu on the toolbar, with ∂/∂x and the hats of î, ĵ and k̂.');
+    s.text('∇ goes before a function and its arguments, and differentiates in each argument in turn, or before an expression with its variables written below it: ∇f(x, y, z) is the gradient, ∇·F the divergence, ∇×F the curl and ∇²f the Laplacian. They are in the ∇ menu on the toolbar, with ∂/∂x and the hats of î, ĵ and k̂.');
     s.section('Two charges, +1 at (−1, 0, 0) and −1 at (1, 0, 0). The potential is the sum of q/r for each; the field, the force on a small positive charge, is E = −∇V.', true);
     s.row(`${call('r', 'x', 'y', 'z', 'a')}\\coloneq \\sqrt{\\left(x-a\\right)^{2}+y^{2}+z^{2}}`, { latex: `${call('V', 'x', 'y', 'z')}\\coloneq \\frac{1}{${call('r', 'x', 'y', 'z', '-1')}}-\\frac{1}{${call('r', 'x', 'y', 'z', '1')}}`, x: 250 });
     s.gap(16);
@@ -47,7 +47,10 @@ export const charges: Example = {
     s.row(`${call('U', 'x', 'y', 'z')}\\coloneq \\frac{1}{\\sqrt{x^{2}+y^{2}+z^{2}}}`, { latex: `\\nabla^{2}${call('U', 'x', 'y', 'z')}\\rightarrow `, x: 220 });
     s.gap(16);
     s.row(`\\nabla ${call('U', 'x', 'y', 'z')}\\rightarrow `);
-    s.gap(30);
+    s.gap(36);
+    s.text('∇ also takes an expression, with the names it differentiates in written below it, so a function needn\'t be defined first:');
+    s.row('\\nabla _{x,y,z}^{2}\\frac{1}{\\sqrt{x^{2}+y^{2}+z^{2}}}\\rightarrow ');
+    s.gap(18);
     s.section('A spinning body. Turning at angular velocity ω, a vector along its axis, a point at (x, y, z) moves at ω × (x, y, z). Its curl is 2ω everywhere, and its divergence zero: it turns, and nothing is squeezed. î, ĵ and k̂ are the unit vectors.');
     s.row('\\vec{\\omega}\\coloneq 0.3\\cdot \\hat{\\imath}-0.2\\cdot \\hat{\\jmath}+1.5\\cdot \\hat{k}', { latex: `${call('v', 'x', 'y', 'z')}\\coloneq \\vec{\\omega}\\times ${col('x', 'y', 'z')}`, x: 230 });
     s.gap(24);
