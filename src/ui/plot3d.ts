@@ -504,7 +504,29 @@ export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined
     return;
   }
   const { area } = frame(c);
-  const [[x0, x1], [y0, y1], [z0, z1]] = [range(s.x), range(s.y), range(s.z)];
+  // What the second expression on draw over the first, seen from above: more surfaces as contour lines in their own
+  // color, curves and points where they lie in the plane, and arrows flat. The area holds them all.
+  const layers = data!.layers ?? [];
+  const isCurve = (t: SurfaceData): boolean => t.rows === 1 || t.cols === 1;
+  const grids = [s, ...layers.flatMap((l) => (l.surface && !isCurve(l.surface) && l.surface.regular ? [l.surface] : []))];
+  const tipOf = (f: FieldData, k: number): [number, number] => [f.x[k]! + f.u[k]! * f.scale, f.y[k]! + f.v[k]! * f.scale];
+  const [lo, hi] = [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]];
+  const grow = (...p: number[]): void => p.forEach((v, a) => {
+    if (Number.isFinite(v)) [lo[a], hi[a]] = [Math.min(lo[a]!, v), Math.max(hi[a]!, v)];
+  });
+  // The levels and the color bar are the first expression's: the others' lines are drawn at its heights.
+  for (const t of [s, ...layers.flatMap((l) => (l.surface ? [l.surface] : []))]) {
+    for (let k = 0; k < t.rows * t.cols; k++) t === s ? grow(t.x[k]!, t.y[k]!, t.z[k]!) : grow(t.x[k]!, t.y[k]!);
+  }
+  for (const l of layers) {
+    const f = l.field;
+    if (!f) continue;
+    for (let k = 0; k < f.x.length; k++) {
+      grow(f.x[k]!, f.y[k]!);
+      grow(...tipOf(f, k));
+    }
+  }
+  const [[x0, x1], [y0, y1], [z0, z1]] = [0, 1, 2].map((a) => (Number.isFinite(lo[a]!) ? [lo[a]!, hi[a]!] : [0, 0])) as [[number, number], [number, number], [number, number]];
   const X = (v: number): number => area.x + (x1 > x0 ? ((v - x0) / (x1 - x0)) * area.w : area.w / 2);
   const Y = (v: number): number => area.y + area.h - (y1 > y0 ? ((v - y0) / (y1 - y0)) * area.h : area.h / 2);
   const parts: string[] = [`<svg class="plot-svg" width="${c.width}pt" height="${c.height}pt" viewBox="0 0 ${c.width} ${c.height}" font-family="system-ui, sans-serif" font-size="8">`];
@@ -520,24 +542,74 @@ export function drawContour(el: HTMLElement, c: Plot, data: PlotData | undefined
   // Even levels inside the range; lines use the darker part of the ramp so each clears the page.
   const levels = z1 > z0 ? ticks({ lo: z0, hi: z1, log: false }, 8).filter((v) => v > z0 && v < z1) : [];
   parts.push(`<clipPath id="clip-${svgId(el.dataset.id)}"><rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"/></clipPath><g clip-path="url(#clip-${svgId(el.dataset.id)})">`);
+  const path = (g: SurfaceData, level: number): string => contourLines(g, level).map(([ax, ay, bx, by]) => `M${X(ax).toFixed(2)} ${Y(ay).toFixed(2)}L${X(bx).toFixed(2)} ${Y(by).toFixed(2)}`).join('');
   for (const level of levels) {
-    const d = contourLines(s, level).map(([ax, ay, bx, by]) => `M${X(ax).toFixed(2)} ${Y(ay).toFixed(2)}L${X(bx).toFixed(2)} ${Y(by).toFixed(2)}`).join('');
+    const d = path(s, level);
     if (d) parts.push(`<path d="${d}" fill="none" stroke="${rampColor((level - z0) / (z1 - z0), 0.25)}" stroke-width="1.2" stroke-linecap="round"/>`);
   }
+  // The others at the same levels, so a height is the same line on each, in the expression's own color and dash.
+  // A surface of three matrices, as CreateMesh gives, has no heights over the plane to draw, as for the first.
+  const refused = layers.map((l) => (l.surface && !isCurve(l.surface) && !l.surface.regular ? 'A contour plot needs a matrix of heights or a function' : undefined));
+  layers.forEach((l, i) => {
+    if (refused[i]) return;
+    const look = traceLook(c, i + 1);
+    const stroke = `stroke="${look.color}" stroke-width="${look.weight}"${look.dash ? ` stroke-dasharray="${look.dash}"` : ''}`;
+    const t = l.surface;
+    if (t && grids.includes(t)) {
+      const d = levels.map((level) => path(t, level)).join('');
+      if (d) parts.push(`<path class="layer-contour" d="${d}" fill="none" ${stroke} stroke-linecap="round"/>`);
+    } else if (t) {
+      // A curve or points, where they lie in the plane.
+      const ok = (k: number): boolean => Number.isFinite(t.x[k]!) && Number.isFinite(t.y[k]!);
+      const n = t.rows * t.cols;
+      if (n > 1 && look.line) {
+        let d = '';
+        for (let k = 0; k < n; k++) if (ok(k)) d += `${k > 0 && ok(k - 1) ? 'L' : 'M'}${X(t.x[k]!).toFixed(2)} ${Y(t.y[k]!).toFixed(2)}`;
+        if (d) parts.push(`<path class="layer-curve" d="${d}" fill="none" ${stroke} stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
+      const kind = n === 1 && look.points === 'none' ? 'circle' : look.points;
+      if (kind !== 'none') {
+        for (let k = 0; k < n; k++) if (ok(k)) parts.push(`<g class="layer-point">${symbol(kind, X(t.x[k]!), Y(t.y[k]!), look.color, Math.max(look.weight, n === 1 ? 4 : 1.5))}</g>`);
+      }
+    }
+    const f = l.field;
+    if (f) {
+      for (let k = 0; k < f.x.length; k++) {
+        const [tx, ty] = tipOf(f, k);
+        if (![f.x[k]!, f.y[k]!, tx, ty].every(Number.isFinite)) continue;
+        parts.push(`<g class="layer-arrow">${arrow(X(f.x[k]!), Y(f.y[k]!), X(tx), Y(ty), look.color, 1, look.weight * 0.6)}</g>`);
+      }
+    }
+  });
   parts.push('</g>');
+  // A layer that can't be drawn says why, at the top, in order, with a halo to read it over the plot.
+  layers.flatMap((l, i) => (l.error ?? refused[i] ? [`Expression ${i + 2}: ${l.error ?? refused[i]}`] : [])).forEach((text, n) => {
+    parts.push(`<text class="layer-problem" x="${area.x + 2}" y="${area.y + 8 + n * 10}" fill="#c00" stroke="#fff" stroke-width="2.5" paint-order="stroke">${esc(text)}</text>`);
+  });
   parts.push(colorBar(area.x + area.w + 8, area.y + 4, area.h - 8, z0, z1, el.dataset.id ?? 'c', 0.25, rampColor, palette !== undefined));
   parts.push('</svg>');
   el.innerHTML = parts.join('') + slots(c, data, area);
   el.style.width = `${c.width}pt`;
   el.style.height = `${c.height}pt`;
   hoverNearest(el, (px, py) => {
-    let best: { d: number; k: number } | null = null;
-    for (let k = 0; k < s.rows * s.cols; k++) {
-      if (!Number.isFinite(s.z[k]!)) continue;
-      const d = (X(s.x[k]!) - px) ** 2 + (Y(s.y[k]!) - py) ** 2;
-      if (!best || d < best.d) best = { d, k };
+    // The nearest point of any surface, curve or point, or the nearest arrow's tail.
+    let best: { d: number; text: string } | null = null;
+    const consider = (x: number, y: number, text: () => string): void => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const d = (X(x) - px) ** 2 + (Y(y) - py) ** 2;
+      if (!best || d < best.d) best = { d, text: text() };
+    };
+    for (const t of [s, ...layers.flatMap((l) => (l.surface ? [l.surface] : []))]) {
+      for (let k = 0; k < t.rows * t.cols; k++) {
+        if (grids.includes(t) && !Number.isFinite(t.z[k]!)) continue;
+        consider(t.x[k]!, t.y[k]!, () => `x = ${num(t.x[k]!)}, y = ${num(t.y[k]!)}${Number.isFinite(t.z[k]!) ? `, z = ${num(t.z[k]!)}` : ''}`);
+      }
     }
-    return best ? `x = ${num(s.x[best.k]!)}, y = ${num(s.y[best.k]!)}, z = ${num(s.z[best.k]!)}` : null;
+    for (const l of layers) {
+      const f = l.field;
+      if (f) for (let k = 0; k < f.x.length; k++) consider(f.x[k]!, f.y[k]!, () => `(${num(f.x[k]!)}, ${num(f.y[k]!)}): (${num(f.u[k]!)}, ${num(f.v[k]!)})`);
+    }
+    return (best as { d: number; text: string } | null)?.text ?? null;
   }, area);
 }
 

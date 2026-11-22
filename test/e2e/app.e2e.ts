@@ -2559,12 +2559,13 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
 // Mathcad's symbolic-only functions: values with =, exact forms with →.
 {
   const page = await fresh();
+  // Clicking away, not Escape, to leave: Escape stops a calculation under way, as the first → may still be.
   const arrow = async (): Promise<void> => {
     await page.keyboard.down('Control');
     await page.keyboard.press('Period');
     await page.keyboard.up('Control');
     await sleep(60);
-    await page.keyboard.press('Escape');
+    await clickAt(page, 400, 700);
     await sleep(50);
   };
   await type(page, 72, 60, 'Si(2)=');
@@ -3007,6 +3008,59 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// ∇ on an expression, with its variables typed below ∇ from the menu: the gradient and the Laplacian by =, and the
+// gradient exactly by →.
+{
+  const page = await fresh();
+  const del = (start: string) => page.evaluate((start) => {
+    const m = [...document.querySelectorAll<HTMLDetailsElement>('details.menu')].find((d) => d.querySelector('summary')!.textContent === '∇')!;
+    m.open = true;
+    [...m.querySelectorAll('button')].find((b) => b.textContent!.startsWith(start))!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }, start);
+  await type(page, 72, 60, 'x:1');
+  await type(page, 160, 60, 'y:2');
+  await clickAt(page, 72, 120);
+  await del('Gradient of an expression');
+  await keys(page, 'x,y');
+  await page.keyboard.press('Tab');
+  await keys(page, 'x^2');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '*y=');
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 190);
+  await del('Gradient of an expression');
+  await keys(page, 'x,y');
+  await page.keyboard.press('Tab');
+  await keys(page, '^2');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, 'x^2');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '*y=');
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 260);
+  await del('Gradient of an expression');
+  await keys(page, 'x,y');
+  await page.keyboard.press('Tab');
+  await keys(page, 'x^2');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '*y');
+  await page.keyboard.down('Control');
+  await page.keyboard.press('Period');
+  await page.keyboard.up('Control');
+  await sleep(60);
+  // Clicking away, not Escape: Escape stops a calculation under way.
+  await clickAt(page, 400, 700);
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.region')].every((e) => !/→\s*$/.test(e.innerText.trim())), { timeout: 60000 }).catch(() => {});
+  await idle(page);
+  const s = (await shown(page)).map((x) => x.replace(/[\s​]/g, ''));
+  const ws = await model(page);
+  const latex = ws.regions.map((r: any) => JSON.stringify(r.content));
+  check('the ∇ menu types ∇ with its variables below it, and ∇ₓ,ᵧ x²·y = (4, 1)', s.some((x) => x.includes('=(41)')) && latex.some((l: string) => l.includes('"op":"gradient"') && l.includes('"name":"y"}]')), { s, latex });
+  check('∇ₓ,ᵧ² x²·y = 4, typed with ^2 after the names', s.some((x) => x.endsWith('=4')), s);
+  check('∇ₓ,ᵧ x²·y → gives the exact gradient (2xy, x²)', s.some((x) => x.includes('→') && x.includes('2⋅x⋅y')), s);
+  await page.close();
+}
+
 // Limits: a worksheet asking for a huge array says so at once, and the page carries on.
 {
   const page = await fresh();
@@ -3361,6 +3415,37 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('Plain text puts it back to plain 10-point text', plain.style === undefined && Math.abs(plain.size - 10) < 0.01 && plain.weight === '400', plain);
   const text = await page.evaluate(() => (window as any).mathmath.doc.ws.texts.find((x: any) => x.id === 't1').text);
   check('styling leaves the words alone', text === 'Vector calculus', text);
+  await page.close();
+}
+
+// A contour plot draws its other expressions too: a second function's contour lines in its own color, a point where it
+// lies, arrows; one that can't be drawn says why, and so does a surface of three matrices, which has no heights over
+// the plane.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  const lines = ['f\\left(x,y\\right)\\coloneq x\\cdot e^{-x^{2}-y^{2}}', 'g\\left(x,y\\right)\\coloneq \\frac{x+y}{4}', 'P\\coloneq \\begin{pmatrix}0.7\\\\0\\\\f\\left(0.7,0\\right)\\end{pmatrix}',
+    'X\\coloneq \\begin{pmatrix}0\\\\0.5\\end{pmatrix}', 'A\\coloneq \\begin{pmatrix}X\\\\X\\\\X\\\\X\\\\X\\\\X\\end{pmatrix}',
+    'F\\left(u,v\\right)\\coloneq \\begin{pmatrix}u\\\\v\\\\u\\cdot v\\end{pmatrix}', 'S\\coloneq \\mathrm{CreateMesh}\\left(F,0,1,0,1,5,5\\right)'];
+  ws.regions = lines.map((l, i) => ({ id: `m${i}`, left: 60, top: 40 + i * 50 - 8, alignX: 60, alignY: 40 + i * 50, disabled: false, content: readRegion(l) }));
+  ws.regions.push({ id: 'p', left: 60, top: 460, alignX: 60, alignY: 360, disabled: false, content: {
+    k: 'plot', x: null, ys: ['f', 'g', 'P', 'A', 'q', 'S'].map((e) => readTex(e)), markers: false, width: 300, height: 240, view: 'contour',
+    xAxis: { ...autoAxis(), min: readTex('-2'), max: readTex('2') }, yAxis: { ...autoAxis(), min: readTex('-2'), max: readTex('2') },
+  } as never });
+  await page.evaluate((t) => (window as any).mathmath.load('contour-layers.mathmath', t), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const got = await page.evaluate(() => {
+    const el = document.querySelector('[data-id="p"]')!;
+    return {
+      contours: el.querySelectorAll('.layer-contour').length, points: el.querySelectorAll('.layer-point').length, whole: !el.querySelector('.plot-problem'),
+      own: el.querySelectorAll('path:not(.layer-contour)[stroke-linecap="round"]').length,
+      arrows: el.querySelectorAll('.layer-arrow').length,
+      problems: [...el.querySelectorAll('.layer-problem')].map((x) => x.textContent),
+    };
+  });
+  check('a contour plot draws a second function\'s contours, a point and arrows over its own', got.whole && got.contours === 1 && got.points === 1 && got.arrows === 2 && got.own > 1, got);
+  check('a contour plot\'s expressions that can\'t be drawn say why, a surface of three matrices among them', JSON.stringify(got.problems) === JSON.stringify(['Expression 5: q isn\'t defined', 'Expression 6: A contour plot needs a matrix of heights or a function']), got.problems);
   await page.close();
 }
 

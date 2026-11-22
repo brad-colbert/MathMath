@@ -18,7 +18,7 @@ import type { Example } from '../sheet.js';
 export const summit: Example = {
   slug: 'summit',
   title: 'The way up a hill',
-  summary: 'A surface with its gradient arrows lying on it, the path of steepest ascent, the summit marked, and its contours below.',
+  summary: 'A surface with its gradient arrows lying on it, the path of steepest ascent, the summit marked, its contours below, and all of it seen from above.',
   build(s) {
     s.heading('The way up a hill');
     s.text('A walker in fog can only feel the slope underfoot, so goes uphill the steepest way at every step. Where does that lead, and how does it look on the hill? A surface plot draws several things at once, in one box: the hill, arrows, a path and a point.');
@@ -41,6 +41,11 @@ export const summit: Example = {
       xMin: '-3', xMax: '3', yMin: '-3', yMax: '3',
       traces: [null, { color: '#1f1f1f', weight: 1.2 }, { color: '#eb6834', weight: 2.5 }, { color: '#e34948' }],
     });
-    s.text('From above, the walk crosses each contour at right angles, as the gradient does: steepest ascent is the way that crosses the level lines most directly.', { end: true });
+    s.text('A contour plot takes the same four and shows them from above: the hill\'s level lines colored by height, the arrows flat, the walk and the summit where they lie.');
+    s.plot({
+      x: '', ys: ['h', 'A', 'P', 'T'], view: 'contour', width: 300, height: 260, xMin: '-3', xMax: '3', yMin: '-3', yMax: '3',
+      traces: [null, { color: '#1f1f1f', weight: 1.2 }, { color: '#eb6834', weight: 2.5, line: 'solid' }, { color: '#e34948' }],
+    }, { text: 'Seen this way, the walk crosses each contour at right angles, as the gradient does: steepest ascent is the way that crosses the level lines most directly.', x: 320 });
+    s.text('Move the start, or the second peak, and the walk finds its way again.', { end: true });
   },
 };

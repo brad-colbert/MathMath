@@ -99,11 +99,14 @@ export function expand(e: Expr, defs: Defs, bound: Set<string>, depth = 0): Expr
       if (!DEL_OPS[e.op]) return { ...e, args: e.args.map(go) };
       // ∇ differentiates in the call's arguments, which must be names: held as variables, as d/dx holds x, and passed
       // on after the expanded call, for the printer to name.
+      // ∇_{x,y,z} e names them below ∇, after the expression: the form the call's expansion takes.
       const call = e.args[0];
       const sym = DEL_OPS[e.op];
-      const names = call?.k === 'call' ? call.args.map((a) => (a.k === 'id' ? a.name : '')) : [];
+      const written = e.args.length > 1;
+      const names = written ? e.args.slice(1).map((a) => (a.k === 'id' ? a.name : ''))
+        : call?.k === 'call' ? call.args.map((a) => (a.k === 'id' ? a.name : '')) : [];
       if (names.length === 0 || names.includes('') || new Set(names).size < names.length) {
-        throw new NotSymbolic(`${sym} with → needs a function of names, as ${sym}f(x, y, z), each different`);
+        throw new NotSymbolic(written ? `${sym} differentiates in the names below it, each different` : `${sym} with → needs a function of names, as ${sym}f(x, y, z), each different`);
       }
       const inner = new Set([...bound, ...names]);
       const worked: Expr = { ...e, args: [expand(call!, defs, inner, depth), ...names.map((name): Expr => ({ k: 'id', name }))] };
