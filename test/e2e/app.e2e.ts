@@ -1364,6 +1364,25 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await sleep(80);
   const kept = (await model(page)).regions.find((r: { content: { k: string } }) => r.content.k === 'include');
   check('clicking a reference leaves it intact', kept?.content.file === 'Constants.mcd', (await model(page)).regions);
+  // A referenced sheet with other settings: its regions use this sheet's, and the reference says they differ.
+  writeFileSync(join(folder, 'Settings.mathmath'), JSON.stringify({ format: 'mathmath', version: 1, worksheet: { origin: 1, regions: [
+    { id: '1', left: 60, top: 60, alignX: 60, alignY: 68, disabled: false, content: { k: 'define', target: { k: 'var', name: 'gs' }, value: { k: 'real', v: 2 }, global: false, stored: null, unit: null, shown: false } },
+  ] } }));
+  await page.evaluate(() => {
+    const m = (window as any).mathmath;
+    const ws = JSON.parse(m.save()).worksheet;
+    ws.regions = [
+      { id: '1', left: 60, top: 30, alignX: 60, alignY: 38, disabled: false, content: { k: 'include', file: 'Settings.mathmath' } },
+      { id: '2', left: 60, top: 80, alignX: 60, alignY: 88, disabled: false, content: { k: 'eval', expr: { k: 'id', name: 'gs' }, stored: null, unit: null } },
+    ];
+    m.load('refs2.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: ws }));
+  });
+  await fromComputer('Settings.mathmath');
+  await idle(page);
+  await sleep(80);
+  const differs = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.region')].filter((e) => (e.textContent ?? '').includes('Reference')).map((e) => ({ stale: e.classList.contains('stale'), title: e.title, text: e.textContent ?? '' }))[0]);
+  check("a reference whose sheet has other settings says so beside it, and how on hover", differs?.stale === false && differs.text.includes('settings differ') && differs.title.includes('ORIGIN is 1 in Settings.mathmath, 0 here'), differs);
+  check('and its definitions still hold', (await shown(page)).map((t) => t.replace(/[\s\u200b]/g, '')).some((t) => t.endsWith('=2')), await shown(page));
   await page.close();
 }
 

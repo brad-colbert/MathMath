@@ -336,13 +336,13 @@ function vector(items: { re: number; im: number }[], dim: Dim): Value {
 
 const NODIM: Dim = [0, 0, 0, 0, 0, 0, 0];
 
-/** The functions, for a sheet whose arrays start at `origin`: element k of nodeVoltages is node k's voltage. */
-export function circuitFns(origin: number): Record<string, Impl> {
+/** The functions, for a sheet whose arrays start at ORIGIN: element k of nodeVoltages is node k's voltage. */
+export function circuitFns(originOf: () => number): Record<string, Impl> {
   return {
     nodeVoltages: (n, f) => {
       const s = analyse(n!, f, 'nodeVoltages');
       // From node `origin`, so that with ORIGIN = 1 the first element is node 1.
-      return vector(s.volts.slice(Math.max(0, Math.min(origin, s.volts.length - 1))), s.units ? VOLT : NODIM);
+      return vector(s.volts.slice(Math.max(0, Math.min(originOf(), s.volts.length - 1))), s.units ? VOLT : NODIM);
     },
     branchCurrents: (n, f) => {
       const s = analyse(n!, f, 'branchCurrents');

@@ -278,8 +278,13 @@ function pencil(m: Value, n: Value, fn: string): { size: number; are: number[][]
   return { size: a.rows, are: rows(a, a.re), aim: both ? aim ?? zero() : null, bre: rows(b, b.re), bim: both ? bim ?? zero() : null, mdim: a.dim, ndim: b.dim };
 }
 
-export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
-  const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - origin;
+/**
+ * The built-in functions. `at` is ORIGIN, or a function giving the one in force where a call is written, since a
+ * sheet can define it partway down.
+ */
+export function makeBuiltins(at: number | (() => number), files: Files = NO_FILES, hooks: Hooks = {}): Map<string, Fn> {
+  const originOf = typeof at === 'number' ? () => at : at;
+  const idx = (v: Value): number => Math.trunc(requireReal(v, 'index')) - originOf();
   const next = (): number => (hooks.random ?? Math.random)();
   const count = (m: Value, fn: string): number => {
     const n = requireReal(m, `${fn}'s count`);
@@ -349,7 +354,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     rows: (m) => num(requireMat(m).rows), cols: (m) => num(requireMat(m).cols),
     // A column vector only, as in Mathcad 14, which refuses a matrix or a row.
     length: (m) => num(columnOf(m, 'length').rows),
-    last: (m) => num(columnOf(m, 'last').rows - 1 + origin),
+    last: (m) => num(columnOf(m, 'last').rows - 1 + originOf()),
     identity: (n) => identity(requireReal(n), NODIM),
     tr: (m) => {
       const a = requireMat(m);
@@ -400,6 +405,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       if (f?.t !== 'fn') throw new EvalError('runtime', 'matrix needs a function');
       const [rows, cols] = [requireReal(r!), requireReal(c!)];
       const out = newMat(rows, cols);
+      const origin = originOf();
       for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) setEl(out, i, j, f.call([num(i + origin), num(j + origin)]));
       return out;
     },
@@ -589,7 +595,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(odeFns),
     ...withArity(fitFns),
     ...withArity(stringFns),
-    ...withArity(lookupFns(() => origin, () => hooks.tol?.() ?? 0.001)),
+    ...withArity(lookupFns(originOf, () => hooks.tol?.() ?? 0.001)),
     // Finance, as Mathcad's (see finance.ts).
     ...withArity(financeFns),
     // Coordinate conversions, log-spaced points and plot grids, as Mathcad's (see graphing.ts).
@@ -601,7 +607,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     ...withArity(pdeFns),
     // Mathcad's symbolic-only functions, here with = too (see symfns.ts).
     ...withArity(symFns),
-    ...withArity(specialFns(() => origin)),
+    ...withArity(specialFns(originOf)),
     // Mathcad's Seed: random numbers from here on come from one stream started at x, so the same x draws the same
     // numbers again (see random.ts). Mathcad takes 1 to 2147483647, and refuses anything else so (probed).
     Seed: (x, ...rest) => {
@@ -643,7 +649,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
       if (k === undefined) return all;
       const parts = all.t === 'mat' && all.cells ? all : fromValues(1, 1, [all]);
       const n = idx(k);
-      if (!Number.isInteger(n) || n < 0 || n >= parts.rows) throw new EvalError('runtime', `imageChannels: this image has ${parts.rows} channel${parts.rows === 1 ? '' : 's'}, numbered from ${origin}`);
+      if (!Number.isInteger(n) || n < 0 || n >= parts.rows) throw new EvalError('runtime', `imageChannels: this image has ${parts.rows} channel${parts.rows === 1 ? '' : 's'}, numbered from ${originOf()}`);
       return getEl(parts, n, 0);
     },
     // Channels, samples a second, bits per sample and bytes a second, as Mathcad's GETWAVINFO gives them.
@@ -655,7 +661,7 @@ export function makeBuiltins(origin: number, files: Files = NO_FILES, hooks: Hoo
     // Electrical engineering (see electrical.ts).
     ...withArity(electricalFns),
     // Circuit analysis of a netlist (see circuit.ts).
-    ...withArity(circuitFns(origin)),
+    ...withArity(circuitFns(originOf)),
     // RF: reflection, lines and network parameters (see rf.ts).
     ...withArity(rfFns),
     // Probability distributions and the statistics beside mean and stdev (see distributions.ts).
