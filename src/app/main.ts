@@ -848,7 +848,7 @@ const textFormats: [string, string, Command | null, (texts: TextRegion[]) => voi
   ['Subheading', 'Bold text a little larger than the rest (Ctrl+Alt+2 while typing). Numbered in Paper style', setKind('h2'), asKind('h2')],
   ['Plain text', 'Back to plain 10-point words and paragraphs', clearFormat, (texts) => {
     doc.setTextStyle(texts, () => ({}));
-    doc.setBlocks(texts, (b) => ({ runs: b.runs.map((r) => ({ t: r.t })) }));
+    doc.setBlocks(texts, (b) => ({ runs: b.runs.map((r) => (r.math === undefined ? { t: r.t } : r)) }));
   }],
   ['Bold text', 'Bold, or back to normal weight (Ctrl+B while typing)', toggle('bold'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, bold: st.bold ? undefined : true } as TextStyle))],
   ['Italic text', 'Italic, or back to upright (Ctrl+I while typing)', toggle('italic'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, italic: st.italic ? undefined : true } as TextStyle))],

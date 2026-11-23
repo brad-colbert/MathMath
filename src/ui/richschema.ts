@@ -89,6 +89,33 @@ const marks: Record<string, MarkSpec> = {
   },
 };
 
+/** The longest math in a line of text that a paste may bring, as LaTeX. */
+const MAX_LATEX = 20000;
+/** A region id as a file may name one (model/richtext.ts). */
+const MATH_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/**
+ * Math in a line of text: a math region of its own, by id, drawn where it's named. While typing, `latex` is the math
+ * as typed, kept in the region when the text is. Read back only from its own two attributes.
+ */
+const math: NodeSpec = {
+  inline: true,
+  group: 'inline',
+  atom: true,
+  selectable: true,
+  attrs: { id: {}, latex: { default: '' } },
+  parseDOM: [{
+    tag: 'span[data-math]',
+    getAttrs: (dom) => {
+      const el = dom as HTMLElement;
+      const id = el.dataset.math ?? '';
+      const latex = el.dataset.latex ?? '';
+      return MATH_ID.test(id) && latex.length <= MAX_LATEX ? { id, latex } : false;
+    },
+  }],
+  toDOM: (node) => ['span', { class: 'inline-math', 'data-math': node.attrs.id as string, 'data-latex': (node.attrs.latex as string) || null, contenteditable: 'false' }],
+};
+
 export const schema = new Schema({
   nodes: {
     doc: { content: 'block+' },
@@ -96,6 +123,7 @@ export const schema = new Schema({
     text: { group: 'inline' },
     // A line break inside a paragraph: a '\n' in the words.
     hard_break: { inline: true, group: 'inline', selectable: false, parseDOM: [{ tag: 'br' }], toDOM: () => ['br'] },
+    math,
   },
   marks,
 });
@@ -113,11 +141,19 @@ function marksOf(run: TextRun): Mark[] {
   return out;
 }
 
-/** Blocks as the editor's document. They're built directly, never read from markup, so every space is kept. */
-export function docOf(blocks: readonly TextBlock[]): Node {
+/**
+ * Blocks as the editor's document. They're built directly, never read from markup, so every space is kept. Math is
+ * given its LaTeX by `latexOf`; math it doesn't know is left out.
+ */
+export function docOf(blocks: readonly TextBlock[], latexOf: (id: string) => string | undefined = () => ''): Node {
   return schema.node('doc', null, blocks.map((b) => {
     const inline: Node[] = [];
     for (const run of b.runs) {
+      if (run.math !== undefined) {
+        const latex = latexOf(run.math);
+        if (latex !== undefined) inline.push(schema.nodes.math!.create({ id: run.math, latex }));
+        continue;
+      }
       const look = marksOf(run);
       run.t.split('\n').forEach((part, i) => {
         if (i > 0) inline.push(schema.nodes.hard_break!.create());
@@ -141,8 +177,12 @@ export function blocksOf(doc: Node): TextBlock[] | null {
     node.forEach((child) => {
       if (child.type.name === 'hard_break') {
         const last = runs.at(-1);
-        if (last) last.t += '\n';
+        if (last && last.math === undefined) last.t += '\n';
         else runs.push({ t: '\n' });
+        return;
+      }
+      if (child.type === schema.nodes.math) {
+        runs.push({ t: '', math: child.attrs.id as string });
         return;
       }
       const run: Record<string, unknown> = { t: child.text ?? '' };
@@ -169,6 +209,16 @@ export const wordsOfDoc = (doc: Node): string => {
   });
   return lines.join('\n');
 };
+
+/** The math in the editor's document: its LaTeX, by id. An id named twice keeps the first. */
+export function mathsOf(doc: Node): Map<string, string> {
+  const out = new Map<string, string>();
+  doc.descendants((node) => {
+    if (node.type === schema.nodes.math && !out.has(node.attrs.id as string)) out.set(node.attrs.id as string, node.attrs.latex as string);
+    return node.type !== schema.nodes.math;
+  });
+  return out;
+}
 
 /** Blocks as elements, as the editor shows them. */
 export const blockElements = (blocks: readonly TextBlock[]): DocumentFragment | HTMLElement => serializer.serializeFragment(docOf(blocks).content);

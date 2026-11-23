@@ -3691,6 +3691,228 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Math in a line of text: typed with Ctrl+M, calculated where the text starts and live while the text is still being
+// typed, opened by a click, one step to undo, copied as new math, and a hostile file's links held to what typing makes.
+{
+  const page = await fresh();
+  const ctrl = async (key: string) => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press(key as never);
+    await page.keyboard.up('Control');
+    await sleep(120);
+  };
+  const doc = () => page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    return {
+      texts: JSON.parse(JSON.stringify(d.ws.texts)), undo: d.undoStack.length,
+      regions: d.ws.regions.map((r: any) => ({ id: r.id, inText: r.inText, k: r.content.k, alignY: r.alignY })),
+      values: Object.fromEntries([...d.outcomes].map(([id, o]: [string, any]) => [id, o.value ?? o.error])),
+    };
+  });
+  await type(page, 72, 300, 'y:x+1');
+  await clickAt(page, 72, 120);
+  await keys(page, '"');
+  await sleep(40);
+  await page.keyboard.type('Let ');
+  await ctrl('KeyM');
+  const opened = await page.evaluate(() => document.activeElement?.id);
+  await keys(page, 'x:3');
+  await page.keyboard.press('Escape');
+  await sleep(150);
+  check('Ctrl+M in text opens math in the line, and Esc goes back to the words', opened === 'editor' && await page.evaluate(() => !!document.activeElement?.closest('.pm')), opened);
+  await page.keyboard.type(' so ');
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#format-bar button')].find((b) => b.textContent === 'Math')!.click());
+  await sleep(120);
+  await keys(page, 'x^2');
+  await page.keyboard.press('ArrowRight');
+  await keys(page, '=');
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const live = await page.evaluate(() => ({ typing: !!document.querySelector('.region.text.editing'), words: document.querySelector('.region.text')!.textContent }));
+  check('math in text calculates as soon as it is finished, while the words are still being typed', live.typing && /x2=9/.test(live.words ?? ''), live);
+  await page.keyboard.type(' here.');
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const typed = await doc();
+  const text = typed.texts[0];
+  const inline = typed.regions.filter((r: any) => r.inText === text.id);
+  check('math in text is a math region of the text\'s own, named in its words', text.text === 'Let  so  here.' && inline.length === 2 && JSON.stringify(text.blocks[0].runs.map((r: any) => r.math ?? r.t)) === JSON.stringify(['Let ', inline[0].id, ' so ', inline[1].id, ' here.']), typed);
+  const yId = typed.regions.find((r: any) => !r.inText).id;
+  check('math in text is calculated where the text starts, so math below it sees its definitions', typed.values[yId] === '4' && inline.every((r: any) => r.alignY === text.top + 8), typed.values);
+  check('typing text with math in it is one step to undo', typed.undo === 2, typed.undo);
+  // A click on the math opens it.
+  const m = (await (await page.$('.region.math.inline'))!.boundingBox())!;
+  await page.mouse.click(m.x + m.width / 2, m.y + m.height / 2);
+  await sleep(150);
+  const reopened = await page.evaluate(() => ({ active: document.activeElement?.id, typing: !!document.querySelector('.region.text.editing'), value: (document.getElementById('editor') as any).value }));
+  check('a click on math in text opens it in the math editor', reopened.active === 'editor' && reopened.typing && reopened.value.includes('3'), reopened);
+  await page.keyboard.press('Backspace');
+  await keys(page, '4');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const edited = await doc();
+  check('math in text edited by a click calculates again, and what depends on it', edited.values[inline[1].id] === '16' && edited.values[yId] === '5' && edited.undo === 3, edited.values);
+  await ctrl('KeyZ');
+  await idle(page);
+  const undone = await doc();
+  check('one undo takes the edit to math in text back', undone.values[inline[1].id] === '9' && undone.undo === 2, undone.values);
+  // New math left empty leaves nothing; math taken out with Backspace takes its region with it.
+  const t = (await (await page.$('.region.text'))!.boundingBox())!;
+  await page.mouse.click(t.x + t.width - 2, t.y + t.height / 2);
+  await sleep(100);
+  await page.keyboard.press('End');
+  await ctrl('KeyM');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  for (let i = 0; i < ' here.'.length + 1; i++) await page.keyboard.press('Backspace');
+  await page.keyboard.press('Escape');
+  await idle(page);
+  const removed = await doc();
+  check('empty math leaves nothing, and math deleted from the words goes with its region', removed.regions.length === 2 && removed.texts[0].text === 'Let  so ' && removed.values[yId] === '4', removed);
+  // Copied into another text, math is new math, calculated there.
+  await page.mouse.click(t.x + 3, t.y + 3);
+  await sleep(100);
+  await ctrl('KeyA');
+  const copied = await page.evaluate(() => {
+    const dt = new DataTransfer();
+    document.querySelector('.region.text .pm')!.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+    return { html: dt.getData('text/html'), text: dt.getData('text/plain') };
+  });
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 450);
+  await keys(page, '"');
+  await sleep(40);
+  await page.evaluate((c) => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', c.html);
+    dt.setData('text/plain', c.text);
+    document.querySelector('.region.text.editing .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, copied);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const pasted = await doc();
+  const second = pasted.texts[1];
+  const theirs = pasted.regions.filter((r: any) => r.inText === second?.id);
+  check('math in copied text arrives as new math of the text it is pasted in', theirs.length === 1 && theirs[0].id !== inline[0].id && theirs[0].k === 'define' && second.blocks[0].runs.some((r: any) => r.math === theirs[0].id), pasted);
+  // Deleting a text takes its math with it.
+  await page.evaluate((id) => (window as any).mathmath.doc.remove(new Set([id])), second.id);
+  await sleep(100);
+  check('a text deleted takes its math with it', (await doc()).regions.length === 2);
+  // On one row, math to the right of a text's first line comes after the math in it.
+  await page.evaluate(() => (window as any).mathmath.load('row.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...JSON.parse((window as any).mathmath.save()).worksheet, regions: [], texts: [] } })));
+  await sleep(150);
+  await clickAt(page, 72, 600);
+  await keys(page, '"');
+  await sleep(40);
+  await page.keyboard.type('With ');
+  await ctrl('KeyM');
+  await keys(page, 'r:2');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  await page.keyboard.press('Escape');
+  await type(page, 300, 600, 'r=');
+  await idle(page);
+  const row = await doc();
+  const right = row.regions.find((r: any) => !r.inText);
+  check('math to the right of a text, on its first line, sees what math in the text defines', row.values[right?.id] === '2', row);
+  // Text across the page with math in it: what's below keeps its distance, and one undo puts everything back.
+  {
+    const ws2 = emptyWorksheet();
+    ws2.textLook = 'paper';
+    ws2.texts = [{ id: 'f', left: 36, top: 72, width: 400, height: 0, text: 'Words.', flow: true }];
+    ws2.regions = [{ id: 'below', left: 72, top: 140, alignX: 72, alignY: 148, disabled: false, content: readRegion('1+1=') }];
+    await page.evaluate((f) => (window as any).mathmath.load('flow-math.mathmath', f), saveWorksheet(ws2));
+    await idle(page);
+    await sleep(150);
+    const tops = () => page.evaluate(() => JSON.stringify([...(window as any).mathmath.doc.ws.regions, ...(window as any).mathmath.doc.ws.texts].map((r: any) => [r.id, r.top])));
+    const was = await tops();
+    const gapOf = () => page.evaluate(() => {
+      const t = document.querySelector('[data-id="f"]')!.getBoundingClientRect();
+      const m = document.querySelector('[data-id="below"]') as HTMLElement;
+      return { gap: (m.getBoundingClientRect().top - t.bottom) * 72 / 96, transform: m.style.transform };
+    });
+    const before = await gapOf();
+    const f = (await (await page.$('[data-id="f"]'))!.boundingBox())!;
+    await page.mouse.click(f.x + f.width - 2, f.y + f.height / 2);
+    await sleep(80);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' A fraction ');
+    await ctrl('KeyM');
+    await keys(page, 'h:1/2');
+    await page.keyboard.press('Escape');
+    await sleep(100);
+    await page.keyboard.type(' in a line, and more words, enough of them to run onto a second line across the page and further on.');
+    await page.keyboard.press('Escape');
+    await idle(page);
+    await sleep(150);
+    const after = await gapOf();
+    check('text across the page with math in it keeps what is below at its distance', Math.abs(after.gap - before.gap) < 1.5 && after.transform === '', { before, after });
+    await ctrl('KeyZ');
+    await idle(page);
+    await sleep(150);
+    check('one undo takes back the words, their math and the move', await tops() === was && (await doc()).regions.length === 1, { was, now: await tops() });
+  }
+  // Opening math in text and leaving it changes nothing.
+  await page.evaluate((f) => (window as any).mathmath.load('again.mathmath', f), saveWorksheet((() => {
+    const w = emptyWorksheet();
+    w.texts = [{ id: 'g', left: 72, top: 72, width: 0, height: 0, text: 'g is ', blocks: [{ runs: [{ t: 'g is ' }, { t: '', math: 'gm' }] }] }];
+    w.regions = [{ id: 'gm', left: 72, top: 72, alignX: 72, alignY: 80, disabled: false, content: readRegion('g\\coloneq 9.81\\cdot \\frac{\\mathrm{m}}{\\mathrm{s}^{2}}'), inText: 'g' }];
+    return w;
+  })()));
+  await idle(page);
+  const gm = (await (await page.$('[data-id="gm"]'))!.boundingBox())!;
+  await page.mouse.click(gm.x + gm.width / 2, gm.y + gm.height / 2);
+  await sleep(150);
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  await page.keyboard.press('Escape');
+  await sleep(150);
+  const untouched = await page.evaluate(() => ({ dirty: (window as any).mathmath.doc.dirty, undo: (window as any).mathmath.doc.undoStack.length }));
+  check('opening math in text and leaving it changes nothing', !untouched.dirty && untouched.undo === 0, untouched);
+  // A hostile file: math named twice, math another text names too, a region named that isn't the text's, and markup
+  // for an id. Each is drawn once in its own text, on its own, or not at all, and nothing runs.
+  const ws = emptyWorksheet();
+  const at = (id: string, latex: string, inText?: string) => ({ id, left: 300, top: 500, alignX: 300, alignY: 500, disabled: false, content: readRegion(latex), ...(inText ? { inText } : {}) });
+  ws.texts = [
+    { id: 'h', left: 72, top: 72, width: 0, height: 0, text: 'a  b  c  d', blocks: [{ runs: [{ t: 'a ' }, { t: '', math: 'q1' }, { t: ' b ' }, { t: '', math: 'q1' }, { t: ' c ' }, { t: '', math: 'q2' }, { t: ' d' }, { t: '', math: 'free' }, { t: '', math: '"><img src=x onerror=alert(1)>' }] }] } as never,
+    { id: 'o', left: 72, top: 200, width: 0, height: 0, text: 'other', blocks: [{ runs: [{ t: 'other' }, { t: '', math: 'q2' }] }] } as never,
+  ];
+  // Math in text is placed where its text starts when a sheet opens; this one's is there already, so it saves the same.
+  ws.regions = [{ ...at('q1', 'q:=1', 'h'), left: 72, top: 72, alignX: 72, alignY: 80 }, { ...at('q2', 'q=', 'h'), left: 72, top: 72, alignX: 72.001, alignY: 80 }, at('free', 'q=')];
+  const file = saveWorksheet(ws);
+  await page.evaluate((f) => (window as any).mathmath.load('hostile-math.mathmath', f), file);
+  await idle(page);
+  await sleep(150);
+  const hostile = await page.evaluate(() => ({
+    inside: [...document.querySelectorAll('[data-id="h"] .region.math.inline')].map((e) => (e as HTMLElement).dataset.id),
+    onOwn: [...document.querySelectorAll('#sheet > .region.math')].map((e) => (e as HTMLElement).dataset.id),
+    other: document.querySelector('[data-id="o"] .region.math'),
+    img: !!document.querySelector('#sheet img'),
+  }));
+  check('a hostile file\'s math in text is held to what typing could make: once, and only the text\'s own', JSON.stringify(hostile.inside) === '["q1","q2"]' && JSON.stringify(hostile.onOwn) === '["free"]' && !hostile.other && !hostile.img, hostile);
+  const again = await page.evaluate(() => (window as any).mathmath.save());
+  check('a sheet with math in text saves as it was opened', again === file);
+  // Words changed without their math, as by an older version: the math is drawn on its own, and undo puts it back.
+  const where = () => page.evaluate(() => ({
+    inside: [...document.querySelectorAll('[data-id="h"] .region.math')].map((e) => (e as HTMLElement).dataset.id),
+    onOwn: [...document.querySelectorAll('#sheet > .region.math')].map((e) => (e as HTMLElement).dataset.id).sort(),
+  }));
+  await page.evaluate(() => { const d = (window as any).mathmath.doc; d.setText(d.ws.texts[0], 'words alone'); });
+  await sleep(150);
+  const alone = await where();
+  await page.evaluate(() => (window as any).mathmath.doc.undo());
+  await sleep(150);
+  const back = await where();
+  check('math whose text no longer names it is drawn on its own, and undo puts it back in the words', alone.inside.length === 0 && JSON.stringify(alone.onOwn) === '["free","q1","q2"]' && JSON.stringify(back.inside) === '["q1","q2"]', { alone, back });
+  await page.close();
+}
+
 // A contour plot draws its other expressions too: a second function's contour lines in its own color, a point where it
 // lies, arrows; one that can't be drawn says why, and so does a surface of three matrices, which has no heights over
 // the plane.

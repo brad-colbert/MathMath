@@ -26,7 +26,10 @@ import { readTex } from '../src/latex/latex.js';
 import { readRegion } from '../src/latex/region.js';
 import { emptyWorksheet } from '../src/format/native.js';
 import { type Content, type TextRegion, type Worksheet, autoAxis } from '../src/model/ast.js';
-import { type TextBlock, wordsOf } from '../src/model/richtext.js';
+import { type TextBlock, type TextRun, placeInline, wordsOf } from '../src/model/richtext.js';
+
+/** A block for `formatted`: a run may be math in the line, `{ latex }`, calculated where the text starts. */
+export type FormattedBlock = Omit<TextBlock, 'runs'> & { runs: (TextRun | { latex: string })[] };
 
 const PAGE = 792;
 const TOP = 72;
@@ -173,21 +176,34 @@ export class Sheet {
 
   /**
    * Formatted text: paragraphs, headings and list items, with bold, italic, sub- and superscript and color in their
-   * runs (see src/model/richtext.ts). `across` spans it between the page's margins.
+   * runs (see src/model/richtext.ts), and math in a line as a run `{ latex }`. `across` spans it between the page's
+   * margins.
    */
-  formatted(blocks: TextBlock[], opts: { across?: boolean; end?: boolean } = {}): this {
+  formatted(given: FormattedBlock[], opts: { across?: boolean; end?: boolean } = {}): this {
+    const textId = String(this.id++);
+    const blocks: TextBlock[] = given.map((b) => ({
+      ...b,
+      runs: b.runs.map((r): TextRun => {
+        if (!('latex' in r)) return r;
+        const id = String(this.id++);
+        this.ws.regions.push({ id, left: LEFT, top: this.y, alignX: LEFT, alignY: this.y, disabled: false, content: readRegion(r.latex), inText: textId });
+        return { t: '', math: id };
+      }),
+    }));
     const width = opts.across ? 612 - 2 * LEFT : TEXT_WIDTH;
     const perLine = Math.floor((width * 1.15) / 5.4);
     const size = (b: TextBlock) => (b.kind === 'title' ? 2 : b.kind === 'h1' ? 1.6 : b.kind === 'h2' ? 1.2 : 1) * (b.line ?? 1);
     const height = blocks.reduce((h, b) => {
-      const words = b.runs.map((r) => r.t).join('');
+      // Math in a line counts as a few words' width.
+      const words = b.runs.map((r) => (r.math ? 'x'.repeat(8) : r.t)).join('');
       const lines = words.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length * size(b) / perLine)), 0);
       return h + lines * 13.5 * size(b) + (b.after ?? 0);
     }, 0);
     this.room(height + (opts.end ? 0 : 40));
-    const text: TextRegion = { id: String(this.id++), left: LEFT, top: this.y, width: opts.across ? width / 1.15 : width, height, text: wordsOf(blocks), blocks };
+    const text: TextRegion = { id: textId, left: LEFT, top: this.y, width: opts.across ? width / 1.15 : width, height, text: wordsOf(blocks), blocks };
     if (opts.across) text.flow = true;
     this.ws.texts.push(text);
+    placeInline(this.ws);
     this.y += height + 8;
     return this;
   }

@@ -136,6 +136,11 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 /* The editor inside text being typed. It wraps as the drawn text does, so the height is the same when typing ends. */
 .region.text .pm { outline: none; white-space: pre-wrap; word-wrap: break-word; }
 .ProseMirror-hideselection *::selection { background: transparent; }
+/* Math in a line of text: a math region drawn in the words, on their baseline, at their size. */
+.region.text .inline-math { display: inline-block; white-space: nowrap; text-indent: 0; }
+.region.math.inline { position: static; display: inline-block; font-size: inherit; font-weight: normal; font-style: normal; text-align: left; cursor: pointer; }
+.region.text .inline-math.chosen { outline: 1px solid var(--select); outline-offset: 1px; }
+.region.text .math-typed { color: #6b7280; }
 .ProseMirror-hideselection { caret-color: transparent; }
 /* The formats over text being typed. */
 #format-bar {
@@ -145,6 +150,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #format-bar > button { font: inherit; min-width: 26px; padding: 2px 6px; border: 1px solid transparent; border-radius: 3px; background: none; cursor: pointer; color: #111; }
 #format-bar > button:hover { background: #e5e7eb; }
 #format-bar > button[aria-pressed="true"] { background: #dbeafe; border-color: #93c5fd; }
+#format-bar.busy { opacity: 0.5; pointer-events: none; }
 #format-bar .sep { width: 1px; height: 18px; background: #d1d5db; margin: 0 2px; }
 #format-bar .format-menu { position: absolute; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
 #format-bar .format-menu button { display: flex; align-items: center; gap: 6px; font: inherit; white-space: nowrap; text-align: left; padding: 3px 8px; border: 0; border-radius: 3px; background: none; cursor: pointer; }
