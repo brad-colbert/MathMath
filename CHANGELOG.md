@@ -8,6 +8,50 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.63.0] - 2026-11-23
+
+Formatted text: headings, lists, bold, italic, sub- and superscripts and color, text across the page, and a Paper style.
+
+### Added
+
+- Formatted text: a bar of formats shows over a text region while you type in it. Words can be bold, italic,
+  underlined, subscript or superscript, and colored; paragraphs can be a title, heading, subheading, bulleted or
+  numbered list item (three levels deep), aligned left, centered, right or justified, with line spacing and space
+  after. The usual keys work: Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+, and Ctrl+. for sub- and superscript, Ctrl+Shift+8 and
+  7 for lists, "- " or "1. " to start one, Tab and Shift+Tab for its level. Undo while typing takes back typing
+  apart from each format given in it, and the whole edit is one step to undo once it's done.
+- Text across the page: Format → Text across the page spans a text region between the page's margins. As it grows
+  or shrinks while you type, the math and plots below it keep their distance, and a line that would fall across a
+  page's end starts the next page.
+- Paper style, on the Page menu: the sheet's text in a serif face to match the math, justified, with headings
+  numbered 1, 2 and 1.1 down the sheet, and new text running across the page. Other sheets look as they did.
+- Page → Narrow margins (½ in) and Wide margins (1 in).
+- Format's Title, Heading, Subheading, Bulleted list, Numbered list, Bold, Italic, Text color… and Plain text act on
+  the words or paragraphs being typed, or on the whole of each selected text region.
+- Help: a Text and papers page, with the keys.
+
+### Changed
+
+- Format → Heading and Subheading now make a heading paragraph, numbered in Paper style, rather than larger bold
+  text for the region; a sheet with the old style still opens looking as it did.
+- Clicking in text puts the caret where you click, rather than at the end.
+- The text editor is built on ProseMirror, under the MIT license, bundled into the app; About links its notice.
+
+### Security
+
+- Text pasted or dropped from another page arrives as plain words, so none of its markup reaches the sheet. Text
+  copied between MathMath texts keeps its formats, read back only through the formats MathMath itself writes. A
+  worksheet's formats are checked the same way when it opens, so a shared sheet can't add markup or styles of its
+  own.
+
+### Known limits
+
+- Paper style's serif face has no accented letters, so é or ü shows in a similar serif.
+- While text is being typed, its lines aren't moved off a page's end; they are when typing ends.
+- A heading at the foot of a page isn't yet kept with the paragraph after it.
+- The `.mathmath` format version is unchanged: formats are stored beside the plain words, so an earlier version of
+  MathMath opens such a sheet with its text plain. If it changes the words, the formats are dropped.
+
 ## [0.62.0] - 2026-11-22
 
 ∇ takes an expression, and a contour plot draws all its expressions.

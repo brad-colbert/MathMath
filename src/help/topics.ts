@@ -22,7 +22,7 @@ export const TOPICS: Topic[] = [
     id: 'typing', title: 'Typing math', summary: 'Regions, definitions, results and the keys that build math.',
     body: [
       { p: 'A worksheet is a page of regions. Click on the paper where a region should go, and type. Math calculates from the top of the page down, and from left to right along a line, so a name must be defined above or to the left of where it\'s used.' },
-      { p: 'Type `:` for the definition sign :=, and `=` after an expression to see its value. Press Enter or Esc, or click elsewhere, to finish. Type `"` on empty paper to start a text region instead. Format → Heading, Subheading, Bold text, Italic text, Larger or Smaller text and Text color… style the selected text regions, or the one being typed in, each as a whole; Plain text puts one back.' },
+      { p: 'Type `:` for the definition sign :=, and `=` after an expression to see its value. Press Enter or Esc, or click elsewhere, to finish. Type `"` on empty paper to start a text region instead: see Text and papers for headings, lists and formats.' },
       { id: 'typing-1', example: ['a\\coloneq 3', 'b\\coloneq a^{2}+1', 'b='] },
       { h: 'Keys' },
       { keys: [
@@ -41,7 +41,7 @@ export const TOPICS: Topic[] = [
         ['F1', 'Help on the function being typed'], ['Esc', 'Finish typing; with nothing open, stop a calculation'],
         ['Ctrl+Z, Ctrl+Y', 'Undo and redo'],
       ] },
-      { p: '**Page** on the toolbar sets the paper, Letter, Legal or A4, and portrait or landscape. The dashed lines across the paper are where pages break, and Print prints on that paper. New worksheets start on the paper you last chose in this browser.' },
+      { p: '**Page** on the toolbar sets the paper, Letter, Legal or A4, portrait or landscape, and margins of ½ or 1 inch. The dashed lines across the paper are where pages break, and Print prints on that paper. New worksheets start on the paper you last chose in this browser. Paper style, also on Page, makes a sheet\'s text look like a paper\'s: see Text and papers.' },
       { p: '**Examples** on the toolbar opens worksheets that show what MathMath does, each a small problem worked on paper. Open one and change a number: everything below it follows.' },
       { p: 'Names are letters, digits and _, with digits anywhere after the first letter, as x2 or str2num; a name like R.load or J0.sc has a literal subscript, typed with `.`. A single letter can wear a hat or an arrow, as î, from the ∇ menu; see Vector calculus. Functions are called by name with their arguments in brackets, as `sin(x)`. A function of your own is defined like a variable: `f(x):x^2`, and a name you define takes the place of a built-in one with that name.' },
       { p: 'A number followed straight away by i or j is imaginary: `3+4i` or `2j`. (`4*i` is 4 times a variable named i.) See Complex numbers. Inside math, `"` starts a string, as "data.csv", and a second `"` ends it; the Strings group in the contents lists what works on them.' },
@@ -51,6 +51,26 @@ export const TOPICS: Topic[] = [
       { p: 'The page fits the screen\'s width; pinch, or + and − on the toolbar, to zoom, and Fit to fit it again. Tap the paper to start math there: a keypad opens with numbers and operators (123), functions, templates and units (f(x)), letters (abc) and Greek. Its bar has Next ■ for the next blank, → to evaluate symbolically, Done to finish, and ⏎ to finish and start new math below. Text uses the phone\'s own keyboard.' },
       { p: 'Touch and hold a region to select it, then drag it with a finger. ☰ on the toolbar shows every tool; ↶ and ↷ undo and redo.' },
       { p: 'The LIVE button at the right of the toolbar switches to EDIT, which stops calculating; results gray as they go out of date, and LIVE brings them up to date.' },
+    ],
+  },
+  {
+    id: 'text', title: 'Text and papers', summary: 'Words between the math: headings, lists, bold, italic, sub- and superscripts, color, alignment, and text across the page.',
+    body: [
+      { p: 'Type `"` on empty paper to start a text region, or click one to type in it. A bar of formats shows over the words being typed: the kind of paragraph (Paragraph, Title, Heading or Subheading), bold, italic, underline, subscript, superscript, color, bulleted and numbered lists, a level in or out, alignment, and line spacing and space after. Select words first to format just them; with nothing selected, a format goes to what you type next. Plain clears the formats from the selection.' },
+      { keys: [
+        ['Ctrl+B, Ctrl+I, Ctrl+U', 'Bold, italic, underline'], ['Ctrl+,', 'Subscript, as the 2 in H₂O'], ['Ctrl+.', 'Superscript, as the 2 in m²'],
+        ['Ctrl+Shift+8', 'Bulleted list'], ['Ctrl+Shift+7', 'Numbered list'], ['- or * then Space', 'At the start of a paragraph: a bulleted item'],
+        ['1. then Space', 'At the start of a paragraph: a numbered item'], ['Tab, Shift+Tab', 'In a list: a level in, or out'],
+        ['Enter', 'A new paragraph, or item; on an empty item, out of the list'], ['Shift+Enter', 'A new line in the same paragraph'],
+        ['Ctrl+Alt+1, Ctrl+Alt+2', 'Heading, subheading'], ['Ctrl+Alt+0', 'Back to a paragraph'],
+        ['Ctrl+Z, Ctrl+Y', 'While typing: undo and redo the typing'], ['Esc', 'Finish typing; the whole edit is then one step to undo'],
+      ] },
+      { p: 'Format on the toolbar does the same for the text being typed, though with no words selected its Bold, Italic, Text color… and Plain text go to all of them. For text regions that are selected rather than being typed in, it acts on each as a whole: Title, Heading and Subheading make all of a region one, Bulleted and Numbered list make each of its paragraphs an item, and Bold, Italic, Larger, Smaller, Text color… and Plain text style all its words.' },
+      { h: 'Text across the page' },
+      { p: 'Format → Text across the page makes a text region span the page between its margins. As it grows while you type, the math and plots below it move down to keep their distance, and they move back up if it shrinks. A line that would fall across the end of a page starts the next page instead, and so does a row of math pushed there.' },
+      { h: 'Paper style' },
+      { p: 'Page → Paper style makes a sheet\'s text look like a paper\'s: a serif face to match the math, justified, with numbered headings, 1, 2 and 1.1, counted down the sheet. New text in such a sheet runs across the page. Other sheets keep plain text, as before.' },
+      { p: 'Copying text from MathMath to another of its texts keeps its formats. Text pasted from anywhere else, or dropped in, arrives as plain words, without the web page\'s markup. A worksheet keeps its text\'s plain words as well as their formats, so a version of MathMath without formatted text still shows them.' },
     ],
   },
   {

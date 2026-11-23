@@ -23,6 +23,7 @@ import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Reg
 import { fileKey } from '../engine/files.js';
 import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible, originAt } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
+import { type TextBlock, type TextLook, changeBlocks, isFormatted, plainBlocks, textBlocksOf } from '../model/richtext.js';
 import { Algebra } from './algebra.js';
 import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
@@ -35,7 +36,7 @@ export type Item =
 export const GRID = 6;
 
 /** Everything undo restores. Picture data is shared, since nothing ever changes it. */
-type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page' | 'seed'>;
+type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page' | 'seed' | 'textLook'>;
 
 const snapshot = (ws: Worksheet): Snapshot => ({
   regions: structuredClone(ws.regions),
@@ -43,6 +44,7 @@ const snapshot = (ws: Worksheet): Snapshot => ({
   opaque: ws.opaque.map((o) => ({ ...o })),
   page: structuredClone(ws.page),
   ...(ws.seed === undefined ? {} : { seed: ws.seed }),
+  ...(ws.textLook === undefined ? {} : { textLook: ws.textLook }),
 });
 
 const HISTORY = 100;
@@ -311,6 +313,7 @@ export class Doc {
     this.saved = state;
     // A seed that wasn't set then isn't set now: undoing New random numbers goes back to the default draws.
     if (state.seed === undefined) delete this.ws.seed;
+    if (state.textLook === undefined) delete this.ws.textLook;
     Object.assign(this.ws, snapshot({ ...this.ws, ...state }));
     this.dirty = true;
     this.recompute();
@@ -453,9 +456,53 @@ export class Doc {
     this.touched();
   }
 
-  setText(region: TextRegion, text: string): void {
+  /** Its words, and their formatting when they have any. */
+  setText(region: TextRegion, text: string, blocks: TextBlock[] | null = null): void {
     region.text = text;
+    if (blocks && isFormatted(blocks)) region.blocks = blocks;
+    else delete region.blocks;
     this.touched(new Set([region.id]));
+  }
+
+  /** Changes every block of text regions together, as one step to undo. */
+  setBlocks(regions: TextRegion[], change: (b: TextBlock) => TextBlock): void {
+    if (regions.length === 0) return;
+    for (const r of regions) {
+      const blocks = changeBlocks(textBlocksOf(r.blocks, r.text) ?? plainBlocks(r.text), change);
+      if (isFormatted(blocks)) r.blocks = blocks;
+      else delete r.blocks;
+    }
+    // Headings number those after them.
+    this.touched();
+  }
+
+  /** Spans text regions across the page, or lets them go back to a place of their own. */
+  setFlow(regions: TextRegion[], flow: boolean): void {
+    const { page } = this.ws;
+    for (const r of regions) {
+      if (flow) {
+        r.flow = true;
+        // Versions that don't span text across the page wrap it at its width, which they widen by 15%.
+        r.width = Math.max(72, page.width - page.margins.left - page.margins.right) / 1.15;
+      } else if (r.flow !== undefined) {
+        delete r.flow;
+        // It stays where it was drawn.
+        r.left = page.margins.left;
+      }
+    }
+    this.touched();
+  }
+
+  setTextLook(look: TextLook | undefined): void {
+    if (look) this.ws.textLook = look;
+    else delete this.ws.textLook;
+    this.touched();
+  }
+
+  /** The same margin, in points, on every side. */
+  setMargins(margin: number): void {
+    this.ws.page = { ...this.ws.page, margins: { left: margin, right: margin, top: margin, bottom: margin } };
+    this.touched();
   }
 
   /** Restyles text regions together, as one step to undo. A style left empty is removed. */
@@ -486,7 +533,8 @@ export class Doc {
     if (dx === 0 && dy === 0) return;
     for (const item of this.items()) {
       if (!ids.has(item.region.id)) continue;
-      item.region.left = Math.max(0, item.region.left + dx);
+      // Text across the page stays between its margins.
+      if (!(item.kind === 'text' && item.region.flow === true)) item.region.left = Math.max(0, item.region.left + dx);
       item.region.top = Math.max(0, item.region.top + dy);
       if (item.kind === 'math') {
         item.region.alignX += dx;

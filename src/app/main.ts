@@ -36,10 +36,13 @@ const INK = 'ink';
 import { TracePanel } from '../ui/trace-panel.js';
 import { saveWorksheet } from '../format/native.js';
 import { emptyWorksheet } from '../format/native.js';
-import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type TextStyle, type Worksheet, onPaper, paperOf, textStyleOf } from '../model/ast.js';
+import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type TextRegion, type TextStyle, type Worksheet, onPaper, paperOf, textStyleOf } from '../model/ast.js';
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { isCmpFile } from '../engine/colormaps.js';
 import { Doc } from './document.js';
+import { type BlockKind, type TextBlock, textBlocksOf } from '../model/richtext.js';
+import { TEXT_COLORS, clearFormat, setColor, setKind, toggle, toggleList } from '../ui/richedit.js';
+import type { Command } from 'prosemirror-state';
 
 const pickFiles = (accept: string, multiple: boolean): Promise<File[]> => new Promise((resolve) => {
   const input = document.createElement('input');
@@ -376,6 +379,8 @@ const print = (): void => {
   paper.commitAll();
   window.print();
 };
+// Printing from the browser's own menu finishes typing too, so the page prints without the editor's outline.
+window.addEventListener('beforeprint', () => paper.commitAll());
 
 function button(label: string, title_: string, run: () => void): HTMLButtonElement {
   const b = document.createElement('button');
@@ -590,7 +595,7 @@ const pageMenu = document.createElement('details');
 pageMenu.className = 'menu';
 const pageSummary = document.createElement('summary');
 pageSummary.textContent = 'Page';
-pageSummary.title = 'Paper size and orientation';
+pageSummary.title = 'Paper size, orientation, margins and Paper style';
 pageSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const pageList = document.createElement('div');
 pageMenu.append(pageSummary, pageList);
@@ -601,7 +606,7 @@ const paperButtons = (Object.keys(PAPERS) as PaperSize[]).map((size) => {
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     pageMenu.open = false;
-    doc.setPaper(size);
+    paper.reflow(() => doc.setPaper(size));
     // New worksheets in this browser start on it too.
     try {
       localStorage.setItem(PAPER_KEY, size);
@@ -620,12 +625,49 @@ const orientationButtons = orientations.map(([label, landscape]) => {
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     pageMenu.open = false;
-    doc.setOrientation(landscape);
+    paper.reflow(() => doc.setOrientation(landscape));
   });
   pageList.appendChild(b);
   return { b, label, landscape };
 });
+pageList.appendChild(document.createElement('hr'));
+/** Margins a page can have, in points: the same on every side. Text across the page runs between them. */
+const marginButtons = ([['Narrow margins, ½ in', 36], ['Wide margins, 1 in', 72]] as const).map(([label, margin]) => {
+  const b = document.createElement('button');
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    pageMenu.open = false;
+    paper.commitAll();
+    paper.reflow(() => doc.setMargins(margin));
+  });
+  pageList.appendChild(b);
+  return { b, label, margin };
+});
+pageList.appendChild(document.createElement('hr'));
+const paperStyle = document.createElement('button');
+paperStyle.title = 'Text as in a paper: a serif face to match the math, justified, with numbered headings. New text runs across the page';
+paperStyle.addEventListener('mousedown', (e) => e.preventDefault());
+paperStyle.addEventListener('click', () => {
+  pageMenu.open = false;
+  paper.commitAll();
+  const look = doc.ws.textLook === 'paper' ? undefined : 'paper';
+  // Heights are measured in the face they'll show in, so it has to be here first.
+  const faces = look ? ['', 'bold ', 'italic ', 'italic bold '].map((s) => document.fonts.load(`${s}10pt KaTeX_Main`)) : [];
+  void Promise.allSettled(faces).then(() => paper.reflow(() => doc.setTextLook(look)));
+});
+pageList.appendChild(paperStyle);
 pageMenu.addEventListener('toggle', () => {
+  const { margins } = doc.ws.page;
+  for (const { b, label, margin } of marginButtons) {
+    const on = [margins.left, margins.right, margins.top, margins.bottom].every((m) => Math.abs(m - margin) < 0.5);
+    b.textContent = `${on ? '✓ ' : '\u2003'}${label}`;
+    b.setAttribute('aria-checked', String(on));
+    b.setAttribute('role', 'menuitemradio');
+  }
+  const styled = doc.ws.textLook === 'paper';
+  paperStyle.textContent = `${styled ? '✓ ' : '\u2003'}Paper style`;
+  paperStyle.setAttribute('aria-checked', String(styled));
+  paperStyle.setAttribute('role', 'menuitemcheckbox');
   const current = paperOf(doc.ws.page);
   for (const { b, size } of paperButtons) {
     b.textContent = `${current === size ? '✓ ' : '\u2003'}${PAPER_LABELS[size]}`;
@@ -788,57 +830,77 @@ for (const [label, kind, change] of formats) {
   });
   plotList.appendChild(b);
 }
-// Text regions: a heading's size and weight, bold, italic and a color, for the whole region.
+// Text: while it's being typed, the selected words or paragraphs; otherwise the whole of each selected region.
 plotList.appendChild(document.createElement('hr'));
-/** The colors text can take: dark enough to read on the page. */
-const TEXT_COLORS: [string, string | undefined][] = [
-  ['Black', undefined], ['Blue', '#1c5cab'], ['Red', '#b3261e'], ['Green', '#1d7a3e'], ['Purple', '#5a3fc0'], ['Orange', '#b45309'], ['Gray', '#52514e'],
+/** A block kind for whole regions: the old heading look is dropped, so the kind's own shows. */
+const withKind = ({ kind: _, ...b }: TextBlock, kind: BlockKind | undefined): TextBlock => (kind ? { ...b, kind } : b);
+const asKind = (kind: BlockKind) => (texts: TextRegion[]): void => {
+  doc.setTextStyle(texts, ({ bold: _b, size: _s, ...st }) => st);
+  doc.setBlocks(texts, (b) => withKind(b, kind));
+};
+const asList = (kind: 'bullet' | 'number') => (texts: TextRegion[]): void => {
+  const on = texts.every((t) => (textBlocksOf(t.blocks, t.text) ?? []).every((b) => b.kind === kind) && t.blocks !== undefined);
+  doc.setBlocks(texts, (b) => withKind(b, on ? undefined : kind));
+};
+const textFormats: [string, string, Command | null, (texts: TextRegion[]) => void][] = [
+  ['Title', 'Large centered text at the top of a paper', setKind('title'), asKind('title')],
+  ['Heading', 'Large bold text, for a section (Ctrl+Alt+1 while typing). Numbered in Paper style', setKind('h1'), asKind('h1')],
+  ['Subheading', 'Bold text a little larger than the rest (Ctrl+Alt+2 while typing). Numbered in Paper style', setKind('h2'), asKind('h2')],
+  ['Plain text', 'Back to plain 10-point words and paragraphs', clearFormat, (texts) => {
+    doc.setTextStyle(texts, () => ({}));
+    doc.setBlocks(texts, (b) => ({ runs: b.runs.map((r) => ({ t: r.t })) }));
+  }],
+  ['Bold text', 'Bold, or back to normal weight (Ctrl+B while typing)', toggle('bold'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, bold: st.bold ? undefined : true } as TextStyle))],
+  ['Italic text', 'Italic, or back to upright (Ctrl+I while typing)', toggle('italic'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, italic: st.italic ? undefined : true } as TextStyle))],
+  ['Larger text', 'The whole text two points larger', null, (texts) => doc.setTextStyle(texts, (st) => ({ ...st, size: (st.size ?? 10) + 2 }))],
+  ['Smaller text', 'The whole text two points smaller', null, (texts) => doc.setTextStyle(texts, (st) => ({ ...st, size: (st.size ?? 10) - 2 }))],
+  ['Bulleted list', 'Each paragraph a bulleted item, or back to paragraphs (Ctrl+Shift+8 while typing)', toggleList('bullet'), asList('bullet')],
+  ['Numbered list', 'Each paragraph a numbered item, or back to paragraphs (Ctrl+Shift+7 while typing)', toggleList('number'), asList('number')],
+  ['Text across the page', 'The text spans the page between its margins, pushing what\'s below down as it grows, or goes back to a place of its own', null, (texts) => doc.setFlow(texts, !texts.every((t) => t.flow === true))],
 ];
-const textFormats: [string, string, (s: TextStyle) => TextStyle][] = [
-  ['Heading', 'Large bold text, for a title or a section', () => ({ bold: true, size: 16 })],
-  ['Subheading', 'Bold text a little larger than the rest', () => ({ bold: true, size: 12 })],
-  ['Plain text', 'Back to plain 10-point text', () => ({})],
-  ['Bold text', 'Bold, or back to normal weight', (st) => ({ ...st, bold: st.bold ? undefined : true } as TextStyle)],
-  ['Italic text', 'Italic, or back to upright', (st) => ({ ...st, italic: st.italic ? undefined : true } as TextStyle)],
-  ['Larger text', 'Two points larger', (st) => ({ ...st, size: (st.size ?? 10) + 2 })],
-  ['Smaller text', 'Two points smaller', (st) => ({ ...st, size: (st.size ?? 10) - 2 })],
-];
-for (const [label, hint, change] of textFormats) {
+for (const [label, hint, typed, whole] of textFormats) {
   const b = document.createElement('button');
   b.textContent = label;
   b.title = hint;
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     plotMenu.open = false;
+    if (typed && paper.typing) {
+      // A word's look, with nothing selected, is for all the words; a block's, for the paragraph with the caret.
+      paper.typing.run(typed, !['Title', 'Heading', 'Subheading', 'Bulleted list', 'Numbered list'].includes(label));
+      return;
+    }
     const texts = paper.selectedTexts();
     if (texts.length === 0) {
       doc.onProblem('Select one or more text regions first');
       return;
     }
-    doc.setTextStyle(texts, change);
+    paper.reflow(() => whole(texts));
   });
   plotList.appendChild(b);
 }
 {
   const b = document.createElement('button');
   b.textContent = 'Text color…';
-  b.title = 'The color of the selected text regions';
+  b.title = 'The color of the selected words while typing, or else of the selected text regions';
   b.addEventListener('mousedown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     plotMenu.open = false;
-    const texts = paper.selectedTexts();
-    if (texts.length === 0) {
+    const typing = paper.typing;
+    const texts = typing ? [] : paper.selectedTexts();
+    if (!typing && texts.length === 0) {
       doc.onProblem('Select one or more text regions first');
       return;
     }
-    const current = TEXT_COLORS.find(([, hex]) => hex === textStyleOf(texts[0]!.style).color)?.[0];
+    const current = typing ? undefined : TEXT_COLORS.find(([, hex]) => (hex ?? undefined) === textStyleOf(texts[0]!.style).color)?.[0];
     const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
     chooseMap(plotSummary, TEXT_COLORS.map(([name]) => name), current, (name) => {
       const hex = TEXT_COLORS.find(([n]) => n === name)?.[1] ?? '#000000';
       return [rgb(hex), rgb(hex)];
     }, (name) => {
-      const hex = TEXT_COLORS.find(([n]) => n === name)?.[1];
-      doc.setTextStyle(texts, (st) => ({ ...st, color: hex } as TextStyle));
+      const hex = TEXT_COLORS.find(([n]) => n === name)?.[1] ?? null;
+      if (typing) typing.run(setColor(hex), true);
+      else doc.setTextStyle(texts, (st) => ({ ...st, color: hex ?? undefined } as TextStyle));
     }, 'Black');
   });
   plotList.appendChild(b);

@@ -1675,7 +1675,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     menu.dispatchEvent(new Event('toggle'));
     return [...menu.querySelectorAll('button')].filter((b) => b.textContent!.startsWith('✓')).map((b) => b.textContent);
   });
-  check('the menu ticks the paper and the orientation', JSON.stringify(ticked) === JSON.stringify(['✓ Legal, 8.5 × 14 in', '✓ Landscape']), ticked);
+  check('the menu ticks the paper, the orientation and the margins', JSON.stringify(ticked) === JSON.stringify(['✓ Legal, 8.5 × 14 in', '✓ Landscape', '✓ Narrow margins, ½ in']), ticked);
   await pick('A4');
   await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((x) => x.textContent === 'New')!.click());
   await sleep(80);
@@ -3361,7 +3361,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
-// Text styles: Format → Heading, Text color… and Plain text on the selected text, undo, and a file's styles held in range.
+// Text styles: Format → Heading, Italic, Text color… and Plain text while typing in a text, undo, and a file's styles held in range.
 {
   const page = await fresh();
   const ws = emptyWorksheet();
@@ -3371,10 +3371,13 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   ];
   await page.evaluate((t) => (window as any).mathmath.load('styles.mathmath', t), saveWorksheet(ws));
   await sleep(100);
+  // How the first word looks, from the element holding it.
   const css = (id: string) => page.evaluate((i) => {
     const el = document.querySelector<HTMLElement>(`[data-id="${i}"]`)!;
-    const cs = getComputedStyle(el);
-    return { size: parseFloat(cs.fontSize) * 72 / 96, weight: cs.fontWeight, italic: cs.fontStyle, color: cs.color, inline: el.getAttribute('style') ?? '', style: (window as any).mathmath.doc.ws.texts.find((t: any) => t.id === i).style };
+    const word = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode()!.parentElement!;
+    const cs = getComputedStyle(word);
+    const t = (window as any).mathmath.doc.ws.texts.find((x: any) => x.id === i);
+    return { size: parseFloat(cs.fontSize) * 72 / 96, weight: cs.fontWeight, italic: cs.fontStyle, color: cs.color, inline: el.getAttribute('style') ?? '', style: t.style, blocks: t.blocks };
   }, id);
   const hostile = await css('t2');
   check('a text style from a file is held to what Format could set', Math.abs(hostile.size - 48) < 0.01 && hostile.weight === '400' && !hostile.inline.includes('url'), hostile);
@@ -3382,39 +3385,309 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     const r = document.querySelector<HTMLElement>('[data-id="t1"]')!.getBoundingClientRect();
     return { x: r.left + 5, y: r.top + r.height / 2 };
   });
-  const pick = async (label: string) => {
-    await page.mouse.click(t.x, t.y);
-    await sleep(80);
+  const menu = async (label: string) => {
     await page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === l)!.click(), label);
     await sleep(120);
   };
-  await pick('Heading');
+  await page.mouse.click(t.x, t.y);
+  await sleep(80);
+  await menu('Heading');
   const heading = await css('t1');
-  check('Format → Heading makes the selected text large and bold', Math.abs(heading.size - 16) < 0.01 && heading.weight === '700', heading);
-  // A second style straight after, without clicking the text again: it stays selected.
-  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Italic text')!.click());
-  await sleep(120);
+  check('Format → Heading makes the text being typed a large bold heading', Math.abs(heading.size - 16) < 0.01 && heading.weight === '700', heading);
+  await menu('Italic text');
   const twice = await css('t1');
-  check('a second style applies straight after the first, the text still selected', twice.italic === 'italic' && twice.weight === '700', twice);
-  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((x) => x.textContent === 'Italic text')!.click());
-  await sleep(120);
-  await pick('Text color…');
+  check('a second format applies straight after, to all the words when none are selected', twice.italic === 'italic' && twice.weight === '700', twice);
+  await menu('Italic text');
+  await menu('Text color…');
   await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('.map-chooser button')].find((x) => x.textContent === 'Red')!.click());
   await sleep(120);
   const red = await css('t1');
-  check('Text color… colors it, keeping the heading', red.color === 'rgb(179, 38, 30)' && red.weight === '700' && JSON.stringify(red.style) === JSON.stringify({ bold: true, size: 16, color: '#b3261e' }), red);
+  check('Text color… colors the words, keeping the heading', red.color === 'rgb(179, 38, 30)' && red.weight === '700' && red.italic === 'normal', red);
   await page.keyboard.press('Escape');
+  await sleep(120);
+  const kept = await css('t1');
+  check('they are kept as a heading with red words, not as a style for the region',
+    kept.style === undefined && JSON.stringify(kept.blocks) === JSON.stringify([{ runs: [{ t: 'Vector calculus', color: '#b3261e' }], kind: 'h1' }]), kept);
   await page.keyboard.down('Control');
   await page.keyboard.press('KeyZ');
   await page.keyboard.up('Control');
   await sleep(120);
   const back = await css('t1');
-  check('undo takes the color off again', back.color !== 'rgb(179, 38, 30)' && back.weight === '700', back);
-  await pick('Plain text');
+  check('one undo takes back all that typing did', back.blocks === undefined && back.weight === '400' && back.color !== 'rgb(179, 38, 30)', back);
+  await page.mouse.click(t.x, t.y);
+  await sleep(80);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyB');
+  await page.keyboard.up('Control');
+  await menu('Plain text');
+  await page.keyboard.press('Escape');
+  await sleep(120);
   const plain = await css('t1');
-  check('Plain text puts it back to plain 10-point text', plain.style === undefined && Math.abs(plain.size - 10) < 0.01 && plain.weight === '400', plain);
+  check('Plain text puts it back to plain 10-point text', plain.style === undefined && plain.blocks === undefined && Math.abs(plain.size - 10) < 0.01 && plain.weight === '400', plain);
+  // Selected without typing in it, Format acts on the whole region, as before.
+  await page.evaluate(() => (window as any).mathmath.paper.select(['t1']));
+  await menu('Heading');
+  const whole = await css('t1');
+  check('Format → Heading on a selected text makes all of it a heading', whole.style === undefined && JSON.stringify(whole.blocks) === JSON.stringify([{ runs: [{ t: 'Vector calculus' }], kind: 'h1' }]), whole);
   const text = await page.evaluate(() => (window as any).mathmath.doc.ws.texts.find((x: any) => x.id === 't1').text);
   check('styling leaves the words alone', text === 'Vector calculus', text);
+  await page.close();
+}
+
+// Formatted text: typing it, undo while typing, pastes, files that open as they were saved, and hostile ones.
+{
+  const page = await fresh();
+  const ctrl = async (key: string, shift = false) => {
+    await page.keyboard.down('Control');
+    if (shift) await page.keyboard.down('Shift');
+    await page.keyboard.press(key as never);
+    if (shift) await page.keyboard.up('Shift');
+    await page.keyboard.up('Control');
+  };
+  await clickAt(page, 72, 72);
+  await keys(page, '"');
+  await sleep(40);
+  await page.keyboard.type('Water is H');
+  await ctrl('Comma');
+  await page.keyboard.type('2');
+  await ctrl('Comma');
+  await page.keyboard.type('O and ');
+  await ctrl('KeyB');
+  await page.keyboard.type('wet');
+  await ctrl('KeyB');
+  check('a bar of formats shows over text being typed', await page.evaluate(() => !!document.getElementById('format-bar')));
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('- one');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('two');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('After the list');
+  await page.keyboard.press('Escape');
+  await sleep(120);
+  const typed = (await model(page)).texts[0];
+  check('typed formats are kept: subscript, bold, a list typed with "- ", Tab a level in, Enter on an empty item out of it', JSON.stringify(typed?.blocks) === JSON.stringify([
+    { runs: [{ t: 'Water is H' }, { t: '2', script: 'sub' }, { t: 'O and ' }, { t: 'wet', bold: true }] },
+    { runs: [{ t: 'one' }], kind: 'bullet' },
+    { runs: [{ t: 'two' }], kind: 'bullet', level: 1 },
+    { runs: [{ t: 'After the list' }] },
+  ]) && typed?.text === 'Water is H2O and wet\none\ntwo\nAfter the list', typed);
+  check('the bar goes when typing ends', await page.evaluate(() => !document.getElementById('format-bar')));
+  const drawn = await page.evaluate(() => {
+    const el = document.querySelector('.region.text')!;
+    return { sub: el.querySelector('sub')?.textContent, bold: getComputedStyle(el.querySelector('[data-bold]')!).fontWeight, bullets: el.querySelectorAll('.tb.bullet').length };
+  });
+  check('it is drawn as typed', drawn.sub === '2' && drawn.bold === '700' && drawn.bullets === 2, drawn);
+  // Undo straight after a format, mid-typing, takes back only what was typed since.
+  await clickAt(page, 72, 300);
+  await keys(page, '"');
+  await sleep(40);
+  await page.keyboard.type('abc');
+  await ctrl('KeyB');
+  await page.keyboard.type('def');
+  await ctrl('KeyZ');
+  const undone = await page.evaluate(() => document.querySelector('.region.text.editing')?.textContent);
+  check('Ctrl+Z straight after Ctrl+B and more typing takes back only the typing since', undone === 'abc', undone);
+  await ctrl('KeyZ');
+  await page.keyboard.press('Escape');
+  await sleep(80);
+  // What's pasted from elsewhere arrives as words, and a paste that pretends to be MathMath's is read only for what it could hold.
+  const first = await page.$('.region.text');
+  const fb = (await first!.boundingBox())!;
+  await page.mouse.click(fb.x + 3, fb.y + 4);
+  await sleep(80);
+  await page.keyboard.press('End');
+  const paste = (html: string, text: string) => page.evaluate((h, t) => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', h);
+    dt.setData('text/plain', t);
+    document.querySelector('.region.text .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, html, text);
+  // The browser reports any inline handler it parses, even where nothing can run, so only the one never parsed has one.
+  await paste('<p style="color:red"><b>loud</b><img src=x onerror="window.pwned=1"></p>', ' loud');
+  await paste('<div data-pm-slice="1 1 []"><div class="tb h1 evil" data-level="99" data-align="url(x)" style="position:fixed"><span data-color="red;background:url(x)">C</span><span data-size="900">S</span><span data-bold="">B</span><script>window.pwned=2</script><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="></div></div>', 'CSB');
+  await sleep(80);
+  const pastedDom = await page.evaluate(() => document.querySelector('.region.text .pm')!.innerHTML);
+  await page.keyboard.press('Escape');
+  await sleep(120);
+  const pasted = (await model(page)).texts.find((x: any) => x.text.startsWith('Water'));
+  const pwned = await page.evaluate(() => (window as any).pwned);
+  const line0 = pasted?.blocks?.[0]?.runs ?? [];
+  check('a paste from a web page brings words, no markup, and a forged one only checked formats',
+    pwned === undefined && !/img|script|url|fixed|900/.test(pastedDom) && pasted?.text.startsWith('Water is H2O and wet loudCSB')
+      && JSON.stringify(line0.slice(-2)) === JSON.stringify([{ t: 'S', size: 48 }, { t: 'B', bold: true }]) && !JSON.stringify(pasted).includes('url'), { pastedDom, pasted, pwned });
+  await page.close();
+}
+{
+  // Copying formatted text into another keeps it all; opening another sheet while typing takes the editor away; new text
+  // across the page pushes only what it reaches, the same while typing as when done.
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.textLook = 'paper';
+  ws.texts = [{ id: 'c', left: 72, top: 60, width: 0, height: 0, text: 'Head\nx2 red\nline\nitem', blocks: [
+    { kind: 'h1', runs: [{ t: 'Head' }] },
+    { align: 'center', runs: [{ t: 'x' }, { t: '2', script: 'sup' }, { t: ' red', color: '#b3261e' }, { t: '\nline', bold: true }] },
+    { kind: 'bullet', level: 2, runs: [{ t: 'item', italic: true }] },
+  ] }];
+  await page.evaluate((t) => (window as any).mathmath.load('copy.mathmath', t), saveWorksheet(ws));
+  await sleep(150);
+  const c = (await (await page.$('[data-id="c"]'))!.boundingBox())!;
+  await page.mouse.click(c.x + 3, c.y + 3);
+  await sleep(80);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyA');
+  await page.keyboard.up('Control');
+  const copied = await page.evaluate(() => {
+    const dt = new DataTransfer();
+    document.querySelector('.region.text .pm')!.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+    return { html: dt.getData('text/html'), text: dt.getData('text/plain') };
+  });
+  await page.keyboard.press('Escape');
+  await clickAt(page, 72, 400);
+  await keys(page, '"');
+  await sleep(60);
+  await page.evaluate((d) => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', d.html);
+    dt.setData('text/plain', d.text);
+    document.querySelector('.region.text.editing .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, copied);
+  await page.keyboard.press('Escape');
+  await sleep(120);
+  const both = (await model(page)).texts;
+  check('formatted text copied into another text arrives with all its formats', both.length === 2 && JSON.stringify(both[1].blocks) === JSON.stringify(both[0].blocks) && both[1].text === both[0].text, both);
+  await page.mouse.click(c.x + 3, c.y + 3);
+  await sleep(80);
+  await page.evaluate((t) => (window as any).mathmath.load('other.mathmath', t), saveWorksheet(emptyWorksheet()));
+  await sleep(120);
+  check('opening another sheet while typing takes the editor and its bar away', await page.evaluate(() => !document.getElementById('format-bar') && !document.querySelector('.region.text.editing')));
+  await page.evaluate((t) => (window as any).mathmath.load('paper.mathmath', t), saveWorksheet({ ...emptyWorksheet(), textLook: 'paper' }));
+  await sleep(120);
+  await type(page, 72, 220, 'a:1');
+  await clickAt(page, 72, 150);
+  await keys(page, '"');
+  await sleep(60);
+  await page.keyboard.type('Words enough to wrap across the page onto a second line and a third, so that this new text reaches the math below it and has to push it down to make room, and then some more words after that.');
+  const live = await page.evaluate(() => document.querySelector('.region.math')!.getBoundingClientRect().top);
+  await page.keyboard.press('Escape');
+  await sleep(200);
+  const done = await page.evaluate(() => document.querySelector('.region.math')!.getBoundingClientRect().top);
+  check('new text across the page moves what is below as far while typing as when done', Math.abs(live - done) < 1.5, { live, done });
+  await page.close();
+}
+{
+  // A file: a plain text saves exactly as it was; a rich one opens as it was; a hostile one is held to what typing could make.
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.texts = [
+    { id: 'p', left: 72, top: 60, width: 0, height: 0, text: 'a\tb  c \n\n d ' },
+    { id: 'r', left: 72, top: 140, width: 0, height: 0, text: 'Rich\nitem', blocks: [{ kind: 'h2', runs: [{ t: 'Rich', italic: true }] }, { kind: 'number', runs: [{ t: 'item' }] }] },
+    { id: 'h', left: 72, top: 260, width: 0, height: 0, text: 'xy', blocks: [{ kind: '<img src=x onerror=alert(1)>', level: 99, align: 'url(x)', line: 1e9, after: -5, runs: [{ t: 'x', color: 'red;background:url(x)', size: 1e9, script: 'evil', bold: 'yes' }, { t: 'y', '<b>': true }] }] as never },
+    { id: 'm', left: 72, top: 360, width: 0, height: 0, text: 'edited by an older version', blocks: [{ kind: 'h1', runs: [{ t: 'before' }] }] },
+  ];
+  const file = saveWorksheet(ws);
+  await page.evaluate((t) => (window as any).mathmath.load('rich.mathmath', t), file);
+  await sleep(150);
+  const again = await page.evaluate(() => (window as any).mathmath.save());
+  check('a sheet with formatted text saves just as it was opened', again === file);
+  const looks = await page.evaluate(() => {
+    const q = (id: string) => document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+    const h = q('h');
+    return {
+      rich: [...q('r').querySelectorAll('.tb')].map((b) => b.className), richItalic: getComputedStyle(q('r').querySelector('[data-italic]')!).fontStyle,
+      hostile: h.innerHTML, hostileSize: parseFloat(getComputedStyle(h.querySelector('[data-size]') ?? h).fontSize) * 72 / 96,
+      older: q('m').textContent, olderHeading: !!q('m').querySelector('.h1'),
+    };
+  });
+  check('a formatted text opens as it was saved', JSON.stringify(looks.rich) === JSON.stringify(['tb h2', 'tb number']) && looks.richItalic === 'italic', looks);
+  check('a hostile file\'s formats are held to what typing could make', !/img|url|evil|onerror|99|<b>/.test(looks.hostile) && looks.hostileSize <= 48, looks);
+  check('words changed by a version without formatting win over formats that no longer match them', looks.older === 'edited by an older version' && !looks.olderHeading, looks);
+  // Opening and leaving texts without a change leaves the sheet as it was.
+  for (const id of ['p', 'r']) {
+    const b = (await (await page.$(`[data-id="${id}"]`))!.boundingBox())!;
+    await page.mouse.click(b.x + 3, b.y + 3);
+    await sleep(80);
+    await page.keyboard.press('Escape');
+    await sleep(80);
+  }
+  const after = await page.evaluate(() => ({ saved: (window as any).mathmath.save(), dirty: (window as any).mathmath.doc.dirty }));
+  check('opening texts and leaving them unchanged changes nothing, spaces and tabs and all', after.saved === file && !after.dirty, after.dirty);
+  await page.close();
+}
+{
+  // Text across the page pushes what's below while typing, keeps the gap when done, and undoes in one step. A long one
+  // moves lines off the page's end, and the bar isn't printed.
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.textLook = 'paper';
+  ws.texts = [
+    { id: 'a', left: 72, top: 72, width: 400, height: 0, text: 'Introduction', flow: true, blocks: [{ kind: 'h1', runs: [{ t: 'Introduction' }] }] },
+    { id: 'b', left: 72, top: 100, width: 400, height: 0, text: 'Some words.', flow: true },
+  ];
+  await page.evaluate((t) => (window as any).mathmath.load('flow.mathmath', t), saveWorksheet(ws));
+  await sleep(200);
+  await type(page, 72, 170, 'a:1');
+  await sleep(100);
+  const mid: string = await page.evaluate(() => (window as any).mathmath.doc.ws.regions[0].id);
+  const tops = () => page.evaluate(() => Object.fromEntries([...(window as any).mathmath.doc.ws.regions, ...(window as any).mathmath.doc.ws.texts].map((r: any) => [r.id, r.top])));
+  const was = await tops();
+  const b = (await (await page.$('[data-id="b"]'))!.boundingBox())!;
+  await page.mouse.click(b.x + b.width - 2, b.y + b.height / 2);
+  await sleep(80);
+  await page.keyboard.type(' More words, enough of them that the paragraph runs onto a second line across the page and on to a third, which is wide.');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('A second paragraph.');
+  const moving = await page.evaluate(() => document.querySelector<HTMLElement>('.region.math')!.style.transform);
+  check('text across the page pushes what is below down as it grows', /translateY\(\d/.test(moving), moving);
+  check('the format bar is not printed', await page.evaluate(() => {
+    const css = [...document.styleSheets].flatMap((s) => [...s.cssRules]).filter((r) => r instanceof CSSMediaRule && r.conditionText === 'print');
+    return css.some((r) => (r as CSSMediaRule).cssText.includes('#format-bar') && (r as CSSMediaRule).cssText.includes('display: none'));
+  }));
+  await page.keyboard.press('Escape');
+  await sleep(200);
+  const now = await tops();
+  const gap = await page.evaluate(() => {
+    const t = document.querySelector('[data-id="b"]')!.getBoundingClientRect();
+    const m = document.querySelector('.region.math')!.getBoundingClientRect();
+    return { gap: (m.top - t.bottom) * 72 / 96, transform: document.querySelector<HTMLElement>('.region.math')!.style.transform };
+  });
+  check('when typing ends, what is below has moved down for real', now[mid] > was[mid] + 20 && gap.transform === '' && gap.gap > 0, { was, now, gap });
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(150);
+  const undone = await tops();
+  check('one undo takes back the words and the move', JSON.stringify(undone) === JSON.stringify(was), { undone, was });
+  // A long text across the page: no line sits in the margins at a page's end.
+  const long = Array.from({ length: 90 }, (_, i) => `Line ${i + 1} of a long paragraph that runs on across the page.`).join(' ');
+  await page.evaluate((words) => {
+    const w = (window as any).mathmath;
+    w.load('long.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...JSON.parse(w.save()).worksheet, regions: [], texts: [{ id: 'L', left: 72, top: 600, width: 400, height: 0, text: words, flow: true }] } }));
+  }, long);
+  await sleep(300);
+  const crossing = await page.evaluate(() => {
+    const ws = (window as any).mathmath.doc.ws;
+    const { height, margins } = ws.page;
+    const sheet = document.getElementById('sheet')!.getBoundingClientRect();
+    const el = document.querySelector('[data-id="L"]')!;
+    const k = (el as HTMLElement).offsetWidth / el.getBoundingClientRect().width * 72 / 96;
+    // Each line of words: the boxes of the words' own text, not of the paragraph holding them.
+    const range = document.createRange();
+    const rects: DOMRect[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      range.selectNodeContents(n);
+      rects.push(...range.getClientRects());
+    }
+    const bad = rects.map((r) => [(r.top - sheet.top) * k, (r.bottom - sheet.top) * k]).filter(([a, b2]) => {
+      const p = Math.floor((b2! + margins.bottom) / height);
+      return p >= 1 && b2! > p * height - margins.bottom + 0.5 && a! < p * height + margins.top - 0.5;
+    });
+    return { bad: bad.length, gaps: el.querySelectorAll('.page-gap').length };
+  });
+  check('a long text across the page keeps its lines off the page\'s end', crossing.bad === 0 && crossing.gaps >= 1, crossing);
   await page.close();
 }
 
