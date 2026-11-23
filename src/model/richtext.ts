@@ -21,15 +21,21 @@
  * words are right and the formatting is dropped. A worksheet can come from anyone, so `textBlocksOf` keeps only what
  * the editor could have made, and drawing sets text and checked styles on elements, never markup.
  */
-import { TEXT_SIZES } from './ast.js';
+import { TEXT_SIZES, type Worksheet } from './ast.js';
 
 /** What a block is: a paragraph when left out. Lists are flat, each item with its level. */
 export type BlockKind = 'title' | 'h1' | 'h2' | 'bullet' | 'number';
 export type Align = 'left' | 'center' | 'right' | 'justify';
 
-/** Words that look alike. A line break inside a paragraph is a '\n' in `t`. */
+/**
+ * Words that look alike. A line break inside a paragraph is a '\n' in `t`. Math in a line of text is a run of its own
+ * with no words, `t` empty, naming the math region it shows (see inlineMath): a version that knows nothing of it drops
+ * a run without words, and the words are unchanged.
+ */
 export interface TextRun {
   t: string;
+  /** The math region shown here, by id. */
+  math?: string;
   bold?: true;
   italic?: true;
   underline?: true;
@@ -70,8 +76,12 @@ const within = (v: unknown, { min, max }: { min: number; max: number }): number 
 /** A color as Format writes one, #rrggbb, or undefined. */
 export const colorOf = (v: unknown): string | undefined => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : undefined);
 
+/** A region id as a file may name one in text: as MathMath writes them (format/native.ts). */
+const MATH_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+
 function runOf(given: unknown): TextRun | null {
-  if (!isObject(given) || typeof given.t !== 'string' || given.t === '') return null;
+  if (!isObject(given) || typeof given.t !== 'string') return null;
+  if (given.t === '') return typeof given.math === 'string' && MATH_ID.test(given.math) ? { t: '', math: given.math } : null;
   const run: TextRun = { t: given.t };
   if (given.bold === true) run.bold = true;
   if (given.italic === true) run.italic = true;
@@ -85,7 +95,7 @@ function runOf(given: unknown): TextRun | null {
 }
 
 const sameLook = (a: TextRun, b: TextRun): boolean =>
-  a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.script === b.script && a.size === b.size && a.color === b.color;
+  a.math === undefined && b.math === undefined && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.script === b.script && a.size === b.size && a.color === b.color;
 
 function blockOf(given: unknown): TextBlock | null {
   if (!isObject(given) || !Array.isArray(given.runs)) return null;
@@ -134,6 +144,64 @@ export function textBlocksOf(given: unknown, text: string): TextBlock[] | null {
 /** Whether blocks say anything their plain words don't. A region without formatting is saved as words alone. */
 export const isFormatted = (blocks: readonly TextBlock[]): boolean =>
   blocks.some((b) => Object.keys(b).length > 1 || b.runs.some((r) => Object.keys(r).length > 1));
+
+/** The math regions text shows, by id, in the order they're read. */
+export const mathIdsOf = (blocks: readonly TextBlock[]): string[] => blocks.flatMap((b) => b.runs.flatMap((r) => (r.math === undefined ? [] : [r.math])));
+
+/** The kinds of math that can be in a line of text: what typing math there can make. */
+const IN_LINE: readonly string[] = ['define', 'eval', 'sym', 'show', 'draft'];
+
+/** Where a math region sits in a line of text: the text, and how many come before it there. */
+export interface InlinePlace { text: string; n: number }
+
+/**
+ * The math regions shown inside text, by id. A region counts only when it names the text (`inText`) and the text's
+ * formatting names it, once, in the whole sheet: anything else, as from a hostile file, an older version's edit or a
+ * paste, is drawn as math on its own.
+ */
+export function inlineMath(
+  texts: readonly { id: string; text: string; blocks?: unknown }[], regions: readonly { id: string; inText?: string; content?: { k: string } }[],
+): Map<string, InlinePlace> {
+  const out = new Map<string, InlinePlace>();
+  const owner = new Map<string, string>();
+  for (const r of regions) {
+    // Only math typed in a line: a plot or picture named by a file is drawn on its own.
+    if (typeof r.inText === 'string' && !owner.has(r.id) && (!r.content || IN_LINE.includes(r.content.k))) owner.set(r.id, r.inText);
+  }
+  if (owner.size === 0) return out;
+  for (const t of texts) {
+    if (t.blocks === undefined) continue;
+    const blocks = textBlocksOf(t.blocks, t.text);
+    if (!blocks) continue;
+    let n = 0;
+    for (const id of mathIdsOf(blocks)) if (owner.get(id) === t.id && !out.has(id)) out.set(id, { text: t.id, n: n++ });
+  }
+  return out;
+}
+
+/**
+ * Places math in text where it's calculated: where its text starts, on its first line, one after another in the order
+ * they're read.
+ * It's set from the text alone, never from how the words happen to wrap, so the order is the same whatever the page,
+ * style or fonts. A version that doesn't show math in text draws it there too.
+ */
+export function placeInline(ws: Pick<Worksheet, 'texts' | 'regions' | 'page'>): void {
+  const inline = inlineMath(ws.texts, ws.regions);
+  if (inline.size === 0) return;
+  const texts = new Map(ws.texts.map((t) => [t.id, t]));
+  for (const r of ws.regions) {
+    const at = inline.get(r.id);
+    const text = at && texts.get(at.text);
+    if (!at || !text) continue;
+    const left = text.flow === true ? ws.page.margins.left : text.left;
+    r.left = left;
+    r.top = text.top;
+    r.alignX = left + at.n * 0.001;
+    // On the text's first line, whose baseline is as a new text's, 8 points below its top: math on that row to its
+    // right comes after it, and math to its left before.
+    r.alignY = text.top + 8;
+  }
+}
 
 /** Every block changed together. */
 export const changeBlocks = (blocks: readonly TextBlock[], change: (b: TextBlock) => TextBlock): TextBlock[] =>

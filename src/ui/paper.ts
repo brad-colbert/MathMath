@@ -32,7 +32,7 @@ import { paletteFor } from './colormap.js';
 import { drawText, flowWidth, forgetText } from './text.js';
 import { headingCounts, isFormatted, plainBlocks, textBlocksOf } from '../model/richtext.js';
 import { RichEditor } from './richedit.js';
-import { wordsOfDoc } from './richschema.js';
+import { mathsOf, wordsOfDoc } from './richschema.js';
 import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
@@ -59,13 +59,16 @@ function render(latex: string): string {
 
 type Press =
   | { kind: 'blank'; x: number; y: number }
-  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null }
+  /** `math`: the press was on math in the text's words, which a click opens. */
+  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null; math?: string }
   | { kind: 'resize'; id: string; x: number; y: number; width: number; height: number }
   | { kind: 'rotate'; id: string; x: number; y: number; azimuth: number; elevation: number; was: { azimuth: number; elevation: number } | undefined };
 
 type Editing =
   | { kind: 'region'; region: Region; bottom: number; isNew: boolean }
-  | { kind: 'slot'; region: Region; slot: Slot };
+  | { kind: 'slot'; region: Region; slot: Slot }
+  /** Math in the words of the text being typed, by id, in the element it's drawn in. */
+  | { kind: 'inline'; id: string; dom: HTMLElement; latex: string };
 
 const MIN_PLOT = { width: 96, height: 72 };
 
@@ -88,7 +91,15 @@ export class Paper {
    * The text being typed: its editor, its height as drawn when it opened (to keep what's below as far below it when
    * it's done) and the editor's own, and what's below, moved as it grows while typing.
    */
-  private textEdit: { region: TextRegion; el: HTMLElement; editor: RichEditor; opened: number; base: number; below: string[]; fresh: boolean } | null = null;
+  private textEdit: {
+    region: TextRegion; el: HTMLElement; editor: RichEditor; opened: number; base: number; below: string[]; fresh: boolean;
+    /** Kept while still being typed, as math in it is finished, all as one step to undo, named by `join`. */
+    kept: boolean; join: string;
+  } | null = null;
+  /** Counts texts opened, to tell their steps to undo apart. */
+  private opened = 0;
+  /** The math in text as of the last drawing: which text, by id. */
+  private inline = new Map<string, { text: string; n: number }>();
   /** How many headings come before each text region, for a sheet that numbers them. */
   private headings = new Map<string, { h1: number; h2: number }>();
   private calcTimer: ReturnType<typeof setTimeout> | undefined;
@@ -110,7 +121,10 @@ export class Paper {
       commit: (next) => this.commit(next),
       startText: () => this.startTextFromEmpty(),
       startPlot: () => this.startPlotFromEmpty(),
-      changed: () => this.placeGhost(),
+      changed: () => {
+        this.placeGhost();
+        this.roomForInline();
+      },
       closed: () => {
         this.ghost.hidden = true;
       },
@@ -156,7 +170,9 @@ export class Paper {
         return;
       }
       tap = e;
-      const view = target.closest<HTMLElement>('.region');
+      // A long press on math in text selects the text it's part of.
+      const at = target.closest<HTMLElement>('.region');
+      const view = at?.classList.contains('inline') ? at.parentElement?.closest<HTMLElement>('.region') ?? null : at;
       clearTimeout(hold);
       if (view) {
         hold = setTimeout(() => {
@@ -206,8 +222,10 @@ export class Paper {
       this.textEdit = null;
     }
     const items = this.doc.items();
+    const inline = this.doc.inline();
+    this.inline = inline;
     this.headings = this.doc.ws.textLook === 'paper' ? headingCounts(this.doc.ws.texts) : new Map();
-    const live = new Set(items.map((i) => i.region.id));
+    const live = new Set([...items.map((i) => i.region.id), ...inline.keys()]);
     for (const [id, el] of this.views) {
       if (!live.has(id)) {
         el.remove();
@@ -215,11 +233,51 @@ export class Paper {
         this.selected.delete(id);
       }
     }
+    // Math in text first, so the text it's in can be drawn around it.
+    for (const id of inline.keys()) this.drawInline(id);
     for (const item of items) {
       if (item.region.id === this.textEdit?.region.id || item.region.id === this.titleEdit?.region.id) continue;
       this.drawItem(item, ids === null || ids.has(item.region.id));
     }
+    this.mountInline(inline.keys());
     this.drawPages();
+  }
+
+  /** Math in a line of text: drawn as any math is, in an element of its own that its text holds. */
+  private drawInline(id: string): HTMLElement | null {
+    const region = this.doc.find(id)?.region as Region | undefined;
+    if (!region) return null;
+    let el = this.views.get(id);
+    if (!el || !el.classList.contains('inline')) {
+      el?.remove();
+      el = document.createElement('div');
+      el.className = 'region math inline';
+      el.dataset.id = id;
+      this.views.set(id, el);
+    }
+    el.classList.toggle('selected', this.selected.has(id));
+    this.drawContent({ kind: 'math', region }, el);
+    return el;
+  }
+
+  /** Puts math in text into the place its text keeps for it, wherever that is drawn now. */
+  private mountInline(ids: Iterable<string>): void {
+    for (const id of ids) {
+      const el = this.views.get(id);
+      const text = this.inline.get(id)?.text;
+      const host = text === undefined ? null : this.views.get(text)?.querySelector(`.inline-math[data-math="${CSS.escape(id)}"]`);
+      if (el && host && el.parentElement !== host) host.replaceChildren(el);
+    }
+  }
+
+  /** What text needs to draw the math in it: when its math looks different, the text is drawn again around it. */
+  private inlineFor(text: TextRegion): { key: string; mount: (root: HTMLElement) => void } | undefined {
+    const ids = [...this.inline].filter(([, at]) => at.text === text.id).map(([id]) => id);
+    if (ids.length === 0) return undefined;
+    return {
+      key: ids.map((id) => `${id}:${this.views.get(id)?.dataset.key ?? ''}`).join('|'),
+      mount: () => this.mountInline(ids),
+    };
   }
 
   /** Draws every text region afresh. */
@@ -234,6 +292,12 @@ export class Paper {
   private drawItem(item: Item, content: boolean): void {
     const { id, left, top } = item.region;
     let el = this.views.get(id);
+    // Math that was in a line of text, and is now on its own, as after an undo, is drawn afresh.
+    if (el?.classList.contains('inline')) {
+      el.remove();
+      this.views.delete(id);
+      el = undefined;
+    }
     const fresh = !el;
     if (!el) {
       el = document.createElement('div');
@@ -265,7 +329,7 @@ export class Paper {
       return;
     }
     if (item.kind === 'text') {
-      drawText(el, item.region, { page: this.doc.ws.page, look: this.doc.ws.textLook, counts: this.headings.get(item.region.id) });
+      drawText(el, item.region, { page: this.doc.ws.page, look: this.doc.ws.textLook, counts: this.headings.get(item.region.id), math: this.inlineFor(item.region) });
       return;
     }
     // A plot or image keeps its last picture, faded, until it's recalculated. Not while a calculation
@@ -524,7 +588,9 @@ export class Paper {
 
   /** The selected regions that calculate a result: definitions and evaluations. */
   selectedResults(): Region[] {
-    return [...this.selected].flatMap((id) => {
+    // While text is typed, the math chosen in its words, or being typed.
+    const typed = this.editing?.kind === 'inline' ? [this.editing.id] : this.textEdit?.editor.selectedMath();
+    return [...(typed ?? this.selected)].flatMap((id) => {
       const item = this.doc.find(id);
       return item?.kind === 'math' && (item.region.content.k === 'eval' || item.region.content.k === 'define') ? [item.region] : [];
     });
@@ -771,6 +837,10 @@ export class Paper {
   private commit(next: 'stay' | 'below' | 'next'): void {
     const editing = this.editing;
     if (!editing) return;
+    if (editing.kind === 'inline') {
+      this.commitInline(editing);
+      return;
+    }
     if (editing.kind === 'slot') {
       this.commitSlot(editing.region, editing.slot, next);
       return;
@@ -822,7 +892,7 @@ export class Paper {
    * pushes down what it now reaches, as edited math does: there may have been room left for it. Anything moved that
    * would then cross a page's end goes to the top of the next page, its row and all below it with it.
    */
-  reflow(change: () => void, fresh?: string, heights?: Map<string, number>): void {
+  reflow(change: () => void, fresh?: string, heights?: Map<string, number>, join?: string): void {
     const was = new Map(this.doc.items().map(({ region }) => {
       const el = this.views.get(region.id);
       const height = heights?.get(region.id) ?? (el ? el.offsetHeight / PT : 0);
@@ -862,7 +932,51 @@ export class Paper {
         const dy = p * height + margins.top - Math.min(...row.map((i) => i.region.top));
         shift(items.filter((i) => before(i).top >= rowTop), dy);
       }
-    });
+    }, join);
+  }
+
+  /**
+   * Opens math in the words of the text being typed, in the math editor laid over it. The words make room for it
+   * as it grows.
+   */
+  private openInline(dom: HTMLElement, id: string, latex: string): void {
+    if (!this.textEdit || this.editing) return;
+    const box = this.sheet.getBoundingClientRect();
+    const r = dom.getBoundingClientRect();
+    const k = pointsPerPixel();
+    this.editing = { kind: 'inline', id, dom, latex };
+    this.textEdit.editor.mathOpen = true;
+    dom.style.visibility = 'hidden';
+    this.editor.show((r.left - box.left) * k, (r.top - box.top) * k, latex);
+    this.roomForInline();
+  }
+
+  /** Keeps a space in the words as wide as the math being typed in them, and the editor over it as the words wrap. */
+  private roomForInline(): void {
+    if (this.editing?.kind !== 'inline') return;
+    const { dom } = this.editing;
+    dom.style.minWidth = `${this.editor.field.offsetWidth}px`;
+    const box = this.sheet.getBoundingClientRect();
+    const r = dom.getBoundingClientRect();
+    const k = pointsPerPixel();
+    this.editor.field.style.left = `${(r.left - box.left) * k}pt`;
+    this.editor.field.style.top = `${(r.top - box.top) * k}pt`;
+    this.pushBelow();
+  }
+
+  /** Math in text finished: back to the words just after it, and the text kept as it is so far, to calculate. */
+  private commitInline(editing: Extract<Editing, { kind: 'inline' }>): void {
+    // Opened and left as it was, it stays exactly as it was: the editor's own form of it may differ.
+    const latex = this.editor.edited() ? this.editor.value() : editing.latex;
+    this.editor.close();
+    this.editing = null;
+    editing.dom.style.visibility = '';
+    editing.dom.style.minWidth = '';
+    const edit = this.textEdit;
+    if (!edit) return;
+    edit.editor.mathOpen = false;
+    edit.editor.setMath(editing.id, latex);
+    this.saveText(false);
   }
 
   private startTextFromEmpty(): void {
@@ -893,14 +1007,43 @@ export class Paper {
     const el = this.views.get(region.id)!;
     const opened = el.offsetHeight / PT;
     const blocks = textBlocksOf(region.blocks, region.text) ?? plainBlocks(region.text);
+    const inline = this.doc.inline();
+    const latexOf = (id: string): string | undefined => {
+      const math = inline.get(id)?.text === region.id ? this.doc.find(id)?.region : undefined;
+      return math && 'content' in math ? regionLatex(math.content) : undefined;
+    };
     // Text across the page pushes what's below it down as it grows.
     const below = region.flow === true ? this.doc.items().filter((i) => i.region.id !== region.id && i.region.top >= region.top + opened - 1).map((i) => i.region.id) : [];
     const host = document.createElement('div');
     el.replaceChildren(host);
     forgetText(el);
     el.classList.add('editing');
-    const editor = new RichEditor(host, blocks, { changed: () => this.pushBelow() }, el, at);
-    this.textEdit = { region, el, editor, opened, base: el.offsetHeight / PT, below, fresh: region.text === '' };
+    // Drawn before the editor is made, as its math is drawn as it's made.
+    this.textEdit = { region, el, editor: null as unknown as RichEditor, opened, base: 0, below, fresh: region.text === '' && !region.blocks, kept: false, join: `text ${region.id} ${++this.opened}` };
+    const editor = new RichEditor(host, blocks, {
+      changed: () => this.pushBelow(),
+      mathView: (id, latex) => this.inlineView(region, id, latex),
+      newId: () => this.doc.newId(),
+      openMath: (dom, id, latex) => this.openInline(dom, id, latex),
+    }, el, at, latexOf);
+    this.textEdit.editor = editor;
+    this.textEdit.base = el.offsetHeight / PT;
+  }
+
+  /**
+   * Math in the words being typed: its region's own drawing, answer and all, while it's the math typed; otherwise the
+   * math as typed, until the text is kept and it calculates.
+   */
+  private inlineView(text: TextRegion, id: string, latex: string): HTMLElement {
+    const math = this.doc.find(id)?.region as Region | undefined;
+    if (math && 'content' in math && math.inText === text.id && this.doc.inline().get(id)?.text === text.id && regionLatex(math.content) === latex) {
+      const el = this.drawInline(id);
+      if (el) return el;
+    }
+    const s = document.createElement('span');
+    s.className = 'math-typed';
+    s.innerHTML = render(display(latex || '\\placeholder{}'));
+    return s;
   }
 
   /** Moves what's below text across the page by as much as it has grown while typing. It's moved for real when done. */
@@ -921,24 +1064,61 @@ export class Paper {
   }
 
   private commitText(): void {
+    this.saveText(true);
+  }
+
+  /**
+   * Keeps what's been typed in the region. When it's `done`, typing ends, and what's below text across the page moves
+   * for real; otherwise, as math in it is finished, the text stays open, and what's kept now and when it's done is
+   * one step to undo.
+   */
+  private saveText(done: boolean): void {
     const edit = this.textEdit;
     if (!edit) return;
-    this.textEdit = null;
+    if (done && this.editing?.kind === 'inline') this.commitInline(this.editing);
     const { region, el, editor, opened, below } = edit;
+    const pm = editor.view.state.doc;
     const typed = editor.blocks();
-    const words = wordsOfDoc(editor.view.state.doc);
-    editor.destroy();
-    for (const id of below) this.views.get(id)?.style.removeProperty('transform');
-    el.classList.remove('editing');
-    forgetText(el);
-    if (!typed) this.doc.onProblem('This text is too long to keep its formatting, so only its words are kept');
+    const words = wordsOfDoc(pm);
+    const maths = mathsOf(pm);
+    if (done) {
+      this.textEdit = null;
+      editor.destroy();
+      for (const id of below) this.views.get(id)?.style.removeProperty('transform');
+      el.classList.remove('editing');
+      forgetText(el);
+      if (!typed) this.doc.onProblem('This text is too long to keep its formatting, so only its words are kept');
+    }
     const blocks = typed && isFormatted(typed) ? typed : null;
     const was = textBlocksOf(region.blocks, region.text);
-    const same = words === region.text && JSON.stringify(blocks) === JSON.stringify(was && isFormatted(was) ? was : null);
-    if (words.trim() === '') this.doc.remove(new Set([region.id]));
-    else if (!same) {
-      const fresh = region.text === '' ? region.id : undefined;
-      this.reflow(() => this.doc.setText(region, words, blocks), fresh, new Map([[region.id, opened]]));
+    const mine = this.doc.inline();
+    const sameMath = [...maths].every(([id, latex]) => {
+      const math = mine.get(id)?.text === region.id ? this.doc.find(id)?.region : undefined;
+      return !!math && 'content' in math && regionLatex(math.content) === latex;
+    });
+    const same = sameMath && words === region.text && JSON.stringify(blocks) === JSON.stringify(was && isFormatted(was) ? was : null);
+    if (!done) {
+      if (!same) {
+        let renamed = new Map<string, string>();
+        this.doc.batch(() => { renamed = this.doc.setTextAndMath(region, words, blocks, maths); }, edit.join);
+        editor.renameMath(renamed);
+        // The editor holds each math as its region now reads, so it's drawn with its answer and compares the same.
+        const now = new Map<string, string>();
+        for (const id of mathsOf(editor.view.state.doc).keys()) {
+          const math = this.doc.find(id)?.region;
+          if (math && 'content' in math) now.set(id, regionLatex(math.content));
+        }
+        editor.syncMath(now);
+        edit.kept = true;
+      }
+      return;
+    }
+    if (words.trim() === '' && maths.size === 0) {
+      if (edit.kept) this.doc.batch(() => this.doc.remove(new Set([region.id])), edit.join);
+      else this.doc.remove(new Set([region.id]));
+    } else if (!same || edit.kept) {
+      const fresh = edit.fresh ? region.id : undefined;
+      this.reflow(() => this.doc.setTextAndMath(region, words, blocks, maths), fresh, new Map([[region.id, opened]]), edit.join);
     } else this.draw(new Set([region.id]));
   }
 
@@ -946,8 +1126,15 @@ export class Paper {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target === this.editor.field) return;
-    const view = target.closest<HTMLElement>('.region');
-    if (view && view === this.textEdit?.el) return;
+    let view = target.closest<HTMLElement>('.region');
+    // Math in a line of text is part of the text: a press there is on the text, and a click opens the math.
+    const math = view?.classList.contains('inline') ? view.dataset.id : undefined;
+    if (math) view = view!.parentElement?.closest<HTMLElement>('.region') ?? null;
+    if (view && view === this.textEdit?.el) {
+      // A click in the words finishes math being typed in them, and the editor takes it from there.
+      if (this.editing?.kind === 'inline' && !target.closest('.inline-math')) this.commit('stay');
+      return;
+    }
     if (this.titleEdit && target.closest('[data-slot]') === this.titleEdit.el) return;
     // A Save button under a region is a button, not part of the region to select or drag.
     if (target.closest('.saves')) return;
@@ -989,8 +1176,8 @@ export class Paper {
       return;
     }
     if (!this.selected.has(id)) this.select([id]);
-    const slot = (target.closest<HTMLElement>('[data-slot]')?.dataset.slot ?? null) as Slot | null;
-    this.press = { kind: 'region', id, x: p.x, y: p.y, dragging: false, slot };
+    const slot = math ? null : (target.closest<HTMLElement>('[data-slot]')?.dataset.slot ?? null) as Slot | null;
+    this.press = { kind: 'region', id, x: p.x, y: p.y, dragging: false, slot, ...(math ? { math } : {}) };
   }
 
   private onMove(e: MouseEvent): void {
@@ -1076,6 +1263,7 @@ export class Paper {
       this.marquee.remove();
       this.marquee = null;
       const inside = [...this.views].filter(([, el]) => {
+        if (el.classList.contains('inline')) return false;
         const r = el.getBoundingClientRect();
         return r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
       });
@@ -1103,7 +1291,10 @@ export class Paper {
     }
     this.select([]);
     if (item?.kind === 'math' && isEditable(item.region.content)) this.open(item.region, false);
-    else if (item?.kind === 'text') this.openText(item.region, { x: e.clientX, y: e.clientY });
+    else if (item?.kind === 'text') {
+      this.openText(item.region, { x: e.clientX, y: e.clientY });
+      if (press.math) this.textEdit?.editor.openMath(press.math);
+    }
     else if (item) this.select([press.id]);
   }
 
@@ -1116,6 +1307,7 @@ export class Paper {
       return;
     }
     if (this.textEdit) {
+      if (this.editing) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         this.commitText();

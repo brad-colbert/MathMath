@@ -188,6 +188,11 @@ export interface Region {
   alignY: number;
   disabled: boolean;
   content: Content;
+  /**
+   * The text region it's shown in, as math in a line of words, when that text's formatting names it too (see
+   * richtext.ts inlineMath). It's calculated where the text starts, in the order it's read there.
+   */
+  inText?: string;
 }
 
 export interface TextRegion {

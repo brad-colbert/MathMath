@@ -18,12 +18,12 @@
  * undo can later be a snapshot rather than a rewrite.
  */
 import { emptyWorksheet } from '../format/native.js';
-import { readRegion } from '../latex/region.js';
+import { readRegion, regionLatex } from '../latex/region.js';
 import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Region, type TextRegion, type TextStyle, type Worksheet, autoAxis, textStyleOf } from '../model/ast.js';
 import { fileKey } from '../engine/files.js';
 import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible, originAt } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
-import { type TextBlock, type TextLook, changeBlocks, isFormatted, plainBlocks, textBlocksOf } from '../model/richtext.js';
+import { type InlinePlace, type TextBlock, type TextLook, changeBlocks, inlineMath, isFormatted, placeInline, plainBlocks, textBlocksOf } from '../model/richtext.js';
 import { Algebra } from './algebra.js';
 import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
@@ -135,8 +135,9 @@ export class Doc {
     this.dirty = false;
     this.undoStack = [];
     this.redoStack = [];
+    this.placeInline();
     this.saved = snapshot(ws);
-    const ids = this.items().map((i) => Number(i.region.id)).filter(Number.isFinite);
+    const ids = [...ws.regions, ...ws.texts, ...ws.opaque].map((r) => Number(r.id)).filter(Number.isFinite);
     this.nextId = Math.max(0, ...ids) + 1;
     // Results belong to the sheet they came from: ids repeat between sheets.
     this.outcomes = new Map();
@@ -146,16 +147,41 @@ export class Doc {
     this.onChange(null);
   }
 
+  /**
+   * What's on the page, each where it is. Math in a line of text is part of its text: it moves, and is drawn,
+   * with it (see `inline`).
+   */
   items(): Item[] {
+    const inline = this.inline();
     return [
       ...this.ws.opaque.map((region): Item => ({ kind: 'opaque', region })),
       ...this.ws.texts.map((region): Item => ({ kind: 'text', region })),
-      ...this.ws.regions.map((region): Item => ({ kind: 'math', region })),
+      ...this.ws.regions.filter((r) => !inline.has(r.id)).map((region): Item => ({ kind: 'math', region })),
     ];
   }
 
+  /** The math regions shown in lines of text, by id: which text, and where in it. */
+  inline(): Map<string, InlinePlace> {
+    return inlineMath(this.ws.texts, this.ws.regions);
+  }
+
+  /** Any region, math in text included. */
   find(id: string): Item | undefined {
-    return this.items().find((i) => i.region.id === id);
+    const math = this.ws.regions.find((r) => r.id === id);
+    if (math) return { kind: 'math', region: math };
+    const text = this.ws.texts.find((r) => r.id === id);
+    if (text) return { kind: 'text', region: text };
+    const opaque = this.ws.opaque.find((r) => r.id === id);
+    return opaque ? { kind: 'opaque', region: opaque } : undefined;
+  }
+
+  /** An id no region has, for math typed in text before it's kept. */
+  newId(): string {
+    return String(this.nextId++);
+  }
+
+  private placeInline(): void {
+    placeInline(this.ws);
   }
 
   /** Switches between LIVE and EDIT. Going LIVE calculates at once; going to EDIT stops a calculation. */
@@ -280,26 +306,36 @@ export class Doc {
     this.worker = null;
   }
 
-  /** Groups changes, so one edit is one undo. */
-  batch(run: () => void): void {
+  /**
+   * Groups changes, so one edit is one undo. Changes made with the same `join` one after another are one undo as
+   * well: text kept now and then while it's still being typed, as math in it is finished, is undone all at once.
+   */
+  batch(run: () => void, join?: string): void {
     this.batching = true;
     this.pending = false;
     try {
       run();
     } finally {
       this.batching = false;
-      if (this.pending) this.touched();
+      if (this.pending) this.touched(null, join);
     }
   }
 
-  private touched(ids: Set<string> | null = null): void {
+  /** The `join` of the last change, while nothing else has changed since. */
+  private joined: string | null = null;
+
+  private touched(ids: Set<string> | null = null, join?: string): void {
     if (this.batching) {
       this.pending = true;
       return;
     }
     this.dirty = true;
-    this.undoStack.push(this.saved);
-    if (this.undoStack.length > HISTORY) this.undoStack.shift();
+    this.placeInline();
+    if (join === undefined || join !== this.joined || this.undoStack.length === 0) {
+      this.undoStack.push(this.saved);
+      if (this.undoStack.length > HISTORY) this.undoStack.shift();
+    }
+    this.joined = join ?? null;
     this.redoStack = [];
     this.saved = snapshot(this.ws);
     this.recompute();
@@ -309,6 +345,7 @@ export class Doc {
   private restore(from: Snapshot[], to: Snapshot[]): void {
     const state = from.pop();
     if (!state) return;
+    this.joined = null;
     to.push(this.saved);
     this.saved = state;
     // A seed that wasn't set then isn't set now: undoing New random numbers goes back to the default draws.
@@ -464,6 +501,46 @@ export class Doc {
     this.touched(new Set([region.id]));
   }
 
+  /**
+   * Its words and formatting, and the math in them, typed as LaTeX by id: math regions are made, changed and removed
+   * to match, all as one change. Math named by id that isn't this text's own, as when pasted, or named twice, becomes
+   * a region of its own with a new id. Returns the ids changed that way, old to new, for the editor to follow.
+   */
+  setTextAndMath(region: TextRegion, text: string, blocks: TextBlock[] | null, maths: ReadonlyMap<string, string>): Map<string, string> {
+    const renamed = new Map<string, string>();
+    const mine = new Map(this.ws.regions.filter((r) => r.inText === region.id).map((r) => [r.id, r]));
+    const taken = new Set([...this.ws.regions, ...this.ws.texts, ...this.ws.opaque].map((r) => r.id));
+    const kept = new Set<string>();
+    const runs = (blocks ?? []).flatMap((b) => b.runs).filter((r) => r.math !== undefined);
+    for (const run of runs) {
+      const id = run.math!;
+      const latex = maths.get(id) ?? '';
+      let math = mine.get(id);
+      if (!math || kept.has(id)) {
+        const fresh = taken.has(id) ? this.newId() : id;
+        if (fresh !== id) renamed.set(id, fresh);
+        taken.add(fresh);
+        math = { id: fresh, left: region.left, top: region.top, alignX: region.left, alignY: region.top, disabled: false, content: { k: 'draft', latex: '', error: '' }, inText: region.id };
+        this.ws.regions.push(math);
+        run.math = fresh;
+      }
+      kept.add(math.id);
+      if (latex !== regionLatex(math.content)) {
+        try {
+          math.content = readRegion(latex, math.content);
+        } catch (err) {
+          math.content = { k: 'draft', latex, error: (err as Error).message };
+        }
+      }
+    }
+    this.ws.regions = this.ws.regions.filter((r) => r.inText !== region.id || kept.has(r.id));
+    region.text = text;
+    if (blocks && isFormatted(blocks)) region.blocks = blocks;
+    else delete region.blocks;
+    this.touched(new Set([region.id, ...kept]));
+    return renamed;
+  }
+
   /** Changes every block of text regions together, as one step to undo. */
   setBlocks(regions: TextRegion[], change: (b: TextBlock) => TextBlock): void {
     if (regions.length === 0) return;
@@ -517,7 +594,9 @@ export class Doc {
   }
 
   remove(ids: Set<string>): void {
-    this.ws.regions = this.ws.regions.filter((r) => !ids.has(r.id));
+    // Math in a text goes with it.
+    const inline = this.inline();
+    this.ws.regions = this.ws.regions.filter((r) => !ids.has(r.id) && !ids.has(inline.get(r.id)?.text ?? ''));
     this.ws.texts = this.ws.texts.filter((r) => !ids.has(r.id));
     this.ws.opaque = this.ws.opaque.filter((r) => !ids.has(r.id));
     this.touched();

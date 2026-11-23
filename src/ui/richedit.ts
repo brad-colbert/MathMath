@@ -25,8 +25,8 @@ import { closeHistory, history, redo, undo } from 'prosemirror-history';
 import { InputRule, inputRules, undoInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { Fragment, type MarkType, type Node, type ResolvedPos, Slice } from 'prosemirror-model';
-import { AllSelection, type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { AllSelection, type Command, EditorState, NodeSelection, TextSelection, type Transaction } from 'prosemirror-state';
+import { EditorView, type NodeView } from 'prosemirror-view';
 import { AFTER, type Align, type BlockKind, LINES, MAX_LEVEL, type TextBlock } from '../model/richtext.js';
 import { blocksOf, docOf, schema } from './richschema.js';
 
@@ -214,6 +214,7 @@ export function safeHTML(html: string): string {
       const kinds = ['title', 'h1', 'h2', 'bullet', 'number'].filter((k) => el.classList.contains(k));
       return `<div class="tb ${kinds.join(' ')}"${attrs(el, ['data-level', 'data-align', 'data-line', 'data-after'])}${open}>${inner}</div>`;
     }
+    if (tag === 'span' && el.hasAttribute('data-math')) return `<span${attrs(el, ['data-math', 'data-latex'])}${open}></span>`;
     if (tag === 'span') return `<span${attrs(el, ['data-bold', 'data-italic', 'data-underline', 'data-color', 'data-size'])}${open}>${inner}</span>`;
     return open ? `<div${open}>${inner}</div>` : inner;
   };
@@ -223,6 +224,39 @@ export function safeHTML(html: string): string {
 export interface RichEditorEvents {
   /** The words or their look changed. */
   changed: () => void;
+  /** Draws math in the words, by its id and LaTeX. */
+  mathView?: (id: string, latex: string) => HTMLElement;
+  /** An id for new math. */
+  newId?: () => string;
+  /** Opens math in the words for editing: the element it's drawn in, its id and LaTeX. */
+  openMath?: (dom: HTMLElement, id: string, latex: string) => void;
+}
+
+/** Math in the words, drawn by the page, which the editor leaves alone. */
+function mathNodeView(node: Node, draw: (id: string, latex: string) => HTMLElement): NodeView {
+  const dom = document.createElement('span');
+  dom.className = 'inline-math';
+  dom.dataset.math = node.attrs.id as string;
+  dom.contentEditable = 'false';
+  dom.appendChild(draw(node.attrs.id as string, node.attrs.latex as string));
+  return {
+    dom,
+    update: (next) => next.type === node.type && next.attrs.id === node.attrs.id && next.attrs.latex === node.attrs.latex,
+    ignoreMutation: () => true,
+    selectNode: () => dom.classList.add('chosen'),
+    deselectNode: () => dom.classList.remove('chosen'),
+  };
+}
+
+/** Pasted math is new math: each gets a new id, so it's a region of its own. */
+function freshMath(fragment: Fragment, newId: () => string): Fragment {
+  const nodes: Node[] = [];
+  fragment.forEach((n) => {
+    if (n.type === schema.nodes.math) nodes.push(schema.nodes.math!.create({ ...n.attrs, id: newId() }));
+    else if (n.isText || n.isLeaf) nodes.push(n);
+    else nodes.push(n.copy(freshMath(n.content, newId)));
+  });
+  return Fragment.from(nodes);
 }
 
 /** The editor over one text region's element. */
@@ -231,9 +265,12 @@ export class RichEditor {
   private bar: FormatBar;
 
   /** `at`, a point on the screen, is where the caret goes; otherwise it goes to the end. */
-  constructor(private host: HTMLElement, blocks: readonly TextBlock[], private events: RichEditorEvents, private anchor: HTMLElement, at?: { x: number; y: number }) {
+  constructor(
+    private host: HTMLElement, blocks: readonly TextBlock[], private events: RichEditorEvents, private anchor: HTMLElement, at?: { x: number; y: number },
+    latexOf?: (id: string) => string | undefined,
+  ) {
     const state = EditorState.create({
-      doc: docOf(blocks),
+      doc: docOf(blocks, latexOf),
       plugins: [
         history(),
         inputRules({ rules: [listRule(/^[-*•]\s$/, 'bullet'), listRule(/^1[.)]\s$/, 'number')] }),
@@ -244,7 +281,11 @@ export class RichEditor {
           'Shift-Mod-8': apart(toggleList('bullet')), 'Shift-Mod-7': apart(toggleList('number')),
           'Mod-Alt-0': apart(setKind(null)), 'Mod-Alt-1': apart(setKind('h1')), 'Mod-Alt-2': apart(setKind('h2')),
           Tab: apart(indent(1)), 'Shift-Tab': apart(indent(-1)),
-          Enter: enter, 'Shift-Enter': hardBreak,
+          Enter: chainCommands(this.openChosen, enter), 'Shift-Enter': hardBreak,
+          'Mod-m': (_state, dispatch) => {
+            if (dispatch) this.insertMath();
+            return true;
+          },
           Backspace: chainCommands(undoInputRule, unlist),
         }),
         keymap(baseKeymap),
@@ -280,6 +321,13 @@ export class RichEditor {
       },
       transformPastedHTML: safeHTML,
       clipboardTextParser: (text, $context) => textSlice(text, $context),
+      transformPasted: (slice) => (events.newId ? new Slice(freshMath(slice.content, events.newId), slice.openStart, slice.openEnd) : slice),
+      nodeViews: events.mathView ? { math: (node) => mathNodeView(node, events.mathView!) } : {},
+      handleClickOn: (_view, _pos, node, nodePos) => {
+        if (node.type !== schema.nodes.math) return false;
+        this.open(nodePos);
+        return true;
+      },
     });
     this.bar = new FormatBar(this);
     const pos = at && this.view.posAtCoords({ left: at.x, top: at.y });
@@ -314,6 +362,110 @@ export class RichEditor {
   /** The attributes of the block the caret is in. */
   get block(): Attrs {
     return this.view.state.selection.$from.parent.attrs as Attrs;
+  }
+
+  /** Enter on chosen math opens it. */
+  private openChosen: Command = (state) => {
+    const sel = state.selection;
+    if (!(sel instanceof NodeSelection) || sel.node.type !== schema.nodes.math) return false;
+    this.open(sel.from);
+    return true;
+  };
+
+  /** Opens the math at `pos` for editing. */
+  private open(pos: number): void {
+    const node = this.view.state.doc.nodeAt(pos);
+    const dom = this.view.nodeDOM(pos);
+    if (node?.type !== schema.nodes.math || !(dom instanceof HTMLElement)) return;
+    this.events.openMath?.(dom, node.attrs.id as string, node.attrs.latex as string);
+  }
+
+  /** Opens math, by id, for editing. */
+  openMath(id: string): void {
+    const pos = this.findMath(id);
+    if (pos !== null) this.open(pos);
+  }
+
+  /** New math at the caret, opened for typing. */
+  insertMath(): void {
+    if (!this.events.newId) return;
+    const { view } = this;
+    const node = schema.nodes.math!.create({ id: this.events.newId(), latex: '' });
+    const tr = closeHistory(view.state.tr.replaceSelectionWith(node, false));
+    const pos = tr.mapping.map(view.state.selection.from, -1);
+    view.dispatch(tr);
+    this.open(pos);
+  }
+
+  /** Where math is, by id. */
+  private findMath(id: string): number | null {
+    let at: number | null = null;
+    this.view.state.doc.descendants((node, pos) => {
+      if (at !== null) return false;
+      if (node.type === schema.nodes.math && node.attrs.id === id) at = pos;
+      return node.type !== schema.nodes.math;
+    });
+    return at;
+  }
+
+  /** Math as typed, after its editor closes: kept, or taken out when there's none. The caret goes on after it. */
+  setMath(id: string, latex: string): void {
+    const { view } = this;
+    const pos = this.findMath(id);
+    if (pos !== null) {
+      const node = view.state.doc.nodeAt(pos)!;
+      const tr = latex.trim() === '' ? view.state.tr.delete(pos, pos + node.nodeSize)
+        : node.attrs.latex === latex ? view.state.tr : view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex });
+      const after = latex.trim() === '' ? pos : pos + node.nodeSize;
+      view.dispatch(closeHistory(tr.setSelection(TextSelection.create(tr.doc, after))));
+    }
+    view.focus();
+  }
+
+  /** Math given another id when it was kept (see Doc.setTextAndMath), as the region it's now in. */
+  renameMath(renamed: ReadonlyMap<string, string>): void {
+    if (renamed.size === 0) return;
+    const tr = this.view.state.tr;
+    this.view.state.doc.descendants((node, pos) => {
+      const to = node.type === schema.nodes.math ? renamed.get(node.attrs.id as string) : undefined;
+      if (to) tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: to });
+      return node.type !== schema.nodes.math;
+    });
+    this.view.dispatch(tr.setMeta('addToHistory', false));
+  }
+
+  /** The math the selection holds, by id: Format's result formats act on it. */
+  selectedMath(): string[] {
+    const { from, to } = this.view.state.selection;
+    const out: string[] = [];
+    this.view.state.doc.nodesBetween(from, to, (node) => {
+      if (node.type === schema.nodes.math) out.push(node.attrs.id as string);
+      return node.type !== schema.nodes.math;
+    });
+    return out;
+  }
+
+  /** While math in the words is being typed, the formats wait. */
+  set mathOpen(on: boolean) {
+    this.bar.busy(on);
+  }
+
+  /** Math given the LaTeX its region now reads as, by id, where that differs: not a step to undo. */
+  syncMath(latex: ReadonlyMap<string, string>): void {
+    const tr = this.view.state.tr;
+    this.view.state.doc.descendants((node, pos) => {
+      const to = node.type === schema.nodes.math ? latex.get(node.attrs.id as string) : undefined;
+      if (to !== undefined && to !== node.attrs.latex) tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex: to });
+      return node.type !== schema.nodes.math;
+    });
+    if (tr.docChanged) this.view.dispatch(tr.setMeta('addToHistory', false));
+  }
+
+  /** The element math is drawn in, by id. */
+  mathDom(id: string): HTMLElement | null {
+    const pos = this.findMath(id);
+    const dom = pos === null ? null : this.view.nodeDOM(pos);
+    return dom instanceof HTMLElement ? dom : null;
   }
 
   /** What's been typed, as blocks, or null when it's more than a region may keep formatted. */
@@ -415,6 +567,8 @@ class FormatBar {
       ['No space after', '', () => editor.run(setAfter(null))], ['6 pt after', '', () => editor.run(setAfter(6))], ['12 pt after', '', () => editor.run(setAfter(12))],
     ]));
     this.button('Plain', 'Back to plain words and paragraphs', () => editor.run(clearFormat));
+    this.sep();
+    this.button('Math', 'Math in the line of text, calculated where the text starts (Ctrl+M)', () => editor.insertMath()).classList.add('math');
     document.body.appendChild(this.el);
     window.addEventListener('scroll', this.place, true);
     window.addEventListener('resize', this.place);
@@ -435,6 +589,11 @@ class FormatBar {
     const b = this.button(label, hint, click);
     this.toggles.push([b, on]);
     return b;
+  }
+
+  busy(on: boolean): void {
+    this.el.classList.toggle('busy', on);
+    if (on) this.closeMenu();
   }
 
   private sep(): void {

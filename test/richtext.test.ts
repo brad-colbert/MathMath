@@ -95,3 +95,71 @@ test('more blocks than a region may keep formatted give no blocks, so only the w
   const many = Array.from({ length: 5001 }, (_, i) => ({ runs: [{ t: String(i) }] }));
   expect(blocksOf(docOf(many))).toBeNull();
 });
+
+// Math in a line of text (part 2).
+const withMath = (): { texts: { id: string; left: number; top: number; text: string; blocks: TextBlock[]; flow?: true }[]; regions: { id: string; inText?: string; left: number; top: number; alignX: number; alignY: number }[] } => ({
+  texts: [
+    { id: 't1', left: 100, top: 200, text: 'Let  so ', blocks: [{ runs: [{ t: 'Let ' }, { t: '', math: 'm1' }, { t: ' so ' }, { t: '', math: 'm2' }] }] },
+    { id: 't2', left: 50, top: 50, text: 'see ', blocks: [{ runs: [{ t: 'see ' }, { t: '', math: 'm3' }] }] },
+  ],
+  regions: [
+    { id: 'm1', inText: 't1', left: 0, top: 0, alignX: 0, alignY: 0 },
+    { id: 'm2', inText: 't1', left: 0, top: 0, alignX: 0, alignY: 0 },
+    { id: 'm3', inText: 't2', left: 0, top: 0, alignX: 0, alignY: 0 },
+    { id: 'free', left: 10, top: 10, alignX: 10, alignY: 10 },
+  ],
+});
+
+test('math in text is a run without words, so the words are the same and an older version drops only the run', async () => {
+  const { mathIdsOf } = await import('../src/model/richtext.js');
+  const blocks = withMath().texts[0]!.blocks;
+  expect(wordsOf(blocks)).toBe('Let  so ');
+  expect(textBlocksOf(blocks, 'Let  so ')).toEqual(blocks);
+  expect(mathIdsOf(blocks)).toEqual(['m1', 'm2']);
+  expect(isFormatted([{ runs: [{ t: '', math: 'm1' }] }])).toBe(true);
+  // A run of math is never joined to words beside it, and only an id as MathMath writes them is kept.
+  expect(textBlocksOf([{ runs: [{ t: 'a' }, { t: '', math: 'm1' }, { t: '', math: 'm1' }, { t: 'b' }] }], 'ab')![0]!.runs).toHaveLength(4);
+  expect(textBlocksOf([{ runs: [{ t: '', math: '"><img src=x>' }, { t: '', math: '' }, { t: '', math: 5 }, { t: 'x', math: 'm1' }] }], 'x')).toEqual([{ runs: [{ t: 'x' }] }]);
+});
+
+test('math counts as in text only when the region and the text both say so, once', async () => {
+  const { inlineMath } = await import('../src/model/richtext.js');
+  const ws = withMath();
+  expect([...inlineMath(ws.texts, ws.regions)]).toEqual([['m1', { text: 't1', n: 0 }], ['m2', { text: 't1', n: 1 }], ['m3', { text: 't2', n: 0 }]]);
+  // A region that names another text, a text that names math twice or names math that isn't its own, and formatting
+  // whose words aren't the text's, as after an older version's edit: each such math is math on its own.
+  ws.regions[2]!.inText = 't1';
+  ws.texts[0]!.blocks[0]!.runs.push({ t: '', math: 'm1' }, { t: '', math: 'free' });
+  ws.texts[1]!.text = 'see, edited';
+  const found = inlineMath(ws.texts, ws.regions);
+  expect([...found.keys()]).toEqual(['m1', 'm2']);
+  expect(found.has('free')).toBe(false);
+  // A plot or picture named by a file is never in a line.
+  expect(inlineMath(ws.texts, ws.regions.map((r) => (r.id === 'm2' ? { ...r, content: { k: 'plot' } } : { ...r, content: { k: 'eval' } }))).has('m2')).toBe(false);
+});
+
+test('math in text is calculated where its text starts, in the order it is read, whatever the wrapping', async () => {
+  const { placeInline } = await import('../src/model/richtext.js');
+  const ws = { ...withMath(), page: { width: 612, height: 792, landscape: false, margins: { left: 36, right: 36, top: 36, bottom: 36 } } };
+  placeInline(ws as never);
+  const at = (id: string) => ws.regions.find((r) => r.id === id)!;
+  expect([at('m1').alignY, at('m2').alignY, at('m3').alignY]).toEqual([208, 208, 58]);
+  expect(at('m1').alignX).toBeLessThan(at('m2').alignX);
+  expect(at('m1').left).toBe(100);
+  expect(at('free').alignX).toBe(10);
+  // Text across the page starts at the margin.
+  ws.texts[0]!.flow = true;
+  placeInline(ws as never);
+  expect(at('m1').left).toBe(36);
+});
+
+test('the editor holds math in text by id with its LaTeX, and gives the same blocks back', async () => {
+  const { blocksOf, docOf, mathsOf, wordsOfDoc } = await import('../src/ui/richschema.js');
+  const blocks: TextBlock[] = [{ runs: [{ t: 'Let ' }, { t: '', math: 'm1' }, { t: '\n' }, { t: '', math: 'm2' }, { t: 'end' }] }];
+  const doc = docOf(blocks, (id) => (id === 'm1' ? 'x:=3' : id === 'm2' ? 'x=' : undefined));
+  expect(blocksOf(doc)).toEqual(blocks);
+  expect(wordsOfDoc(doc)).toBe(wordsOf(blocks));
+  expect([...mathsOf(doc)]).toEqual([['m1', 'x:=3'], ['m2', 'x=']]);
+  // Math it isn't given is left out.
+  expect(blocksOf(docOf(blocks, (id) => (id === 'm1' ? 'x' : undefined)))).toEqual([{ runs: [{ t: 'Let ' }, { t: '', math: 'm1' }, { t: '\nend' }] }]);
+});

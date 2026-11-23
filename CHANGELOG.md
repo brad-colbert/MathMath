@@ -8,6 +8,28 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.64.0] - 2026-11-23
+
+Math in a line of text, calculated live while you type.
+
+### Added
+
+- Math in a line of text: while typing text, Ctrl+M, or Math on the format bar, puts math in the words, such as a
+  definition x := 3 or a result x² = 9, drawn at the words' size on their line. It calculates as soon as it's
+  finished, while you're still typing the text, and math below the text can use what it defines. Click it to change
+  it. It's calculated where its text starts, in the order it's read, so wrapping never changes an answer. Typing
+  text with math in it is still one step to undo, and copied text brings its math as new math.
+- Help: Text and papers explains math in a line of text, with its keys.
+- The file format: a math region can name the text it's in, and a text can name its math (format version still 1).
+
+### Known limits
+
+- A version of MathMath before this one shows math in text as math on its own, at the text's top left corner, and
+  the words without it.
+- A result in text that grows a lot, such as a matrix, doesn't push what's below text across the page further down
+  until the text is edited.
+- The unit an answer in text is shown in can't be chosen yet, and math in text can't be dragged out of its line.
+
 ## [0.63.0] - 2026-11-23
 
 Formatted text: headings, lists, bold, italic, sub- and superscripts and color, text across the page, and a Paper style.

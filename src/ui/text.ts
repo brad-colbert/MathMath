@@ -31,15 +31,20 @@ export interface TextContext {
   look: TextLook | undefined;
   /** How many headings and subheadings come before it. */
   counts: { h1: number; h2: number } | undefined;
+  /**
+   * The math in its words: how it looks now, as a key, and how to put it in the places kept for it. It's drawn
+   * elsewhere, as math is, and put in before lines are kept off page ends.
+   */
+  math?: { key: string; mount: (root: HTMLElement) => void } | undefined;
 }
 
 /** Draws a text region in its element, unless it already shows just this. */
-export function drawText(el: HTMLElement, region: TextRegion, { page, look, counts }: TextContext): void {
+export function drawText(el: HTMLElement, region: TextRegion, { page, look, counts, math }: TextContext): void {
   const blocks = region.blocks === undefined ? null : textBlocksOf(region.blocks, region.text);
   const paper = look === 'paper';
   const flow = region.flow === true;
   const cache = el as HTMLElement & { textKey?: string };
-  const key = JSON.stringify([region.text, blocks, region.style, flow, paper, paper && blocks ? counts : 0, flow ? [page, region.top] : region.width]);
+  const key = JSON.stringify([region.text, blocks, region.style, flow, paper, paper && blocks ? counts : 0, flow ? [page, region.top] : region.width, blocks ? math?.key : 0]);
   if (cache.textKey === key) return;
   cache.textKey = key;
   // Fonts differ a little from the original program's, so stored widths need some room to spare.
@@ -48,8 +53,10 @@ export function drawText(el: HTMLElement, region: TextRegion, { page, look, coun
   el.classList.toggle('paper-look', paper);
   el.classList.toggle('blocks', blocks !== null);
   el.style.counterReset = blocks ? `h1 ${counts?.h1 ?? 0} h2 ${counts?.h2 ?? 0}` : '';
-  if (blocks) el.replaceChildren(blockElements(blocks));
-  else el.textContent = region.text;
+  if (blocks) {
+    el.replaceChildren(blockElements(blocks));
+    math?.mount(el);
+  } else el.textContent = region.text;
   // Its style, set on the element, never written into markup.
   const style = textStyleOf(region.style);
   el.style.fontWeight = style.bold ? 'bold' : '';
