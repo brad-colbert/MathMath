@@ -20,7 +20,7 @@
 import { type Doc, GRID, type Item } from '../app/document.js';
 import { tex } from '../latex/latex.js';
 import { isEditable, regionLatex } from '../latex/region.js';
-import { type Content, type NumberFormat, type Region, type TextRegion, textStyleOf } from '../model/ast.js';
+import { type Content, type NumberFormat, type Region, type TextRegion } from '../model/ast.js';
 import { Editor } from './editor.js';
 import { formatStored } from './format.js';
 import { mathMarkup } from './markup.js';
@@ -29,6 +29,10 @@ import { DEFAULT_VIEW } from './plot3d.js';
 import { drawSaves } from './save-image.js';
 import { drawTraced } from './traced.js';
 import { paletteFor } from './colormap.js';
+import { drawText, flowWidth, forgetText } from './text.js';
+import { headingCounts, isFormatted, plainBlocks, textBlocksOf } from '../model/richtext.js';
+import { RichEditor } from './richedit.js';
+import { wordsOfDoc } from './richschema.js';
 import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
@@ -80,7 +84,13 @@ export class Paper {
   private selected = new Set<string>();
   private editor: Editor;
   private editing: Editing | null = null;
-  private textEdit: { region: TextRegion; el: HTMLElement } | null = null;
+  /**
+   * The text being typed: its editor, its height as drawn when it opened (to keep what's below as far below it when
+   * it's done) and the editor's own, and what's below, moved as it grows while typing.
+   */
+  private textEdit: { region: TextRegion; el: HTMLElement; editor: RichEditor; opened: number; base: number; below: string[]; fresh: boolean } | null = null;
+  /** How many headings come before each text region, for a sheet that numbers them. */
+  private headings = new Map<string, { h1: number; h2: number }>();
   private calcTimer: ReturnType<typeof setTimeout> | undefined;
   /** The answer of the region being edited, grayed beside the editor. */
   private ghost = document.createElement('div');
@@ -108,6 +118,8 @@ export class Paper {
     this.ghost.className = 'ghost-answer';
     this.ghost.hidden = true;
     sheet.appendChild(this.ghost);
+    // Text measured before its font arrived may wrap, and so break across pages, differently once it has.
+    document.fonts?.addEventListener('loadingdone', () => this.redrawText());
     doc.onChange = (ids) => this.draw(ids);
     doc.onCalculating = (id) => this.calculating(id);
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
@@ -188,7 +200,13 @@ export class Paper {
   }
 
   private draw(ids: Set<string> | null): void {
+    // Text being typed in a sheet that has gone, as when another is opened, goes with it, unsaved.
+    if (this.textEdit && !this.doc.ws.texts.includes(this.textEdit.region)) {
+      this.textEdit.editor.destroy();
+      this.textEdit = null;
+    }
     const items = this.doc.items();
+    this.headings = this.doc.ws.textLook === 'paper' ? headingCounts(this.doc.ws.texts) : new Map();
     const live = new Set(items.map((i) => i.region.id));
     for (const [id, el] of this.views) {
       if (!live.has(id)) {
@@ -204,6 +222,15 @@ export class Paper {
     this.drawPages();
   }
 
+  /** Draws every text region afresh. */
+  private redrawText(): void {
+    for (const { id } of this.doc.ws.texts) {
+      const el = this.views.get(id);
+      if (el && id !== this.textEdit?.region.id) forgetText(el);
+    }
+    this.draw(null);
+  }
+
   private drawItem(item: Item, content: boolean): void {
     const { id, left, top } = item.region;
     let el = this.views.get(id);
@@ -215,11 +242,12 @@ export class Paper {
       this.views.set(id, el);
       this.sheet.insertBefore(el, this.crosshair);
     }
-    el.style.left = `${left}pt`;
+    const across = item.kind === 'text' && item.region.flow === true;
+    el.style.left = `${across ? this.doc.ws.page.margins.left : left}pt`;
     el.style.top = `${top}pt`;
     el.classList.toggle('selected', this.selected.has(id));
     if (this.editing?.kind === 'region' && id === this.editing.region.id) return;
-    if (item.kind === 'math' || fresh || content) this.drawContent(item, el);
+    if (item.kind !== 'opaque' || fresh || content) this.drawContent(item, el);
   }
 
   private drawContent(item: Item, el: HTMLElement): void {
@@ -237,15 +265,7 @@ export class Paper {
       return;
     }
     if (item.kind === 'text') {
-      // Fonts differ a little from the original program's, so stored widths need some room to spare.
-      if (item.region.width > 0) el.style.width = `${item.region.width * 1.15}pt`;
-      el.textContent = item.region.text;
-      // Its style, set on the element, never written into markup.
-      const look = textStyleOf(item.region.style);
-      el.style.fontWeight = look.bold ? 'bold' : '';
-      el.style.fontStyle = look.italic ? 'italic' : '';
-      el.style.fontSize = look.size ? `${look.size}pt` : '';
-      el.style.color = look.color ?? '';
+      drawText(el, item.region, { page: this.doc.ws.page, look: this.doc.ws.textLook, counts: this.headings.get(item.region.id) });
       return;
     }
     // A plot or image keeps its last picture, faded, until it's recalculated. Not while a calculation
@@ -796,6 +816,55 @@ export class Paper {
     });
   }
 
+  /**
+   * Makes a change that may alter the height of text across the page, as one step to undo, and keeps what's below
+   * each such region as far below it as it was, growing or shrinking. Text just written (`fresh`) instead only
+   * pushes down what it now reaches, as edited math does: there may have been room left for it. Anything moved that
+   * would then cross a page's end goes to the top of the next page, its row and all below it with it.
+   */
+  reflow(change: () => void, fresh?: string, heights?: Map<string, number>): void {
+    const was = new Map(this.doc.items().map(({ region }) => {
+      const el = this.views.get(region.id);
+      const height = heights?.get(region.id) ?? (el ? el.offsetHeight / PT : 0);
+      return [region.id, { top: region.top, bottom: region.top + height, flow: 'flow' in region && region.flow === true }];
+    }));
+    this.doc.batch(() => {
+      change();
+      this.draw(null);
+      const items = this.doc.items().filter((i) => was.has(i.region.id));
+      const before = (i: Item) => was.get(i.region.id)!;
+      items.sort((a, b) => before(a).top - before(b).top);
+      const shift = (moved: Item[], dy: number): void => {
+        this.doc.move(new Set(moved.map((i) => i.region.id)), 0, dy);
+        for (const i of moved) this.drawItem(i, false);
+      };
+      const { height, margins } = this.doc.ws.page;
+      const heightOf = (i: Item): number => (this.views.get(i.region.id)?.offsetHeight ?? 0) / PT;
+      for (const item of items) {
+        const { top, bottom, flow } = before(item);
+        if (flow || (item.kind === 'text' && item.region.flow === true)) {
+          this.drawItem(item, true);
+          const below = items.filter((i) => i !== item && before(i).top >= bottom - 1);
+          if (below.length === 0) continue;
+          const grown = item.region.top + heightOf(item);
+          const dy = item.region.id === fresh ? Math.max(0, grown + LINE / 2 - Math.min(...below.map((i) => i.region.top)))
+            : heightOf(item) - (bottom - top);
+          if (Math.abs(dy) > 0.5) shift(below, dy);
+          continue;
+        }
+        const h = heightOf(item);
+        const end = item.region.top + h;
+        const p = Math.floor((end + margins.bottom) / height);
+        if (Math.abs(item.region.top - top) < 0.5 || h > height - margins.top - margins.bottom) continue;
+        if (p < 1 || end <= p * height - margins.bottom + 0.5 || item.region.top >= p * height + margins.top - 0.5) continue;
+        const row = items.filter((i) => !before(i).flow && before(i).top < bottom && before(i).bottom > top);
+        const rowTop = Math.min(...row.map((i) => before(i).top));
+        const dy = p * height + margins.top - Math.min(...row.map((i) => i.region.top));
+        shift(items.filter((i) => before(i).top >= rowTop), dy);
+      }
+    });
+  }
+
   private startTextFromEmpty(): void {
     const editing = this.editing;
     if (editing?.kind !== 'region') return;
@@ -806,34 +875,71 @@ export class Paper {
     this.doc.discard(region.id);
     this.draw(null);
     const text = this.doc.addText(region.left, region.alignY);
+    // In a paper, text runs across the page. Its width is kept for versions that don't know that.
+    if (this.doc.ws.textLook === 'paper') {
+      text.flow = true;
+      text.width = flowWidth(this.doc.ws.page) / 1.15;
+    }
     this.draw(new Set([text.id]));
     this.openText(text);
   }
 
-  private openText(region: TextRegion): void {
+  /** The text being typed, for Format to act on its selected words. */
+  get typing(): RichEditor | null {
+    return this.textEdit?.editor ?? null;
+  }
+
+  private openText(region: TextRegion, at?: { x: number; y: number }): void {
     const el = this.views.get(region.id)!;
-    el.contentEditable = 'plaintext-only';
+    const opened = el.offsetHeight / PT;
+    const blocks = textBlocksOf(region.blocks, region.text) ?? plainBlocks(region.text);
+    // Text across the page pushes what's below it down as it grows.
+    const below = region.flow === true ? this.doc.items().filter((i) => i.region.id !== region.id && i.region.top >= region.top + opened - 1).map((i) => i.region.id) : [];
+    const host = document.createElement('div');
+    el.replaceChildren(host);
+    forgetText(el);
     el.classList.add('editing');
-    this.textEdit = { region, el };
-    el.focus();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
+    const editor = new RichEditor(host, blocks, { changed: () => this.pushBelow() }, el, at);
+    this.textEdit = { region, el, editor, opened, base: el.offsetHeight / PT, below, fresh: region.text === '' };
+  }
+
+  /** Moves what's below text across the page by as much as it has grown while typing. It's moved for real when done. */
+  private pushBelow(): void {
+    const edit = this.textEdit;
+    if (!edit || edit.below.length === 0) return;
+    // New text only pushes what it reaches, as it will when done: there may have been room left for it.
+    const tops = edit.below.flatMap((id) => {
+      const item = this.doc.find(id);
+      return item ? [item.region.top] : [];
+    });
+    const dy = edit.fresh ? Math.max(0, edit.region.top + edit.el.offsetHeight / PT + LINE / 2 - Math.min(...tops))
+      : edit.el.offsetHeight / PT - edit.base;
+    for (const id of edit.below) {
+      const view = this.views.get(id);
+      if (view) view.style.transform = Math.abs(dy) > 0.5 ? `translateY(${dy}pt)` : '';
+    }
   }
 
   private commitText(): void {
     const edit = this.textEdit;
     if (!edit) return;
     this.textEdit = null;
-    const { region, el } = edit;
-    el.contentEditable = 'false';
+    const { region, el, editor, opened, below } = edit;
+    const typed = editor.blocks();
+    const words = wordsOfDoc(editor.view.state.doc);
+    editor.destroy();
+    for (const id of below) this.views.get(id)?.style.removeProperty('transform');
     el.classList.remove('editing');
-    const text = (el.innerText ?? '').replace(/\n$/, '');
-    if (text.trim() === '') this.doc.remove(new Set([region.id]));
-    else if (text !== region.text) this.doc.setText(region, text);
+    forgetText(el);
+    if (!typed) this.doc.onProblem('This text is too long to keep its formatting, so only its words are kept');
+    const blocks = typed && isFormatted(typed) ? typed : null;
+    const was = textBlocksOf(region.blocks, region.text);
+    const same = words === region.text && JSON.stringify(blocks) === JSON.stringify(was && isFormatted(was) ? was : null);
+    if (words.trim() === '') this.doc.remove(new Set([region.id]));
+    else if (!same) {
+      const fresh = region.text === '' ? region.id : undefined;
+      this.reflow(() => this.doc.setText(region, words, blocks), fresh, new Map([[region.id, opened]]));
+    } else this.draw(new Set([region.id]));
   }
 
   private onDown(e: MouseEvent): void {
@@ -997,7 +1103,7 @@ export class Paper {
     }
     this.select([]);
     if (item?.kind === 'math' && isEditable(item.region.content)) this.open(item.region, false);
-    else if (item?.kind === 'text') this.openText(item.region);
+    else if (item?.kind === 'text') this.openText(item.region, { x: e.clientX, y: e.clientY });
     else if (item) this.select([press.id]);
   }
 

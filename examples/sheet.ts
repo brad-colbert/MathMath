@@ -25,7 +25,8 @@ import { fileKey } from '../src/engine/files.js';
 import { readTex } from '../src/latex/latex.js';
 import { readRegion } from '../src/latex/region.js';
 import { emptyWorksheet } from '../src/format/native.js';
-import { type Content, type Worksheet, autoAxis } from '../src/model/ast.js';
+import { type Content, type TextRegion, type Worksheet, autoAxis } from '../src/model/ast.js';
+import { type TextBlock, wordsOf } from '../src/model/richtext.js';
 
 const PAGE = 792;
 const TOP = 72;
@@ -167,6 +168,33 @@ export class Sheet {
     this.room(height + (opts.end ? 0 : 40));
     this.ws.texts.push({ id: String(this.id++), left: LEFT + (opts.x ?? 0), top: this.y, width, height, text });
     this.y += height + 8;
+    return this;
+  }
+
+  /**
+   * Formatted text: paragraphs, headings and list items, with bold, italic, sub- and superscript and color in their
+   * runs (see src/model/richtext.ts). `across` spans it between the page's margins.
+   */
+  formatted(blocks: TextBlock[], opts: { across?: boolean; end?: boolean } = {}): this {
+    const width = opts.across ? 612 - 2 * LEFT : TEXT_WIDTH;
+    const perLine = Math.floor((width * 1.15) / 5.4);
+    const size = (b: TextBlock) => (b.kind === 'title' ? 2 : b.kind === 'h1' ? 1.6 : b.kind === 'h2' ? 1.2 : 1) * (b.line ?? 1);
+    const height = blocks.reduce((h, b) => {
+      const words = b.runs.map((r) => r.t).join('');
+      const lines = words.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length * size(b) / perLine)), 0);
+      return h + lines * 13.5 * size(b) + (b.after ?? 0);
+    }, 0);
+    this.room(height + (opts.end ? 0 : 40));
+    const text: TextRegion = { id: String(this.id++), left: LEFT, top: this.y, width: opts.across ? width / 1.15 : width, height, text: wordsOf(blocks), blocks };
+    if (opts.across) text.flow = true;
+    this.ws.texts.push(text);
+    this.y += height + 8;
+    return this;
+  }
+
+  /** The sheet's text as a paper's: a serif face, justified, with numbered headings. */
+  paperStyle(): this {
+    this.ws.textLook = 'paper';
     return this;
   }
 

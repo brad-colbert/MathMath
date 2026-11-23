@@ -15,6 +15,8 @@
 
 /** Worksheet model. Node names follow the worksheet schema so that its rules stay in one place. */
 
+import type { TextBlock, TextLook } from './richtext.js';
+
 export type Expr =
   /**
    * A real number. `digits` keeps it as written when it has more significant digits than a double holds,
@@ -194,10 +196,17 @@ export interface TextRegion {
   top: number;
   width: number;
   height: number;
-  /** Plain text. Styling isn't imported from other programs' files yet. */
+  /** The plain words, always, whatever their formatting. */
   text: string;
   /** How the whole region's words look; left out, plain 10-point text. */
   style?: TextStyle;
+  /**
+   * Its paragraphs, headings and lists, and how the words in each look; left out, plain words. Read through
+   * textBlocksOf, which drops it unless its words are those in `text`.
+   */
+  blocks?: TextBlock[];
+  /** Spans the page between its margins, and keeps what's below it clear as it grows and shrinks. */
+  flow?: true;
 }
 
 /** A text region's look: bold, italic, its size in points, and a color as #rrggbb. */
@@ -306,6 +315,8 @@ export interface Worksheet {
   exactCompare: boolean;
   /** Whether 0/0 is 0, element by element, as Mathcad's zero-over-zero option allows. Anything else over 0 is still an error. */
   zeroOverZero: boolean;
+  /** How its text looks: left out, plain sans-serif text with unnumbered headings. */
+  textLook?: TextLook;
   /** Count of non-math regions by element name, such as `reference` or `plot`. */
   otherRegions: Record<string, number>;
   /** Variables produced by embedded components. */

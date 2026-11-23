@@ -90,7 +90,68 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.image.error .frame { outline: 1px solid #c00; }
 .region .handle { position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px; background: var(--select); border: 1px solid #fff; cursor: nwse-resize; }
 .region.text { font-family: Arial, Helvetica, sans-serif; white-space: pre-wrap; min-width: 1em; min-height: 1em; }
+/* Formatted text: a block for each paragraph, heading and list item (see text.ts). Heading sizes follow the region's. */
+.region.text .tb { min-height: 1.15em; }
+.region.text .tb:empty::before { content: "\200b"; }
+.region.text .tb.title { font-size: 2em; font-weight: bold; }
+.region.text .tb.h1 { font-size: 1.6em; font-weight: bold; counter-increment: h1; counter-reset: h2; }
+.region.text .tb.h2 { font-size: 1.2em; font-weight: bold; counter-increment: h2; }
+.region.text .tb + .tb.h1 { margin-top: 0.6em; }
+.region.text .tb + .tb.h2 { margin-top: 0.5em; }
+.region.text .tb.title + .tb { margin-top: 0.8em; }
+.region.text sub, .region.text sup { font-size: 0.72em; line-height: 0; }
+/* A paragraph ends a numbered list; a bulleted item ends only the numbering at its level and deeper. */
+.region.text .tb:not(.number):not(.bullet) { counter-reset: n0 n1 n2 n3; }
+.region.text .tb.bullet { counter-reset: n0 n1 n2 n3; }
+.region.text .tb.bullet[data-level="1"] { counter-reset: n1 n2 n3; }
+.region.text .tb.bullet[data-level="2"] { counter-reset: n2 n3; }
+.region.text .tb.bullet[data-level="3"] { counter-reset: n3; }
+.region.text .tb.h1 { counter-reset: h2 n0 n1 n2 n3; }
+.region.text .tb.bullet, .region.text .tb.number { --level: 0; position: relative; margin-left: calc(18pt + 18pt * var(--level)); }
+.region.text .tb[data-level="1"] { --level: 1; }
+.region.text .tb[data-level="2"] { --level: 2; }
+.region.text .tb[data-level="3"] { --level: 3; }
+.region.text .tb.bullet::before, .region.text .tb.number::before { position: absolute; right: 100%; margin-right: 5pt; white-space: nowrap; }
+.region.text .tb.bullet::before { content: "•"; }
+.region.text .tb.bullet[data-level="1"]::before, .region.text .tb.bullet[data-level="3"]::before { content: "–"; }
+.region.text .tb.number { counter-increment: n0; counter-reset: n1 n2 n3; }
+.region.text .tb.number::before { content: counter(n0) "."; }
+.region.text .tb.number[data-level="1"] { counter-increment: n1; counter-reset: n2 n3; }
+.region.text .tb.number[data-level="1"]::before { content: counter(n1, lower-alpha) "."; }
+.region.text .tb.number[data-level="2"] { counter-increment: n2; counter-reset: n3; }
+.region.text .tb.number[data-level="2"]::before { content: counter(n2, lower-roman) "."; }
+.region.text .tb.number[data-level="3"] { counter-increment: n3; counter-reset: none; }
+.region.text .tb.number[data-level="3"]::before { content: counter(n3) ")"; }
+/* Paper style: the math's own serif face, justified, with numbered headings. */
+.region.text.paper-look { font-family: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif; line-height: 1.2; text-align: justify; }
+.region.text.paper-look .tb.title { font-size: 1.8em; text-align: center; }
+.region.text.paper-look .tb.h1 { font-size: 1.4em; text-align: left; }
+.region.text.paper-look .tb.h2 { text-align: left; }
+.region.text.paper-look .tb.h1::before { content: counter(h1) "\2003"; }
+.region.text.paper-look .tb.h2::before { content: counter(h1) "." counter(h2) "\2003"; }
+/* The room left so no line crosses a page's end. */
+.region.text .page-gap { float: left; width: 100%; }
+.region.text div.page-gap { float: none; }
 .region.text.editing { outline: 1px solid var(--select); user-select: text; cursor: text; }
+/* The editor inside text being typed. It wraps as the drawn text does, so the height is the same when typing ends. */
+.region.text .pm { outline: none; white-space: pre-wrap; word-wrap: break-word; }
+.ProseMirror-hideselection *::selection { background: transparent; }
+.ProseMirror-hideselection { caret-color: transparent; }
+/* The formats over text being typed. */
+#format-bar {
+  position: fixed; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; max-width: calc(100vw - 8px); box-sizing: border-box;
+  padding: 3px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; font: 13px system-ui, sans-serif; user-select: none;
+}
+#format-bar > button { font: inherit; min-width: 26px; padding: 2px 6px; border: 1px solid transparent; border-radius: 3px; background: none; cursor: pointer; color: #111; }
+#format-bar > button:hover { background: #e5e7eb; }
+#format-bar > button[aria-pressed="true"] { background: #dbeafe; border-color: #93c5fd; }
+#format-bar .sep { width: 1px; height: 18px; background: #d1d5db; margin: 0 2px; }
+#format-bar .format-menu { position: absolute; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
+#format-bar .format-menu button { display: flex; align-items: center; gap: 6px; font: inherit; white-space: nowrap; text-align: left; padding: 3px 8px; border: 0; border-radius: 3px; background: none; cursor: pointer; }
+#format-bar .format-menu button:hover { background: #e5e7eb; }
+#format-bar .swatch { width: 12px; height: 12px; border-radius: 2px; }
+#format-bar .keys { margin-left: auto; padding-left: 16px; color: #6b7280; font-size: 11px; }
+@media print { #format-bar { display: none; } }
 .region.selected { outline: 1px dashed var(--select); outline-offset: 2px; }
 .region.error { color: #c00; }
 .region.stale { color: #6b7280; }
