@@ -8,6 +8,32 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.65.0] - 2026-11-23
+
+Numbered equations, figure captions, and references to them in text.
+
+### Added
+
+- Numbered equations: Format → Number equation numbers the math being typed, or the selected math, (1), (2) and so
+  on at the page's right margin, in the order the sheet is read, and renumbers as equations are numbered, moved or
+  taken away.
+- Figure captions: a Caption paragraph, on the format bar or Format → Caption, starts with Figure 1, Figure 2 and so
+  on, counted down the sheet.
+- References: while typing text, Ref on the format bar puts a reference to a numbered equation, a figure or a heading
+  in the words. It shows (2), Figure 3, or Section 1.2 in Paper style, keeps up as the numbers change, even before
+  typing ends, and shows (?) in red when what it named is gone.
+- Help: Text and papers explains numbered equations, captions and references.
+- The file format: a math region can be numbered, a heading or caption can have a label, and text can name a label as
+  a reference (format version still 1).
+
+### Known limits
+
+- A version of MathMath before this one shows no equation numbers, shows captions as plain paragraphs, and leaves
+  references out of the words. Text edited there loses its references, and a heading or caption in it its label, so
+  references to it elsewhere then show (?).
+- A caption is a paragraph of its own, not tied to its plot or picture: it doesn't move with it, and every caption is a
+  Figure.
+
 ## [0.64.0] - 2026-11-23
 
 Math in a line of text, calculated live while you type.

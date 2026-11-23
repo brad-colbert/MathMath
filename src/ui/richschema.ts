@@ -21,12 +21,15 @@
  * as a saved file's are (model/richtext.ts). Anything else on a pasted element is ignored.
  */
 import { DOMSerializer, type Mark, type MarkSpec, type Node, type NodeSpec, Schema } from 'prosemirror-model';
-import { type TextBlock, type TextRun, textBlocksOf, wordsOf } from '../model/richtext.js';
+import { MATH_ID, type TextBlock, type TextRun, textBlocksOf, wordsOf } from '../model/richtext.js';
+
+/** The kinds of block, each drawn as a class of its own. */
+export const BLOCK_KINDS = ['title', 'h1', 'h2', 'bullet', 'number', 'caption'] as const;
 
 /** A block's attributes, checked as a file's are: one block with no words, run through the file's checks. */
 function blockAttrs(given: Record<string, unknown>): Record<string, unknown> {
   const [b] = textBlocksOf([{ ...given, runs: [] }], '') ?? [{ runs: [] } as TextBlock];
-  return { kind: b!.kind ?? null, level: b!.level ?? 0, align: b!.align ?? null, line: b!.line ?? null, after: b!.after ?? null };
+  return { kind: b!.kind ?? null, level: b!.level ?? 0, align: b!.align ?? null, line: b!.line ?? null, after: b!.after ?? null, label: b!.label ?? null };
 }
 
 /** One word's look, checked as a file's is. */
@@ -34,18 +37,18 @@ const runLook = (given: Record<string, unknown>): TextRun | undefined => textBlo
 
 const block: NodeSpec = {
   content: 'inline*',
-  attrs: { kind: { default: null }, level: { default: 0 }, align: { default: null }, line: { default: null }, after: { default: null } },
+  attrs: { kind: { default: null }, level: { default: 0 }, align: { default: null }, line: { default: null }, after: { default: null }, label: { default: null } },
   parseDOM: [{
     tag: 'div.tb',
     getAttrs: (dom) => {
       const el = dom as HTMLElement;
-      const kind = ['title', 'h1', 'h2', 'bullet', 'number'].find((k) => el.classList.contains(k));
+      const kind = BLOCK_KINDS.find((k) => el.classList.contains(k));
       const num = (v: string | undefined) => (v === undefined ? undefined : Number(v));
-      return blockAttrs({ kind, level: num(el.dataset.level), align: el.dataset.align, line: num(el.dataset.line), after: num(el.dataset.after) });
+      return blockAttrs({ kind, level: num(el.dataset.level), align: el.dataset.align, line: num(el.dataset.line), after: num(el.dataset.after), label: el.dataset.label });
     },
   }],
   toDOM: (node) => {
-    const { kind, level, align, line, after } = node.attrs as { kind: string | null; level: number; align: string | null; line: number | null; after: number | null };
+    const { kind, level, align, line, after, label } = node.attrs as { kind: string | null; level: number; align: string | null; line: number | null; after: number | null; label: string | null };
     const style = [align ? `text-align: ${align}` : '', line ? `line-height: ${line * 1.15}` : '', after ? `margin-bottom: ${after}pt` : ''].filter(Boolean).join('; ');
     const heading = kind === 'title' || kind === 'h1' || kind === 'h2';
     return ['div', {
@@ -54,6 +57,7 @@ const block: NodeSpec = {
       'data-align': align,
       'data-line': line === null ? null : String(line),
       'data-after': after === null ? null : String(after),
+      'data-label': label,
       style: style || null,
       role: heading ? 'heading' : null,
       'aria-level': heading ? (kind === 'h2' ? '3' : kind === 'h1' ? '2' : '1') : null,
@@ -91,8 +95,6 @@ const marks: Record<string, MarkSpec> = {
 
 /** The longest math in a line of text that a paste may bring, as LaTeX. */
 const MAX_LATEX = 20000;
-/** A region id as a file may name one (model/richtext.ts). */
-const MATH_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 /**
  * Math in a line of text: a math region of its own, by id, drawn where it's named. While typing, `latex` is the math
@@ -116,6 +118,33 @@ const math: NodeSpec = {
   toDOM: (node) => ['span', { class: 'inline-math', 'data-math': node.attrs.id as string, 'data-latex': (node.attrs.latex as string) || null, contenteditable: 'false' }],
 };
 
+/**
+ * A reference to a numbered equation, figure or section, by its label: it shows the number that has now, filled in
+ * where it's drawn (see Paper). Read back only from its own attribute.
+ */
+const ref: NodeSpec = {
+  inline: true,
+  group: 'inline',
+  atom: true,
+  selectable: true,
+  attrs: { label: {} },
+  parseDOM: [{
+    tag: 'span[data-ref]',
+    getAttrs: (dom) => {
+      const label = (dom as HTMLElement).dataset.ref ?? '';
+      return MATH_ID.test(label) ? { label } : false;
+    },
+  }],
+  toDOM: (node) => ['span', { class: 'ref', 'data-ref': node.attrs.label as string, contenteditable: 'false' }],
+};
+
+/** Shows what a reference names, marked when that's gone. */
+export function showRef(el: HTMLElement, text: string, missing: boolean): void {
+  if (el.textContent !== text) el.textContent = text;
+  el.classList.toggle('missing', missing);
+  el.title = missing ? 'What this referred to is gone, or isn\'t numbered now' : '';
+}
+
 export const schema = new Schema({
   nodes: {
     doc: { content: 'block+' },
@@ -124,6 +153,7 @@ export const schema = new Schema({
     // A line break inside a paragraph: a '\n' in the words.
     hard_break: { inline: true, group: 'inline', selectable: false, parseDOM: [{ tag: 'br' }], toDOM: () => ['br'] },
     math,
+    ref,
   },
   marks,
 });
@@ -154,6 +184,10 @@ export function docOf(blocks: readonly TextBlock[], latexOf: (id: string) => str
         if (latex !== undefined) inline.push(schema.nodes.math!.create({ id: run.math, latex }));
         continue;
       }
+      if (run.ref !== undefined) {
+        inline.push(schema.nodes.ref!.create({ label: run.ref }));
+        continue;
+      }
       const look = marksOf(run);
       run.t.split('\n').forEach((part, i) => {
         if (i > 0) inline.push(schema.nodes.hard_break!.create());
@@ -171,18 +205,22 @@ export function docOf(blocks: readonly TextBlock[], latexOf: (id: string) => str
 export function blocksOf(doc: Node): TextBlock[] | null {
   const raw: TextBlock[] = [];
   doc.forEach((node) => {
-    const { kind, level, align, line, after } = node.attrs as Record<string, unknown>;
-    const b: Record<string, unknown> = { kind, level, align, line, after, runs: [] };
+    const { kind, level, align, line, after, label } = node.attrs as Record<string, unknown>;
+    const b: Record<string, unknown> = { kind, level, align, line, after, label, runs: [] };
     const runs = b.runs as TextRun[];
     node.forEach((child) => {
       if (child.type.name === 'hard_break') {
         const last = runs.at(-1);
-        if (last && last.math === undefined) last.t += '\n';
+        if (last && last.t !== '') last.t += '\n';
         else runs.push({ t: '\n' });
         return;
       }
       if (child.type === schema.nodes.math) {
         runs.push({ t: '', math: child.attrs.id as string });
+        return;
+      }
+      if (child.type === schema.nodes.ref) {
+        runs.push({ t: '', ref: child.attrs.label as string });
         return;
       }
       const run: Record<string, unknown> = { t: child.text ?? '' };

@@ -15,7 +15,7 @@
 
 import { expect, test } from 'vitest';
 import { emptyWorksheet, loadWorksheet, saveWorksheet } from '../src/format/native.js';
-import { type TextBlock, changeBlocks, headingCounts, isFormatted, plainBlocks, textBlocksOf, wordsOf } from '../src/model/richtext.js';
+import { type TextBlock, changeBlocks, isFormatted, numbering, plainBlocks, textBlocksOf, wordsOf } from '../src/model/richtext.js';
 
 const rich: TextBlock[] = [
   { kind: 'h1', runs: [{ t: 'Beams' }] },
@@ -58,10 +58,11 @@ test('plain words are a paragraph a line, and are not formatted', () => {
 test('headings are counted in reading order, subheadings afresh under each', () => {
   const t = (id: string, top: number, left: number, kinds: TextBlock['kind'][]) => {
     const blocks = kinds.map((kind): TextBlock => ({ ...(kind ? { kind } : {}), runs: [{ t: 'x' }] }));
-    return { id, top, left, text: wordsOf(blocks), blocks };
+    return { id, top, left, width: 0, height: 0, text: wordsOf(blocks), blocks };
   };
-  const counts = headingCounts([t('c', 300, 0, ['h2']), t('a', 0, 0, ['title', 'h1', 'h2', 'h2']), t('b2', 100, 90, ['h2']), t('b', 100, 0, ['h1', undefined])]);
-  expect(Object.fromEntries(counts)).toEqual({ a: { h1: 0, h2: 0 }, b: { h1: 1, h2: 2 }, b2: { h1: 2, h2: 0 }, c: { h1: 2, h2: 1 } });
+  const ws = { ...emptyWorksheet(), texts: [t('c', 300, 0, ['h2']), t('a', 0, 0, ['title', 'h1', 'h2', 'h2']), t('b2', 100, 90, ['h2']), t('b', 100, 0, ['h1', undefined])] };
+  const counts = numbering(ws).before;
+  expect(Object.fromEntries(counts)).toEqual({ a: { h1: 0, h2: 0, fig: 0 }, b: { h1: 1, h2: 2, fig: 0 }, b2: { h1: 2, h2: 0, fig: 0 }, c: { h1: 2, h2: 1, fig: 0 } });
 });
 
 test('a sheet keeps formatting, text across the page and Paper style; one without them saves as before', () => {
@@ -162,4 +163,66 @@ test('the editor holds math in text by id with its LaTeX, and gives the same blo
   expect([...mathsOf(doc)]).toEqual([['m1', 'x:=3'], ['m2', 'x=']]);
   // Math it isn't given is left out.
   expect(blocksOf(docOf(blocks, (id) => (id === 'm1' ? 'x' : undefined)))).toEqual([{ runs: [{ t: 'Let ' }, { t: '', math: 'm1' }, { t: '\nend' }] }]);
+});
+
+test('a reference is a run without words naming a label, and only headings and captions have labels, once', () => {
+  const blocks: TextBlock[] = [
+    { kind: 'caption', label: 'Lf', runs: [{ t: 'A beam.' }] },
+    { runs: [{ t: 'See ' }, { t: '', ref: 'Lf' }, { t: '', ref: 'e1' }, { t: '.' }] },
+  ];
+  expect(textBlocksOf(blocks, wordsOf(blocks))).toEqual(blocks);
+  // Two references side by side stay two; one with markup for a label, or naming nothing, is dropped.
+  const odd = [
+    { kind: 'h1', label: 'La', runs: [{ t: 'One' }] }, { kind: 'h2', label: 'La', runs: [{ t: 'Two' }] },
+    { label: 'Lp', runs: [{ t: 'x' }, { t: '', ref: '"><img>' }, { t: '', ref: 7 }, { t: '' }, { t: '', math: 'm', ref: 'La' }] },
+  ];
+  expect(textBlocksOf(odd, 'One\nTwo\nx')).toEqual([
+    { kind: 'h1', label: 'La', runs: [{ t: 'One' }] }, { kind: 'h2', runs: [{ t: 'Two' }] }, { runs: [{ t: 'x' }, { t: '', math: 'm' }] },
+  ]);
+});
+
+test('headings, captions and equations are numbered in the order read, and references show their numbers', async () => {
+  const { refText } = await import('../src/model/richtext.js');
+  const ws = emptyWorksheet();
+  const tb = (id: string, top: number, blocks: TextBlock[], flow?: true) => ({ id, left: 300, top, width: 0, height: 0, text: wordsOf(blocks), blocks, ...(flow ? { flow } : {}) });
+  ws.texts = [
+    tb('b', 400, [{ kind: 'caption', label: 'Lf2', runs: [{ t: 'Second' }] }, { kind: 'h2', label: 'Ls', runs: [{ t: 'Sub' }] }]),
+    // Across the page, it starts at the margin, before math further right on its row.
+    tb('a', 100, [{ kind: 'h1', runs: [{ t: 'Start' }] }, { kind: 'caption', label: 'Lf1', runs: [{ t: '  First   one ' }] }], true),
+    tb('c', 600, [{ kind: 'caption', label: 'Lf1', runs: [{ t: 'Copy' }] }]),
+  ];
+  const eq = (id: string, top: number, latex: string, numbered = true) => ({ id, left: 100, top, alignX: 100, alignY: top + 8, disabled: false, content: { k: 'draft' as const, latex, error: '' }, ...(numbered ? { numbered: true as const } : {}) });
+  ws.regions = [eq('e2', 500, 'y'), eq('e1', 100, 'x'), eq('n', 300, 'z', false), eq('in', 120, 'w'), { ...eq('p', 130, ''), content: { k: 'other' as const, tag: 'x' } }];
+  const n = numbering(ws, new Map([['in', {}]]));
+  expect(Object.fromEntries(n.equations)).toEqual({ e1: 1, e2: 2 });
+  expect(n.targets.map((t) => `${t.kind}${t.n}:${t.words}`)).toEqual(['h11:Start', 'fig1:First one', 'eq1:', 'fig2:Second', 'h21.1:Sub', 'eq2:', 'fig3:Copy']);
+  expect(Object.fromEntries(n.before)).toEqual({ a: { h1: 0, h2: 0, fig: 0 }, b: { h1: 1, h2: 0, fig: 1 }, c: { h1: 1, h2: 1, fig: 2 } });
+  // A label named twice belongs to the first read; the copy can't be referred to until it has one of its own.
+  expect(n.labels.get('Lf1')?.words).toBe('First one');
+  expect(n.targets.at(-1)?.label).toBeUndefined();
+  expect(refText(n.labels.get('e2'), false)).toBe('(2)');
+  expect(refText(n.labels.get('Lf2'), false)).toBe('Figure 2');
+  expect(refText(n.labels.get('Ls'), true)).toBe('Section 1.1');
+  expect(refText(n.labels.get('Ls'), false)).toBe('“Sub”');
+  expect(refText(n.labels.get('nope'), true)).toBe('(?)');
+  // What's being typed stands in for its region.
+  const typed = numbering(ws, new Map(), { id: 'a', blocks: [{ kind: 'h1', runs: [{ t: 'A' }] }, { kind: 'h1', runs: [{ t: 'B' }] }] });
+  expect(refText(typed.labels.get('Ls'), true)).toBe('Section 2.1');
+  expect(typed.equations.get('in')).toBe(2);
+  // On one row, equations go along the baseline, whatever their heights: a tall one's top is higher.
+  ws.regions = [{ ...eq('tall', 180, 'x'), alignY: 208, left: 300, alignX: 300 }, { ...eq('short', 200, 'y'), alignY: 208 }];
+  expect(Object.fromEntries(numbering(ws).equations)).toEqual({ short: 1, tall: 2 });
+});
+
+test('the editor holds captions, labels and references, and gives the same blocks back', async () => {
+  const { blocksOf, docOf, wordsOfDoc } = await import('../src/ui/richschema.js');
+  const blocks: TextBlock[] = [
+    { kind: 'caption', label: 'Lf', runs: [{ t: 'A beam.' }] },
+    { kind: 'h1', label: 'Lh', align: 'center', runs: [{ t: 'Loads' }] },
+    { runs: [{ t: 'See ' }, { t: '', ref: 'Lf' }, { t: '', ref: 'e1' }, { t: '\nand ' }, { t: '', ref: 'Lh' }] },
+  ];
+  expect(blocksOf(docOf(blocks))).toEqual(blocks);
+  expect(wordsOfDoc(docOf(blocks))).toBe(wordsOf(blocks));
+  // A line break after a reference starts words of their own.
+  expect(blocksOf(docOf([{ runs: [{ t: '', ref: 'Lf' }, { t: '\nx' }] }]))).toEqual([{ runs: [{ t: '', ref: 'Lf' }, { t: '\nx' }] }]);
 });

@@ -28,9 +28,9 @@ import { Fragment, type MarkType, type Node, type ResolvedPos, Slice } from 'pro
 import { AllSelection, type Command, EditorState, NodeSelection, TextSelection, type Transaction } from 'prosemirror-state';
 import { EditorView, type NodeView } from 'prosemirror-view';
 import { AFTER, type Align, type BlockKind, LINES, MAX_LEVEL, type TextBlock } from '../model/richtext.js';
-import { blocksOf, docOf, schema } from './richschema.js';
+import { BLOCK_KINDS, blocksOf, docOf, schema, showRef } from './richschema.js';
 
-type Attrs = { kind: BlockKind | null; level: number; align: Align | null; line: number | null; after: number | null };
+type Attrs = { kind: BlockKind | null; level: number; align: Align | null; line: number | null; after: number | null; label: string | null };
 const isListKind = (k: unknown): boolean => k === 'bullet' || k === 'number';
 const isHeadingKind = (k: unknown): boolean => k === 'title' || k === 'h1' || k === 'h2';
 
@@ -126,7 +126,7 @@ export const clearFormat: Command = (state, dispatch) => {
   if (dispatch) {
     const { from, to } = state.selection;
     const tr = state.tr.removeMark(from, to).setStoredMarks([]);
-    for (const { node, pos } of selectedBlocks(state)) tr.setNodeMarkup(pos, undefined, { ...(node.attrs as Attrs), kind: null, level: 0, align: null, line: null, after: null });
+    for (const { node, pos } of selectedBlocks(state)) tr.setNodeMarkup(pos, undefined, { ...(node.attrs as Attrs), kind: null, level: 0, align: null, line: null, after: null, label: null });
     dispatch(tr);
   }
   return true;
@@ -143,9 +143,15 @@ const enter: Command = (state, dispatch) => {
   if (empty && node.content.size === 0 && isListKind(attrs.kind)) {
     return setBlocks(() => (attrs.level > 0 ? { level: attrs.level - 1 } : { kind: null }))(state, dispatch);
   }
+  // At the start of a block with words, a new block goes before it, and its label stays with its words.
+  if (empty && $from.parentOffset === 0 && node.content.size > 0 && attrs.label !== null) {
+    if (dispatch) dispatch(state.tr.insert($from.before(), schema.nodes.block!.create({ ...attrs, label: null })).scrollIntoView());
+    return true;
+  }
   return splitBlockAs((n, atEnd) => ({
     type: n.type,
-    attrs: atEnd && isHeadingKind(n.attrs.kind) ? { kind: null, level: 0, align: null, line: null, after: null } : n.attrs,
+    // A heading's or caption's label stays with its first part: what follows is a block of its own.
+    attrs: atEnd && (isHeadingKind(n.attrs.kind) || n.attrs.kind === 'caption') ? { kind: null, level: 0, align: null, line: null, after: null, label: null } : { ...n.attrs, label: null },
   }))(state, dispatch);
 };
 
@@ -174,7 +180,7 @@ const listRule = (pattern: RegExp, kind: 'bullet' | 'number'): InputRule => new 
 /** Words as a slice: a block for each line, like the block they're put into, so lines pasted into a list are items. */
 function textSlice(text: string, $at: ResolvedPos): Slice {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  const attrs = $at.parent.type === schema.nodes.block ? $at.parent.attrs : null;
+  const attrs = $at.parent.type === schema.nodes.block ? { ...$at.parent.attrs, label: null } : null;
   const blocks = lines.map((line) => {
     // Control characters other than a tab aren't words.
     const words = line.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
@@ -211,10 +217,11 @@ export function safeHTML(html: string): string {
     if (tag === 'br') return '<br>';
     if (tag === 'sub' || tag === 'sup') return `<${tag}>${inner}</${tag}>`;
     if (tag === 'div' && el.classList.contains('tb')) {
-      const kinds = ['title', 'h1', 'h2', 'bullet', 'number'].filter((k) => el.classList.contains(k));
-      return `<div class="tb ${kinds.join(' ')}"${attrs(el, ['data-level', 'data-align', 'data-line', 'data-after'])}${open}>${inner}</div>`;
+      const kinds = BLOCK_KINDS.filter((k) => el.classList.contains(k));
+      return `<div class="tb ${kinds.join(' ')}"${attrs(el, ['data-level', 'data-align', 'data-line', 'data-after', 'data-label'])}${open}>${inner}</div>`;
     }
     if (tag === 'span' && el.hasAttribute('data-math')) return `<span${attrs(el, ['data-math', 'data-latex'])}${open}></span>`;
+    if (tag === 'span' && el.hasAttribute('data-ref')) return `<span${attrs(el, ['data-ref'])}${open}></span>`;
     if (tag === 'span') return `<span${attrs(el, ['data-bold', 'data-italic', 'data-underline', 'data-color', 'data-size'])}${open}>${inner}</span>`;
     return open ? `<div${open}>${inner}</div>` : inner;
   };
@@ -230,6 +237,42 @@ export interface RichEditorEvents {
   newId?: () => string;
   /** Opens math in the words for editing: the element it's drawn in, its id and LaTeX. */
   openMath?: (dom: HTMLElement, id: string, latex: string) => void;
+  /** What a reference shows now, by the label it names, and whether that's gone. */
+  refText?: (label: string) => { text: string; missing: boolean };
+  /** What a reference can name, in the order read. */
+  refChoices?: () => RefChoice[];
+  /** Whether a label already names a heading or caption: one pasted is then a copy, with none of its own. */
+  labelTaken?: (label: string) => boolean;
+}
+
+/**
+ * Something a reference can name, as Reference offers it: by its label, or, for a heading or caption with none yet,
+ * the block in these words to give one, or a way to give one elsewhere.
+ */
+export interface RefChoice {
+  title: string;
+  /** A drawing of it, as for an equation. */
+  preview?: HTMLElement;
+  label?: string;
+  block?: number;
+  give?: () => string | undefined;
+}
+
+/** A reference in the words: the number it names, filled in by the page. */
+function refNodeView(node: Node, text: (label: string) => { text: string; missing: boolean }): NodeView {
+  const dom = document.createElement('span');
+  dom.className = 'ref';
+  dom.dataset.ref = node.attrs.label as string;
+  dom.contentEditable = 'false';
+  const r = text(node.attrs.label as string);
+  showRef(dom, r.text, r.missing);
+  return {
+    dom,
+    update: (next) => next.type === node.type && next.attrs.label === node.attrs.label,
+    ignoreMutation: () => true,
+    selectNode: () => dom.classList.add('chosen'),
+    deselectNode: () => dom.classList.remove('chosen'),
+  };
 }
 
 /** Math in the words, drawn by the page, which the editor leaves alone. */
@@ -255,6 +298,16 @@ function freshMath(fragment: Fragment, newId: () => string): Fragment {
     if (n.type === schema.nodes.math) nodes.push(schema.nodes.math!.create({ ...n.attrs, id: newId() }));
     else if (n.isText || n.isLeaf) nodes.push(n);
     else nodes.push(n.copy(freshMath(n.content, newId)));
+  });
+  return Fragment.from(nodes);
+}
+
+/** A pasted heading or caption whose label names one already is a copy of it: references stay with the first. */
+function freshLabels(fragment: Fragment, taken: (label: string) => boolean): Fragment {
+  const nodes: Node[] = [];
+  fragment.forEach((n) => {
+    if (n.type === schema.nodes.block && typeof n.attrs.label === 'string' && taken(n.attrs.label)) nodes.push(n.type.create({ ...n.attrs, label: null }, n.content, n.marks));
+    else nodes.push(n);
   });
   return Fragment.from(nodes);
 }
@@ -321,8 +374,16 @@ export class RichEditor {
       },
       transformPastedHTML: safeHTML,
       clipboardTextParser: (text, $context) => textSlice(text, $context),
-      transformPasted: (slice) => (events.newId ? new Slice(freshMath(slice.content, events.newId), slice.openStart, slice.openEnd) : slice),
-      nodeViews: events.mathView ? { math: (node) => mathNodeView(node, events.mathView!) } : {},
+      transformPasted: (slice, view) => {
+        let content = events.newId ? freshMath(slice.content, events.newId) : slice.content;
+        // A heading dragged within the words is moved, label and all: only a copy is new.
+        if (events.labelTaken && !view.dragging?.move) content = freshLabels(content, events.labelTaken);
+        return new Slice(content, slice.openStart, slice.openEnd);
+      },
+      nodeViews: {
+        ...(events.mathView ? { math: (node: Node) => mathNodeView(node, events.mathView!) } : {}),
+        ...(events.refText ? { ref: (node: Node) => refNodeView(node, events.refText!) } : {}),
+      },
       handleClickOn: (_view, _pos, node, nodePos) => {
         if (node.type !== schema.nodes.math) return false;
         this.open(nodePos);
@@ -395,6 +456,41 @@ export class RichEditor {
     const pos = tr.mapping.map(view.state.selection.from, -1);
     view.dispatch(tr);
     this.open(pos);
+  }
+
+  /**
+   * A reference at the caret to what's chosen. A heading or caption without a label is given one first, in the same
+   * step to undo.
+   */
+  insertRef(choice: RefChoice): void {
+    const { view } = this;
+    const tr = view.state.tr;
+    let label = choice.label;
+    if (label === undefined && choice.block !== undefined && this.events.newId && choice.block < view.state.doc.childCount) {
+      label = `L${this.events.newId()}`;
+      let at = 0;
+      for (let i = 0; i < choice.block; i++) at += view.state.doc.child(i).nodeSize;
+      tr.setNodeMarkup(at, undefined, { ...view.state.doc.child(choice.block).attrs, label });
+    } else if (label === undefined) label = choice.give?.();
+    if (label === undefined) return;
+    tr.replaceSelectionWith(schema.nodes.ref!.create({ label }), false);
+    view.dispatch(closeHistory(tr.scrollIntoView()));
+    view.focus();
+  }
+
+  /** Each reference shows what it names now: numbers change as what's before them does. */
+  refreshRefs(): void {
+    const text = this.events.refText;
+    if (!text) return;
+    for (const el of this.view.dom.querySelectorAll<HTMLElement>('span.ref[data-ref]')) {
+      const r = text(el.dataset.ref!);
+      showRef(el, r.text, r.missing);
+    }
+  }
+
+  /** What a reference can name now, for Reference. */
+  refChoices(): RefChoice[] {
+    return this.events.refChoices?.() ?? [];
   }
 
   /** Where math is, by id. */
@@ -515,7 +611,7 @@ function icon(lines: [number, number, number][], before?: 'dots' | 'numbers'): S
 }
 
 const KINDS: [string, BlockKind | null, string][] = [
-  ['Paragraph', null, 'Ctrl+Alt+0'], ['Title', 'title', ''], ['Heading', 'h1', 'Ctrl+Alt+1'], ['Subheading', 'h2', 'Ctrl+Alt+2'],
+  ['Paragraph', null, 'Ctrl+Alt+0'], ['Title', 'title', ''], ['Heading', 'h1', 'Ctrl+Alt+1'], ['Subheading', 'h2', 'Ctrl+Alt+2'], ['Caption', 'caption', ''],
 ];
 
 /**
@@ -538,7 +634,7 @@ class FormatBar {
     this.el.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'mouse') e.preventDefault();
     });
-    this.kind = this.button('Paragraph ▾', 'Paragraph, title, heading or subheading', (b) => this.menu(b, KINDS.map(([label, kind, keys]) => [label, keys, () => editor.run(setKind(kind))])));
+    this.kind = this.button('Paragraph ▾', 'Paragraph, title, heading, subheading or a figure\'s caption', (b) => this.menu(b, KINDS.map(([label, kind, keys]) => [label, keys, () => editor.run(setKind(kind))])));
     this.kind.classList.add('kind');
     this.sep();
     this.toggle('B', 'Bold (Ctrl+B)', () => editor.run(toggle('bold')), () => editor.is('bold')).style.fontWeight = 'bold';
@@ -569,6 +665,11 @@ class FormatBar {
     this.button('Plain', 'Back to plain words and paragraphs', () => editor.run(clearFormat));
     this.sep();
     this.button('Math', 'Math in the line of text, calculated where the text starts (Ctrl+M)', () => editor.insertMath()).classList.add('math');
+    this.button('Ref ▾', 'A reference to a numbered equation, a figure or a section, which keeps its number up to date', (b) => {
+      const choices = editor.refChoices();
+      this.menu(b, choices.length ? choices.map((c) => [c.preview ?? c.title, '', () => editor.insertRef(c)])
+        : [['Nothing is numbered yet: number an equation with Format → Number equation, or make a caption or heading', '', () => {}]]);
+    }).classList.add('ref-button');
     document.body.appendChild(this.el);
     window.addEventListener('scroll', this.place, true);
     window.addEventListener('resize', this.place);
@@ -603,7 +704,7 @@ class FormatBar {
   }
 
   /** A short list under a button. */
-  private menu(under: HTMLButtonElement, items: [string, string, () => void, string?][]): void {
+  private menu(under: HTMLButtonElement, items: [string | HTMLElement, string, () => void, string?][]): void {
     const open = this.popup;
     this.closeMenu();
     if (open?.dataset.for === under.title) return;
@@ -648,7 +749,7 @@ class FormatBar {
   update(): void {
     for (const [b, on] of this.toggles) b.setAttribute('aria-pressed', String(on()));
     const kind = this.editor.block.kind;
-    this.kind.textContent = `${KINDS.find(([, k]) => k === (isHeadingKind(kind) ? kind : null))?.[0] ?? 'Paragraph'} ▾`;
+    this.kind.textContent = `${KINDS.find(([, k]) => k === (isHeadingKind(kind) || kind === 'caption' ? kind : null))?.[0] ?? 'Paragraph'} ▾`;
     this.position();
   }
 

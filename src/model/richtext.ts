@@ -24,18 +24,21 @@
 import { TEXT_SIZES, type Worksheet } from './ast.js';
 
 /** What a block is: a paragraph when left out. Lists are flat, each item with its level. */
-export type BlockKind = 'title' | 'h1' | 'h2' | 'bullet' | 'number';
+export type BlockKind = 'title' | 'h1' | 'h2' | 'bullet' | 'number' | 'caption';
 export type Align = 'left' | 'center' | 'right' | 'justify';
 
 /**
  * Words that look alike. A line break inside a paragraph is a '\n' in `t`. Math in a line of text is a run of its own
  * with no words, `t` empty, naming the math region it shows (see inlineMath): a version that knows nothing of it drops
- * a run without words, and the words are unchanged.
+ * a run without words, and the words are unchanged. A reference to a numbered equation, figure or section is a run
+ * without words too, naming its label (see numbering).
  */
 export interface TextRun {
   t: string;
   /** The math region shown here, by id. */
   math?: string;
+  /** What it refers to: a numbered equation by its region's id, or a heading or caption by its label. */
+  ref?: string;
   bold?: true;
   italic?: true;
   underline?: true;
@@ -54,13 +57,17 @@ export interface TextBlock {
   line?: number;
   /** Space after it, in points. */
   after?: number;
+  /** A heading's or caption's name, for references to it: given when the first is made. */
+  label?: string;
   runs: TextRun[];
 }
 
 /** How a sheet's text looks: 'paper' is a serif face, justified, with numbered headings. */
 export type TextLook = 'paper';
 
-const KINDS: readonly string[] = ['title', 'h1', 'h2', 'bullet', 'number'] satisfies BlockKind[];
+const KINDS: readonly string[] = ['title', 'h1', 'h2', 'bullet', 'number', 'caption'] satisfies BlockKind[];
+/** The blocks a reference can name: sections and figures. */
+const NAMED: readonly string[] = ['h1', 'h2', 'caption'] satisfies BlockKind[];
 const ALIGNS: readonly string[] = ['left', 'center', 'right', 'justify'] satisfies Align[];
 export const MAX_LEVEL = 3;
 export const LINES = { min: 1, max: 3 } as const;
@@ -76,12 +83,15 @@ const within = (v: unknown, { min, max }: { min: number; max: number }): number 
 /** A color as Format writes one, #rrggbb, or undefined. */
 export const colorOf = (v: unknown): string | undefined => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : undefined);
 
-/** A region id as a file may name one in text: as MathMath writes them (format/native.ts). */
-const MATH_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+/** A region id or label as a file may name one in text: as MathMath writes them (format/native.ts). */
+export const MATH_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 function runOf(given: unknown): TextRun | null {
   if (!isObject(given) || typeof given.t !== 'string') return null;
-  if (given.t === '') return typeof given.math === 'string' && MATH_ID.test(given.math) ? { t: '', math: given.math } : null;
+  if (given.t === '') {
+    if (typeof given.math === 'string' && MATH_ID.test(given.math)) return { t: '', math: given.math };
+    return typeof given.ref === 'string' && MATH_ID.test(given.ref) ? { t: '', ref: given.ref } : null;
+  }
   const run: TextRun = { t: given.t };
   if (given.bold === true) run.bold = true;
   if (given.italic === true) run.italic = true;
@@ -95,7 +105,7 @@ function runOf(given: unknown): TextRun | null {
 }
 
 const sameLook = (a: TextRun, b: TextRun): boolean =>
-  a.math === undefined && b.math === undefined && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.script === b.script && a.size === b.size && a.color === b.color;
+  a.t !== '' && b.t !== '' && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.script === b.script && a.size === b.size && a.color === b.color;
 
 function blockOf(given: unknown): TextBlock | null {
   if (!isObject(given) || !Array.isArray(given.runs)) return null;
@@ -117,6 +127,7 @@ function blockOf(given: unknown): TextBlock | null {
   if (line !== undefined && line !== 1) block.line = line;
   const after = within(given.after, AFTER);
   if (after) block.after = after;
+  if (block.kind && NAMED.includes(block.kind) && typeof given.label === 'string' && MATH_ID.test(given.label)) block.label = given.label;
   return block;
 }
 
@@ -138,6 +149,13 @@ export function textBlocksOf(given: unknown, text: string): TextBlock[] | null {
   for (const g of given) if (isObject(g) && Array.isArray(g.runs) && (runs += g.runs.length) > MAX_RUNS) return null;
   const blocks = given.map(blockOf);
   if (blocks.some((b) => b === null) || wordsOf(blocks as TextBlock[]) !== text) return null;
+  // A label names one block: a copy of one, as from splitting a heading, is a block of its own.
+  const labels = new Set<string>();
+  for (const b of blocks as TextBlock[]) {
+    if (b.label === undefined) continue;
+    if (labels.has(b.label)) delete b.label;
+    else labels.add(b.label);
+  }
   return blocks as TextBlock[];
 }
 
@@ -207,21 +225,103 @@ export function placeInline(ws: Pick<Worksheet, 'texts' | 'regions' | 'page'>): 
 export const changeBlocks = (blocks: readonly TextBlock[], change: (b: TextBlock) => TextBlock): TextBlock[] =>
   blocks.map((b) => blockOf(change(b))!);
 
+/** How many headings, subheadings since the last heading, and figure captions come before a text region. */
+export interface Counts { h1: number; h2: number; fig: number }
+
+/** What a reference can name: a numbered equation, a figure's caption, or a heading. */
+export interface Target {
+  kind: 'eq' | 'fig' | 'h1' | 'h2';
+  /** Its number as shown: 3, or 1.2 for a subheading. */
+  n: string;
+  /** Its words, for a heading or caption; nothing for an equation. */
+  words: string;
+  /** The region it's in, and for a heading or caption, which block. */
+  region: string;
+  block?: number;
+  /** What a reference names it by: an equation's region id, or a block's label, if it has one of its own. */
+  label?: string;
+}
+
+export interface Numbering {
+  /** For each text region, how many of each come before it. */
+  before: Map<string, Counts>;
+  /** Each numbered equation's number, by region id. */
+  equations: Map<string, number>;
+  /** Everything a reference can name, in the order it's read. */
+  targets: Target[];
+  /** The targets by label. */
+  labels: Map<string, Target>;
+}
+
+/** The kinds of math that can be numbered as an equation: math on its own, not a plot or picture. */
+export const numberable = (r: { content: { k: string } }): boolean => IN_LINE.includes(r.content.k);
+
+/** The order things are read in: down the sheet, then across. Text across the page starts at the margin. */
+const readingOrder = <T extends { top: number; left: number }>(items: readonly T[], leftOf: (t: T) => number = (t) => t.left): T[] =>
+  [...items].sort((a, b) => a.top - b.top || leftOf(a) - leftOf(b));
+
 /**
- * The numbers headings have before each region, in the order they're read: down the sheet, then across. Each region
- * gets how many headings, and how many subheadings since the last one, come before it.
+ * How everything is numbered, in the order it's read: headings and subheadings (shown in Paper style), figure
+ * captions, and equations given a number. `typed` stands in for one region's blocks while they're being typed. A label
+ * named twice belongs to the first block read.
  */
-export function headingCounts(texts: readonly { id: string; left: number; top: number; text: string; blocks?: unknown }[]): Map<string, { h1: number; h2: number }> {
-  const out = new Map<string, { h1: number; h2: number }>();
-  let [h1, h2] = [0, 0];
-  for (const t of [...texts].sort((a, b) => a.top - b.top || a.left - b.left)) {
-    out.set(t.id, { h1, h2 });
-    for (const b of t.blocks === undefined ? [] : textBlocksOf(t.blocks, t.text) ?? []) {
+export function numbering(
+  ws: Pick<Worksheet, 'texts' | 'regions' | 'page'>, inline: ReadonlyMap<string, unknown> = new Map(), typed?: { id: string; blocks: readonly TextBlock[] },
+): Numbering {
+  const before = new Map<string, Counts>();
+  const equations = new Map<string, number>();
+  const found: { t: Target; label: string | undefined; at: [number, number, number] }[] = [];
+  const add = (t: Target, label: string | undefined, at: [number, number, number]): void => {
+    found.push({ t, label, at });
+  };
+  let [h1, h2, fig] = [0, 0, 0];
+  const margin = ws.page.margins.left;
+  const leftOf = (x: { left: number; flow?: true }): number => (x.flow === true ? margin : x.left);
+  for (const t of readingOrder(ws.texts, leftOf)) {
+    before.set(t.id, { h1, h2, fig });
+    const blocks = typed?.id === t.id ? typed.blocks : t.blocks === undefined ? [] : textBlocksOf(t.blocks, t.text) ?? [];
+    blocks.forEach((b, block) => {
+      const words = b.runs.map((r) => r.t).join('').replace(/\s+/g, ' ').trim();
       if (b.kind === 'h1') {
         h1++;
         h2 = 0;
-      } else if (b.kind === 'h2') h2++;
-    }
+        add({ kind: 'h1', n: String(h1), words, region: t.id, block }, b.label, [t.top, leftOf(t), block]);
+      } else if (b.kind === 'h2') {
+        h2++;
+        add({ kind: 'h2', n: `${h1}.${h2}`, words, region: t.id, block }, b.label, [t.top, leftOf(t), block]);
+      } else if (b.kind === 'caption') {
+        fig++;
+        add({ kind: 'fig', n: String(fig), words, region: t.id, block }, b.label, [t.top, leftOf(t), block]);
+      }
+    });
   }
-  return out;
+  let eq = 0;
+  // Equations in the order they calculate: along the baseline of a row, then down, as math is read.
+  const numbered = ws.regions.filter((x) => x.numbered === true && !inline.has(x.id) && numberable(x)).sort((a, b) => a.alignY - b.alignY || a.alignX - b.alignX);
+  for (const r of numbered) {
+    equations.set(r.id, ++eq);
+    // Text's first baseline is 8 points below its top, as an equation's alignY is its baseline.
+    add({ kind: 'eq', n: String(eq), words: '', region: r.id }, r.id, [r.alignY - 8, r.alignX, 0]);
+  }
+  // All of them in the order read, an equation between the text above it and the text below. A label belongs to the
+  // first read.
+  found.sort((a, b) => a.at[0] - b.at[0] || a.at[1] - b.at[1] || a.at[2] - b.at[2]);
+  const labels = new Map<string, Target>();
+  for (const { t, label } of found) {
+    if (label === undefined || labels.has(label)) continue;
+    t.label = label;
+    labels.set(label, t);
+  }
+  return { before, equations, targets: found.map((f) => f.t), labels };
 }
+
+/** How a reference shows what it names. Section numbers show in Paper style; otherwise a heading's words do. */
+export function refText(target: Target | undefined, paper: boolean): string {
+  if (!target) return '(?)';
+  if (target.kind === 'eq') return `(${target.n})`;
+  if (target.kind === 'fig') return `Figure ${target.n}`;
+  return paper ? `Section ${target.n}` : `“${target.words || '…'}”`;
+}
+
+/** The labels references in blocks name, in the order they're read. */
+export const refsOf = (blocks: readonly TextBlock[]): string[] => blocks.flatMap((b) => b.runs.flatMap((r) => (r.ref === undefined ? [] : [r.ref])));

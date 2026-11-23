@@ -3913,6 +3913,152 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// Numbered equations, figure captions and references: numbers in the order read, kept up to date in references as
+// things are numbered, typed or taken away, a reference made from the format bar, one step to undo, and a hostile file's
+// references and labels held to what typing makes.
+{
+  const page = await fresh();
+  const ctrl = async (key: string) => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press(key as never);
+    await page.keyboard.up('Control');
+    await sleep(120);
+  };
+  const words = (bs: any[]) => bs.map((b) => b.runs.map((r: any) => r.t).join('')).join('\n');
+  const ws = emptyWorksheet();
+  ws.textLook = 'paper';
+  const intro = [{ kind: 'h1', label: 'Lm', runs: [{ t: 'Motion' }] }, { runs: [{ t: 'By ' }, { t: '', ref: 'e2' }, { t: ', see ' }, { t: '', ref: 'Lf' }, { t: ' in ' }, { t: '', ref: 'Lm' }, { t: '.' }] }];
+  const cap = [{ kind: 'caption', label: 'Lf', runs: [{ t: 'The stone ' }, { t: '', ref: 'Lm' }] }];
+  const other = [{ kind: 'h2', runs: [{ t: 'Other' }] }];
+  ws.texts = [
+    { id: 't', left: 72, top: 72, width: 300, height: 0, text: words(intro), blocks: intro },
+    { id: 'c', left: 72, top: 330, width: 300, height: 0, text: words(cap), blocks: cap },
+    { id: 'u', left: 72, top: 400, width: 300, height: 0, text: words(other), blocks: other },
+  ] as never;
+  const eq = (id: string, top: number, latex: string, numbered: boolean) => ({ id, left: 90, top, alignX: 90, alignY: top + 8, disabled: false, content: readRegion(latex), ...(numbered ? { numbered: true } : {}) });
+  ws.regions = [eq('e3', 150, 'a\\coloneq 1', false), eq('e1', 200, 'b\\coloneq 2', true), eq('e2', 250, 'c\\coloneq a+b', true)] as never;
+  const file = saveWorksheet(ws);
+  await page.evaluate((f) => (window as any).mathmath.load('numbers.mathmath', f), file);
+  await idle(page);
+  await sleep(150);
+  const state = () => page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    return {
+      refs: [...document.querySelectorAll('[data-id="t"] .ref')].map((e) => e.textContent + (e.classList.contains('missing') ? '!' : '')),
+      numbers: Object.fromEntries([...document.querySelectorAll('.eq-number')].map((e) => [(e.parentElement as HTMLElement).dataset.id, e.textContent])),
+      right: [...document.querySelectorAll('.eq-number')].map((e) => Math.round(e.getBoundingClientRect().right)),
+      undo: d.undoStack.length, dirty: d.dirty,
+      blocks: JSON.parse(JSON.stringify(d.ws.texts.map((t: any) => t.blocks))),
+    };
+  });
+  const first = await state();
+  const sheetBox = await page.evaluate(() => {
+    const r = document.getElementById('sheet')!.getBoundingClientRect();
+    const { width, margins } = (window as any).mathmath.doc.ws.page;
+    return { margin: r.left + r.width * (width - margins.right) / width };
+  });
+  check('numbered equations are numbered in the order read, level at the page\'s right margin', first.numbers.e1 === '(1)' && first.numbers.e2 === '(2)' && !first.numbers.e3
+    && first.right.every((r: number) => Math.abs(r - sheetBox.margin) < 2), { first, sheetBox });
+  check('references show what they name: an equation, a figure and a section', JSON.stringify(first.refs) === '["(2)","Figure 1","Section 1"]', first.refs);
+  check('a sheet with numbers and references saves as it was opened', await page.evaluate(() => (window as any).mathmath.save()) === file);
+  // Opening text with references and leaving it changes nothing.
+  const para = (await (await page.$('[data-id="t"] .tb:last-child'))!.boundingBox())!;
+  await page.mouse.click(para.x + para.width - 2, para.y + para.height / 2);
+  await sleep(300);
+  await page.keyboard.press('Escape');
+  await sleep(150);
+  const left = await state();
+  check('opening text with references and leaving it changes nothing', !left.dirty && left.undo === 0, left);
+  // Format → Number equation on math above the others: they and the reference to them renumber.
+  const menu = (label: string) => page.evaluate((l) => [...document.querySelectorAll<HTMLButtonElement>('#toolbar .menu button')].find((b) => b.textContent === l)!.click(), label);
+  // Math clicked open is what Format numbers.
+  const e3 = (await (await page.$('[data-id="e3"]'))!.boundingBox())!;
+  await page.mouse.click(e3.x + e3.width / 2, e3.y + e3.height / 2);
+  await sleep(150);
+  await menu('Number equation');
+  await idle(page);
+  await sleep(100);
+  const renumbered = await state();
+  await page.keyboard.press('Escape');
+  await sleep(150);
+  check('Format → Number equation numbers math, and what\'s after it and references to it renumber', renumbered.numbers.e3 === '(1)' && renumbered.numbers.e2 === '(3)' && renumbered.refs[0] === '(3)' && renumbered.undo === 1, renumbered);
+  await ctrl('KeyZ');
+  await idle(page);
+  check('one undo takes the number back', (await state()).refs[0] === '(2)');
+  // Typing: Enter at the start of the heading puts a new heading before it, and the reference to it renumbers before
+  // typing ends.
+  const t = (await (await page.$('[data-id="t"] .tb.h1'))!.boundingBox())!;
+  await page.mouse.click(t.x + 40, t.y + t.height / 2);
+  await sleep(150);
+  // The caret to the heading's start, as Home would.
+  await page.evaluate(() => { const v = (window as any).mathmath.paper.typing.view; v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.near(v.state.doc.resolve(1)))); });
+  await page.keyboard.press('Enter');
+  await sleep(60);
+  await page.keyboard.press('ArrowUp');
+  await sleep(60);
+  await page.keyboard.type('Start');
+  await sleep(100);
+  const typing = await state();
+  const elsewhere = await page.evaluate(() => document.querySelector('[data-id="c"] .ref')?.textContent);
+  check('a heading typed before a reference renumbers it while still typing, here and in other text', typing.refs[2] === 'Section 2' && elsewhere === 'Section 2', { refs: typing.refs, elsewhere });
+  // The format bar's Ref: what it offers, and a reference to a heading in another text, which is given a label.
+  await page.evaluate(() => { const v = (window as any).mathmath.paper.typing.view; v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.atEnd(v.state.doc))); });
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#format-bar button')].find((b) => b.textContent === 'Ref ▾')!.click());
+  await sleep(100);
+  const offered = await page.evaluate(() => [...document.querySelectorAll('#format-bar .format-menu button')].map((b) => (b.textContent ?? '').replace(/\s+/g, ' ').trim()));
+  check('Ref offers what is numbered, in the order read', offered.length === 6 && offered[0] === 'Section 1 Start' && offered[1] === 'Section 2 Motion' && offered[2]!.startsWith('(1)') && offered[4] === 'Figure 1. The stone' && offered[5] === 'Section 2.1 Other', offered);
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#format-bar .format-menu button')].at(-1)!.click());
+  await sleep(100);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const done = await state();
+  const label = done.blocks[2][0].label;
+  check('a reference to a heading in another text gives it a label, and shows its number', /^L\d+$/.test(label ?? '') && JSON.stringify(done.refs) === '["(2)","Figure 1","Section 2","Section 2.1"]'
+    && done.blocks[0][2].runs.at(-1).ref === label && done.blocks[0][1].label === 'Lm' && done.blocks[0][0].label === undefined, done);
+  check('typing text with references, and labelling another text, is one step to undo', done.undo === 1, done.undo);
+  await ctrl('KeyZ');
+  await idle(page);
+  const back = await state();
+  check('one undo takes back the words, the reference and the label', back.blocks[2][0].label === undefined && JSON.stringify(back.refs) === '["(2)","Figure 1","Section 1"]', back);
+  // What a reference names, taken away: it says so.
+  await page.evaluate(() => { const d = (window as any).mathmath.doc; d.remove(new Set(['e2'])); });
+  await sleep(150);
+  check('a reference to what has gone shows (?)', (await state()).refs[0] === '(?)!');
+  // Pasted from a MathMath text: a caption copied keeps its words and references, and the label stays with the first.
+  const p = (await (await page.$('[data-id="t"] .tb:last-child'))!.boundingBox())!;
+  await page.mouse.click(p.x + p.width - 2, p.y + p.height / 2);
+  await sleep(300);
+  await page.evaluate(() => { const v = (window as any).mathmath.paper.typing.view; v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.atEnd(v.state.doc))); });
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', '<div data-pm-slice="0 0 []"><div class="tb caption" data-label="Lf" style="position:fixed">Copy <span data-ref="Lm" style="color:red">Figure 9</span></div><div class="tb caption" data-label="Lnew">New</div></div>');
+    dt.setData('text/plain', 'Copy\nNew');
+    document.querySelector('[data-id="t"] .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await sleep(100);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  const pastedRefs = await state();
+  const caps = pastedRefs.blocks[0].filter((b: any) => b.kind === 'caption');
+  check('a pasted caption keeps its references, and a copy\'s label stays with the first', caps.length === 2 && caps[0].label === undefined && caps[0].runs[1]?.ref === 'Lm' && caps[1].label === 'Lnew', caps);
+  // A hostile file: a reference with markup for a label, a label on a paragraph, a label named twice, and a plot numbered.
+  const bad = emptyWorksheet();
+  const hb = [{ kind: 'caption', label: 'Lx', runs: [{ t: 'one' }] }, { kind: 'caption', label: 'Lx', runs: [{ t: 'two' }] }, { label: 'Lp', runs: [{ t: 'para ' }, { t: '', ref: '"><img src=x onerror=alert(1)>' }, { t: '', ref: 'Lx' }, { t: '', ref: 'Lp' }, { t: '', ref: 'pl' }] }];
+  bad.texts = [{ id: 'h', left: 72, top: 72, width: 300, height: 0, text: words(hb), blocks: hb }, { id: 'nb', left: 72, top: 600, width: 300, height: 0, text: 'plain', blocks: [null] }] as never;
+  bad.regions = [{ ...eq('pl', 300, 'x\\coloneq 1', true), content: { k: 'plot', x: null, ys: [], xAxis: { min: null, max: null, log: false }, yAxis: { min: null, max: null, log: false }, markers: false, width: 100, height: 80 } }] as never;
+  await page.evaluate((f) => (window as any).mathmath.load('hostile-refs.mathmath', f), saveWorksheet(bad));
+  await idle(page);
+  await sleep(150);
+  const hostile = await page.evaluate(() => ({
+    refs: [...document.querySelectorAll('[data-id="h"] .ref')].map((e) => e.textContent),
+    captions: [...document.querySelectorAll('[data-id="h"] .tb.caption')].length, img: !!document.querySelector('#sheet img'), numbers: document.querySelectorAll('.eq-number').length,
+    plain: document.querySelector('[data-id="nb"]')?.textContent,
+  }));
+  check('a hostile file\'s references and labels are held to what typing makes', JSON.stringify(hostile.refs) === '["Figure 1","(?)","(?)"]' && hostile.captions === 2 && !hostile.img && hostile.numbers === 0 && hostile.plain === 'plain', hostile);
+  await page.close();
+}
+
 // A contour plot draws its other expressions too: a second function's contour lines in its own color, a point where it
 // lies, arrows; one that can't be drawn says why, and so does a surface of three matrices, which has no heights over
 // the plane.

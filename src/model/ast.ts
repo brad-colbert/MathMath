@@ -193,6 +193,8 @@ export interface Region {
    * richtext.ts inlineMath). It's calculated where the text starts, in the order it's read there.
    */
   inText?: string;
+  /** Numbered as an equation, (1), (2), … in the order read, at the page's right margin; references name it by id. */
+  numbered?: true;
 }
 
 export interface TextRegion {
