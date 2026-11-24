@@ -141,6 +141,20 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.math.inline { position: static; display: inline-block; font-size: inherit; font-weight: normal; font-style: normal; text-align: left; cursor: pointer; }
 .region.text .inline-math.chosen { outline: 1px solid var(--select); outline-offset: 1px; }
 .region.text .math-typed { color: #6b7280; }
+/* A figure's caption, numbered in the order read; a reference, showing the number of what it names. */
+.region.text .tb.caption { counter-increment: fig; font-size: 0.9em; }
+.region.text .tb.caption::before { content: "Figure " counter(fig) ". "; font-weight: bold; }
+.region.text.paper-look .tb.caption { text-align: center; }
+.region.text .ref { white-space: nowrap; text-indent: 0; }
+.region.text .ref.missing { color: #b3261e; }
+.region.text .ref.chosen { outline: 1px solid var(--select); outline-offset: 1px; }
+/* An equation's number, at the page's right margin, level with the middle of its math. */
+.region .eq-number {
+  position: absolute; top: 0; height: 100%; transform: translateX(-100%); display: flex; align-items: center;
+  white-space: nowrap; pointer-events: none; font-family: KaTeX_Main, "Times New Roman", serif; font-size: 1.21em; font-style: normal; font-weight: normal; color: #111;
+}
+#format-bar .format-menu .ref-choice { display: inline-flex; align-items: center; gap: 4px; }
+#format-bar .format-menu .ref-choice .katex { font-size: 1em; }
 .ProseMirror-hideselection { caret-color: transparent; }
 /* The formats over text being typed. */
 #format-bar {
@@ -152,7 +166,7 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #format-bar > button[aria-pressed="true"] { background: #dbeafe; border-color: #93c5fd; }
 #format-bar.busy { opacity: 0.5; pointer-events: none; }
 #format-bar .sep { width: 1px; height: 18px; background: #d1d5db; margin: 0 2px; }
-#format-bar .format-menu { position: absolute; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
+#format-bar .format-menu { max-height: 60vh; overflow-y: auto; position: absolute; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; box-shadow: 0 2px 6px #0003; }
 #format-bar .format-menu button { display: flex; align-items: center; gap: 6px; font: inherit; white-space: nowrap; text-align: left; padding: 3px 8px; border: 0; border-radius: 3px; background: none; cursor: pointer; }
 #format-bar .format-menu button:hover { background: #e5e7eb; }
 #format-bar .swatch { width: 12px; height: 12px; border-radius: 2px; }

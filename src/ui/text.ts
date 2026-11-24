@@ -18,8 +18,8 @@
  * (see model/richtext.ts). Everything is set on elements, never written as markup.
  */
 import { type PageModel, type TextRegion, textStyleOf } from '../model/ast.js';
-import { type TextLook, textBlocksOf } from '../model/richtext.js';
-import { blockElements } from './richschema.js';
+import { type Counts, type TextLook, refsOf, textBlocksOf } from '../model/richtext.js';
+import { blockElements, showRef } from './richschema.js';
 
 const PT = 96 / 72;
 
@@ -29,8 +29,10 @@ export const flowWidth = (page: PageModel): number => Math.max(72, page.width - 
 export interface TextContext {
   page: PageModel;
   look: TextLook | undefined;
-  /** How many headings and subheadings come before it. */
-  counts: { h1: number; h2: number } | undefined;
+  /** How many headings, subheadings and captions come before it. */
+  counts: Counts | undefined;
+  /** What a reference shows, by the label it names, and whether that's gone. */
+  refs?: (label: string) => { text: string; missing: boolean };
   /**
    * The math in its words: how it looks now, as a key, and how to put it in the places kept for it. It's drawn
    * elsewhere, as math is, and put in before lines are kept off page ends.
@@ -39,12 +41,13 @@ export interface TextContext {
 }
 
 /** Draws a text region in its element, unless it already shows just this. */
-export function drawText(el: HTMLElement, region: TextRegion, { page, look, counts, math }: TextContext): void {
+export function drawText(el: HTMLElement, region: TextRegion, { page, look, counts, math, refs }: TextContext): void {
   const blocks = region.blocks === undefined ? null : textBlocksOf(region.blocks, region.text);
   const paper = look === 'paper';
   const flow = region.flow === true;
   const cache = el as HTMLElement & { textKey?: string };
-  const key = JSON.stringify([region.text, blocks, region.style, flow, paper, paper && blocks ? counts : 0, flow ? [page, region.top] : region.width, blocks ? math?.key : 0]);
+  const shown = blocks && refs ? refsOf(blocks).map(refs) : [];
+  const key = JSON.stringify([region.text, blocks, region.style, flow, paper, blocks ? counts : 0, flow ? [page, region.top] : region.width, blocks ? math?.key : 0, shown]);
   if (cache.textKey === key) return;
   cache.textKey = key;
   // Fonts differ a little from the original program's, so stored widths need some room to spare.
@@ -52,9 +55,14 @@ export function drawText(el: HTMLElement, region: TextRegion, { page, look, coun
   el.classList.toggle('flow', flow);
   el.classList.toggle('paper-look', paper);
   el.classList.toggle('blocks', blocks !== null);
-  el.style.counterReset = blocks ? `h1 ${counts?.h1 ?? 0} h2 ${counts?.h2 ?? 0}` : '';
+  el.style.counterReset = blocks ? `h1 ${counts?.h1 ?? 0} h2 ${counts?.h2 ?? 0} fig ${counts?.fig ?? 0}` : '';
   if (blocks) {
     el.replaceChildren(blockElements(blocks));
+    // References in the order they're drawn, which is the order they're read.
+    el.querySelectorAll<HTMLElement>('span.ref[data-ref]').forEach((r, i) => {
+      const at = shown[i];
+      if (at) showRef(r, at.text, at.missing);
+    });
     math?.mount(el);
   } else el.textContent = region.text;
   // Its style, set on the element, never written into markup.

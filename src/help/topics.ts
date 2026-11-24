@@ -54,9 +54,9 @@ export const TOPICS: Topic[] = [
     ],
   },
   {
-    id: 'text', title: 'Text and papers', summary: 'Words between the math: headings, lists, bold, italic, sub- and superscripts, color, alignment, and text across the page.',
+    id: 'text', title: 'Text and papers', summary: 'Words between the math: headings, lists, bold, italic, sub- and superscripts, color, alignment, text across the page, numbered equations, figure captions and references.',
     body: [
-      { p: 'Type `"` on empty paper to start a text region, or click one to type in it. A bar of formats shows over the words being typed: the kind of paragraph (Paragraph, Title, Heading or Subheading), bold, italic, underline, subscript, superscript, color, bulleted and numbered lists, a level in or out, alignment, and line spacing and space after. Select words first to format just them; with nothing selected, a format goes to what you type next. Plain clears the formats from the selection.' },
+      { p: 'Type `"` on empty paper to start a text region, or click one to type in it. A bar of formats shows over the words being typed: the kind of paragraph (Paragraph, Title, Heading, Subheading or Caption), bold, italic, underline, subscript, superscript, color, bulleted and numbered lists, a level in or out, alignment, and line spacing and space after. Select words first to format just them; with nothing selected, a format goes to what you type next. Plain clears the formats from the selection.' },
       { keys: [
         ['Ctrl+B, Ctrl+I, Ctrl+U', 'Bold, italic, underline'], ['Ctrl+,', 'Subscript, as the 2 in H₂O'], ['Ctrl+.', 'Superscript, as the 2 in m²'],
         ['Ctrl+Shift+8', 'Bulleted list'], ['Ctrl+Shift+7', 'Numbered list'], ['- or * then Space', 'At the start of a paragraph: a bulleted item'],
@@ -70,10 +70,14 @@ export const TOPICS: Topic[] = [
       { p: 'While typing text, press Ctrl+M, or Math on the bar, to type math in the line: definitions, as x := 3, and results, as x² = 9, shown in the words at their size. Esc, Enter or a click in the words finishes it, and it calculates at once, while you go on typing. Click math in text to change it; Backspace takes it out. Copied with its words, it arrives as new math in the text it\'s pasted into.' },
       { p: 'Math in text is calculated where its text starts, one after another in the order it\'s read, wherever its lines wrap: math below the text, or to its right on its first line, can use what it defines, and math above it can\'t. Format → Complex results as magnitude∠angle works on math chosen in the words being typed: move onto it with the arrow keys, so it\'s outlined.' },
       { keys: [['Ctrl+M', 'In text: math in the line'], ['Enter', 'On math chosen with the arrow keys: open it']] },
+      { h: 'Numbered equations, figures and references' },
+      { p: 'Click in math, or select several with a box dragged round them, and choose Format → Number equation to number it: (1), (2) and so on, at the page\'s right margin, level with the math, counted in the order the sheet is read, down and then across. Choose it again to stop numbering it. Only math on its own is numbered, not math in a line of text, a plot or a picture.' },
+      { p: 'A Caption paragraph, chosen on the format bar or Format → Caption, starts with Figure 1, Figure 2 and so on, counted down the sheet. Type one under a plot or picture as its caption. It\'s a paragraph of its own, so it moves with its text, not with the plot.' },
+      { p: 'While typing text, Ref on the format bar lists what can be referred to, in the order it\'s read: numbered equations, figures, and headings. Choose one to put a reference in the words. It shows (2) for an equation, Figure 3 for a caption, and Section 1.2 for a heading in Paper style, or the heading\'s words otherwise. A reference keeps up as numbers change, even while you\'re still typing, and shows (?) in red when what it named is gone, or no longer numbered.' },
       { h: 'Text across the page' },
       { p: 'Format → Text across the page makes a text region span the page between its margins. As it grows while you type, the math and plots below it move down to keep their distance, and they move back up if it shrinks. A line that would fall across the end of a page starts the next page instead, and so does a row of math pushed there.' },
       { h: 'Paper style' },
-      { p: 'Page → Paper style makes a sheet\'s text look like a paper\'s: a serif face to match the math, justified, with numbered headings, 1, 2 and 1.1, counted down the sheet. New text in such a sheet runs across the page. Other sheets keep plain text, as before.' },
+      { p: 'Page → Paper style makes a sheet\'s text look like a paper\'s: a serif face to match the math, justified, with numbered headings, 1, 2 and 1.1, counted down the sheet, which references show as Section 1.1. New text in such a sheet runs across the page. Other sheets keep plain text, as before.' },
       { p: 'Copying text from MathMath to another of its texts keeps its formats. Text pasted from anywhere else, or dropped in, arrives as plain words, without the web page\'s markup. A worksheet keeps its text\'s plain words as well as their formats, so a version of MathMath without formatted text still shows them.' },
     ],
   },

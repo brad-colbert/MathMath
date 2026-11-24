@@ -30,8 +30,8 @@ import { drawSaves } from './save-image.js';
 import { drawTraced } from './traced.js';
 import { paletteFor } from './colormap.js';
 import { drawText, flowWidth, forgetText } from './text.js';
-import { headingCounts, isFormatted, plainBlocks, textBlocksOf } from '../model/richtext.js';
-import { RichEditor } from './richedit.js';
+import { type Numbering, type Target, isFormatted, numberable, numbering, plainBlocks, refText, textBlocksOf } from '../model/richtext.js';
+import { type RefChoice, RichEditor } from './richedit.js';
 import { mathsOf, wordsOfDoc } from './richschema.js';
 import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
@@ -100,8 +100,8 @@ export class Paper {
   private opened = 0;
   /** The math in text as of the last drawing: which text, by id. */
   private inline = new Map<string, { text: string; n: number }>();
-  /** How many headings come before each text region, for a sheet that numbers them. */
-  private headings = new Map<string, { h1: number; h2: number }>();
+  /** How headings, captions and equations are numbered, as of the last drawing or what's being typed. */
+  private numbers: Numbering = { before: new Map(), equations: new Map(), targets: [], labels: new Map() };
   private calcTimer: ReturnType<typeof setTimeout> | undefined;
   /** The answer of the region being edited, grayed beside the editor. */
   private ghost = document.createElement('div');
@@ -224,7 +224,7 @@ export class Paper {
     const items = this.doc.items();
     const inline = this.doc.inline();
     this.inline = inline;
-    this.headings = this.doc.ws.textLook === 'paper' ? headingCounts(this.doc.ws.texts) : new Map();
+    this.renumber();
     const live = new Set([...items.map((i) => i.region.id), ...inline.keys()]);
     for (const [id, el] of this.views) {
       if (!live.has(id)) {
@@ -310,8 +310,91 @@ export class Paper {
     el.style.left = `${across ? this.doc.ws.page.margins.left : left}pt`;
     el.style.top = `${top}pt`;
     el.classList.toggle('selected', this.selected.has(id));
-    if (this.editing?.kind === 'region' && id === this.editing.region.id) return;
+    if (this.editing?.kind === 'region' && id === this.editing.region.id) {
+      this.drawNumber(el, item.region as Region);
+      return;
+    }
     if (item.kind !== 'opaque' || fresh || content) this.drawContent(item, el);
+    if (item.kind === 'math') this.drawNumber(el, item.region);
+  }
+
+  /** Counts what's numbered again, with the words being typed as they are now. */
+  private renumber(): void {
+    const edit = this.textEdit;
+    const typed = edit?.editor ? edit.editor.blocks() : null;
+    this.numbers = numbering(this.doc.ws, this.inline, edit && typed ? { id: edit.region.id, blocks: typed } : undefined);
+  }
+
+  /** How text is numbered, as a key: what references and heading numbers show. */
+  private numberKey(): string {
+    return JSON.stringify([[...this.numbers.before], this.numbers.targets.map((t) => [t.kind, t.n, t.label ?? '', t.words])]);
+  }
+
+  /** Text other than what's being typed, drawn again where its numbers or references have changed. */
+  private redrawOtherText(): void {
+    for (const region of this.doc.ws.texts) {
+      const el = this.views.get(region.id);
+      if (el && region.id !== this.textEdit?.region.id) this.drawContent({ kind: 'text', region }, el);
+    }
+  }
+
+  /** What a reference shows now. */
+  private refShown(label: string): { text: string; missing: boolean } {
+    const target = this.numbers.labels.get(label);
+    return { text: refText(target, this.doc.ws.textLook === 'paper'), missing: !target };
+  }
+
+  /** An equation's number, at the page's right margin level with it, or past its end when it's wider. */
+  private drawNumber(el: HTMLElement, region: Region): void {
+    const n = this.numbers.equations.get(region.id);
+    let tag = el.querySelector<HTMLElement>(':scope > .eq-number');
+    if (n === undefined) {
+      tag?.remove();
+      return;
+    }
+    if (!tag) {
+      tag = document.createElement('span');
+      tag.className = 'eq-number';
+    }
+    if (el.lastElementChild !== tag) el.appendChild(tag);
+    tag.textContent = `(${n})`;
+    const { page } = this.doc.ws;
+    tag.style.left = `max(${page.width - page.margins.right - region.left}pt, calc(100% + 3em))`;
+  }
+
+  /** What a reference typed in `text` can name, in the order read. */
+  private refChoices(text: TextRegion): RefChoice[] {
+    this.renumber();
+    const paper = this.doc.ws.textLook === 'paper';
+    const clip = (s: string): string => (s.length > 60 ? `${s.slice(0, 57)}…` : s);
+    return this.numbers.targets.map((t): RefChoice => {
+      const shown = refText(t, paper);
+      const title = t.kind === 'eq' ? shown : t.kind === 'fig' ? `${shown}. ${clip(t.words)}` : paper ? `${shown}  ${clip(t.words)}` : clip(t.words);
+      const choice: RefChoice = { title };
+      if (t.kind === 'eq') {
+        const math = this.views.get(t.region)?.querySelector('.katex');
+        const preview = document.createElement('span');
+        preview.className = 'ref-choice';
+        preview.append(`${shown}  `);
+        if (math) preview.appendChild(math.cloneNode(true));
+        choice.preview = preview;
+      }
+      if (t.label !== undefined) choice.label = t.label;
+      else if (t.region === text.id) choice.block = t.block!;
+      else choice.give = () => this.giveLabel(t);
+      return choice;
+    });
+  }
+
+  /** Names a heading or caption in another text, as part of the text being typed's step to undo. */
+  private giveLabel(t: Target): string | undefined {
+    const edit = this.textEdit;
+    const item = this.doc.find(t.region);
+    if (!edit || item?.kind !== 'text' || t.block === undefined) return undefined;
+    const label = `L${this.doc.newId()}`;
+    this.doc.batch(() => this.doc.setLabel(item.region, t.block!, label), edit.join);
+    edit.kept = true;
+    return label;
   }
 
   private drawContent(item: Item, el: HTMLElement): void {
@@ -329,7 +412,9 @@ export class Paper {
       return;
     }
     if (item.kind === 'text') {
-      drawText(el, item.region, { page: this.doc.ws.page, look: this.doc.ws.textLook, counts: this.headings.get(item.region.id), math: this.inlineFor(item.region) });
+      drawText(el, item.region, {
+        page: this.doc.ws.page, look: this.doc.ws.textLook, counts: this.numbers.before.get(item.region.id), math: this.inlineFor(item.region), refs: (l) => this.refShown(l),
+      });
       return;
     }
     // A plot or image keeps its last picture, faded, until it's recalculated. Not while a calculation
@@ -584,6 +669,15 @@ export class Paper {
     const kept = texts.filter((t) => this.doc.ws.texts.includes(t));
     this.select(kept.map((t) => t.id));
     return kept;
+  }
+
+  /** The math Format numbers: the selected regions, or the one being typed, when it's math on its own. */
+  selectedEquations(): Region[] {
+    const ids = this.editing?.kind === 'region' ? [this.editing.region.id] : [...this.selected];
+    return ids.flatMap((id) => {
+      const item = this.doc.find(id);
+      return item?.kind === 'math' && numberable(item.region) && !this.inline.has(id) ? [item.region] : [];
+    });
   }
 
   /** The selected regions that calculate a result: definitions and evaluations. */
@@ -1021,10 +1115,20 @@ export class Paper {
     // Drawn before the editor is made, as its math is drawn as it's made.
     this.textEdit = { region, el, editor: null as unknown as RichEditor, opened, base: 0, below, fresh: region.text === '' && !region.blocks, kept: false, join: `text ${region.id} ${++this.opened}` };
     const editor = new RichEditor(host, blocks, {
-      changed: () => this.pushBelow(),
+      changed: () => {
+        this.pushBelow();
+        // A heading or caption typed before a reference renumbers it at once, here and in other text.
+        const was = this.numberKey();
+        this.renumber();
+        this.textEdit?.editor?.refreshRefs();
+        if (this.numberKey() !== was) this.redrawOtherText();
+      },
       mathView: (id, latex) => this.inlineView(region, id, latex),
       newId: () => this.doc.newId(),
       openMath: (dom, id, latex) => this.openInline(dom, id, latex),
+      refText: (l) => this.refShown(l),
+      refChoices: () => this.refChoices(region),
+      labelTaken: (l) => this.numbers.labels.has(l),
     }, el, at, latexOf);
     this.textEdit.editor = editor;
     this.textEdit.base = el.offsetHeight / PT;

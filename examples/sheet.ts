@@ -25,11 +25,11 @@ import { fileKey } from '../src/engine/files.js';
 import { readTex } from '../src/latex/latex.js';
 import { readRegion } from '../src/latex/region.js';
 import { emptyWorksheet } from '../src/format/native.js';
-import { type Content, type TextRegion, type Worksheet, autoAxis } from '../src/model/ast.js';
+import { type Content, type Region, type TextRegion, type Worksheet, autoAxis } from '../src/model/ast.js';
 import { type TextBlock, type TextRun, placeInline, wordsOf } from '../src/model/richtext.js';
 
 /** A block for `formatted`: a run may be math in the line, `{ latex }`, calculated where the text starts. */
-export type FormattedBlock = Omit<TextBlock, 'runs'> & { runs: (TextRun | { latex: string })[] };
+export type FormattedBlock = Omit<TextBlock, 'runs'> & { runs: (TextRun | { latex: string } | { ref: string })[] };
 
 const PAGE = 792;
 const TOP = 72;
@@ -53,6 +53,8 @@ export interface MathItem {
   error?: boolean;
   /** Rows in the result it shows, for a vector or matrix answer, so the row is tall enough. */
   rows?: number;
+  /** Numbered as an equation; with a name, text can refer to it by a run `{ ref: name }`. */
+  numbered?: boolean | string;
 }
 
 export interface PlotOptions {
@@ -113,6 +115,9 @@ export class Sheet {
   readonly expectedErrors = new Set<string>();
   private y = TOP;
   private id = 1;
+  /** Numbered equations by name, and references made to names not yet given. */
+  private names = new Map<string, string>();
+  private refs: TextRun[] = [];
 
   constructor() {
     // Four places, and numbers below 100 000 in full, as 5105.1 rather than 5.1051 × 10³.
@@ -184,7 +189,13 @@ export class Sheet {
     const blocks: TextBlock[] = given.map((b) => ({
       ...b,
       runs: b.runs.map((r): TextRun => {
-        if (!('latex' in r)) return r;
+        if ('ref' in r && typeof r.ref === 'string') {
+          // An equation's name is its region's id; a heading's or caption's is its label, as given.
+          const run: TextRun = { t: '', ref: this.names.get(r.ref) ?? r.ref };
+          this.refs.push(run);
+          return run;
+        }
+        if (!('latex' in r)) return r as TextRun;
         const id = String(this.id++);
         this.ws.regions.push({ id, left: LEFT, top: this.y, alignX: LEFT, alignY: this.y, disabled: false, content: readRegion(r.latex), inText: textId });
         return { t: '', math: id };
@@ -195,7 +206,7 @@ export class Sheet {
     const size = (b: TextBlock) => (b.kind === 'title' ? 2 : b.kind === 'h1' ? 1.6 : b.kind === 'h2' ? 1.2 : 1) * (b.line ?? 1);
     const height = blocks.reduce((h, b) => {
       // Math in a line counts as a few words' width.
-      const words = b.runs.map((r) => (r.math ? 'x'.repeat(8) : r.t)).join('');
+      const words = b.runs.map((r) => (r.math ? 'x'.repeat(8) : r.ref ? 'x'.repeat(10) : r.t)).join('');
       const lines = words.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length * size(b) / perLine)), 0);
       return h + lines * 13.5 * size(b) + (b.after ?? 0);
     }, 0);
@@ -230,7 +241,15 @@ export class Sheet {
       const id = String(this.id++);
       if (m.error) this.expectedErrors.add(id);
       const top = this.y + (height - mathHeight(m.latex, m.rows)) / 2;
-      this.ws.regions.push({ id, left: x, top, alignX: x, alignY: base, disabled: false, content });
+      const region: Region = { id, left: x, top, alignX: x, alignY: base, disabled: false, content };
+      if (m.numbered) {
+        region.numbered = true;
+        if (typeof m.numbered === 'string') {
+          this.names.set(m.numbered, id);
+          for (const run of this.refs) if (run.ref === m.numbered) run.ref = id;
+        }
+      }
+      this.ws.regions.push(region);
     });
     this.y += height + 14;
     return this;

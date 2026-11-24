@@ -137,7 +137,9 @@ export class Doc {
     this.redoStack = [];
     this.placeInline();
     this.saved = snapshot(ws);
-    const ids = [...ws.regions, ...ws.texts, ...ws.opaque].map((r) => Number(r.id)).filter(Number.isFinite);
+    // Labels of headings and captions are an L and a number from the same count, so a new one is never one there.
+    const labels = ws.texts.flatMap((t) => (Array.isArray(t.blocks) ? t.blocks : []).map((b: unknown) => /^L(\d+)$/.exec(String((b as { label?: unknown } | null)?.label))?.[1]));
+    const ids = [...[...ws.regions, ...ws.texts, ...ws.opaque].map((r) => r.id), ...labels].map(Number).filter(Number.isFinite);
     this.nextId = Math.max(0, ...ids) + 1;
     // Results belong to the sheet they came from: ids repeat between sheets.
     this.outcomes = new Map();
@@ -551,6 +553,26 @@ export class Doc {
     }
     // Headings number those after them.
     this.touched();
+  }
+
+  /** Numbers math regions as equations, or stops numbering them, as one step to undo. */
+  setNumbered(regions: Region[], on: boolean): void {
+    if (regions.length === 0) return;
+    for (const r of regions) {
+      if (on) r.numbered = true;
+      else delete r.numbered;
+    }
+    this.touched(new Set(regions.map((r) => r.id)));
+  }
+
+  /** Names a heading or caption, the `block`-th of a text region, so a reference can name it. */
+  setLabel(region: TextRegion, block: number, label: string): void {
+    const blocks = textBlocksOf(region.blocks, region.text);
+    const b = blocks?.[block];
+    if (!blocks || !b) return;
+    b.label = label;
+    region.blocks = blocks;
+    this.touched(new Set([region.id]));
   }
 
   /** Spans text regions across the page, or lets them go back to a place of their own. */

@@ -846,9 +846,11 @@ const textFormats: [string, string, Command | null, (texts: TextRegion[]) => voi
   ['Title', 'Large centered text at the top of a paper', setKind('title'), asKind('title')],
   ['Heading', 'Large bold text, for a section (Ctrl+Alt+1 while typing). Numbered in Paper style', setKind('h1'), asKind('h1')],
   ['Subheading', 'Bold text a little larger than the rest (Ctrl+Alt+2 while typing). Numbered in Paper style', setKind('h2'), asKind('h2')],
+  ['Caption', 'A figure\'s caption, numbered Figure 1, Figure 2, … in the order read: put it under a plot or picture', setKind('caption'), asKind('caption')],
   ['Plain text', 'Back to plain 10-point words and paragraphs', clearFormat, (texts) => {
     doc.setTextStyle(texts, () => ({}));
-    doc.setBlocks(texts, (b) => ({ runs: b.runs.map((r) => (r.math === undefined ? { t: r.t } : r)) }));
+    // Math and references in the words stay: they have no look of their own to take away.
+    doc.setBlocks(texts, (b) => ({ runs: b.runs.map((r) => (r.t === '' ? r : { t: r.t })) }));
   }],
   ['Bold text', 'Bold, or back to normal weight (Ctrl+B while typing)', toggle('bold'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, bold: st.bold ? undefined : true } as TextStyle))],
   ['Italic text', 'Italic, or back to upright (Ctrl+I while typing)', toggle('italic'), (texts) => doc.setTextStyle(texts, (st) => ({ ...st, italic: st.italic ? undefined : true } as TextStyle))],
@@ -867,7 +869,7 @@ for (const [label, hint, typed, whole] of textFormats) {
     plotMenu.open = false;
     if (typed && paper.typing) {
       // A word's look, with nothing selected, is for all the words; a block's, for the paragraph with the caret.
-      paper.typing.run(typed, !['Title', 'Heading', 'Subheading', 'Bulleted list', 'Numbered list'].includes(label));
+      paper.typing.run(typed, !['Title', 'Heading', 'Subheading', 'Caption', 'Bulleted list', 'Numbered list'].includes(label));
       return;
     }
     const texts = paper.selectedTexts();
@@ -906,6 +908,22 @@ for (const [label, hint, typed, whole] of textFormats) {
   plotList.appendChild(b);
 }
 plotList.appendChild(document.createElement('hr'));
+{
+  const b = document.createElement('button');
+  b.textContent = 'Number equation';
+  b.title = 'Number the selected math (1), (2), … at the right margin, in the order read, or stop numbering it. A reference in text (Ref on the text\'s format bar) shows its number';
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    plotMenu.open = false;
+    const regions = paper.selectedEquations();
+    if (regions.length === 0) {
+      doc.onProblem('Select one or more math regions first, or click in one');
+      return;
+    }
+    doc.setNumbered(regions, !regions.every((r) => r.numbered === true));
+  });
+  plotList.appendChild(b);
+}
 {
   // Several results can be switched at once: an AC sheet is full of them.
   const b = document.createElement('button');
