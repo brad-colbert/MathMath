@@ -18,6 +18,7 @@ import type {
   Worksheet,
 } from '../model/ast.js';
 import { DEFAULT_FORMAT, DEFAULT_PAGE, autoAxis, realFrom } from '../model/ast.js';
+import { type TextBlock, type TextRun, colorOf, isFormatted, numberable, placeInline, textBlocksOf, wordsOf } from '../model/richtext.js';
 import { translateFunction } from './names.js';
 import { gunzip } from './inflate.js';
 import { baseName } from '../engine/files.js';
@@ -372,6 +373,77 @@ function readItems(root: XElement): Map<string, string> {
   return items;
 }
 
+/** A run's look, as the markup around it sets it, and whether its letters are in the Symbol font. */
+type Look = Omit<TextRun, 't' | 'math' | 'ref'> & { symbol?: true };
+
+/** The Symbol font's Greek, by the Latin letter typed for it. */
+const SYMBOL_GREEK: Record<string, string> = Object.fromEntries([
+  ...'abgdezhqiklmnxoprstufcyw'.split('').map((c, i) => [c, 'αβγδεζηθικλμνξοπρστυφχψω'[i]!]),
+  ...'ABGDEZHQIKLMNXOPRSTUFCYW'.split('').map((c, i) => [c, 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ'[i]!]),
+  ['j', 'ϕ'], ['v', 'ϖ'], ['J', 'ϑ'], ['V', 'ς'],
+]);
+
+/**
+ * A text's paragraphs: each paragraph a block, its words in runs with their bold, italic, underline, sub- and
+ * superscripts and color, and each math region in it a run naming it, if it's math a line can hold, as `math` says.
+ * Letters in the Symbol font are the Greek ones it shows. A line break and the indent after it are the file's layout,
+ * not words, as is a run of spaces; `sp` is spaces typed.
+ */
+function textParagraphs(body: XElement, math: (region: XElement) => string | null): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  const walk = (e: XElement, look: Look, runs: TextRun[]): void => {
+    for (let i = 0; i < e.childNodes.length; i++) {
+      const c = e.childNodes[i]!;
+      if (c.nodeType === 3 || c.nodeType === 4) {
+        const raw = c.textContent ?? '';
+        if (/^\s*$/.test(raw) && /[\r\n]/.test(raw)) continue;
+        const { symbol, ...rest } = look;
+        // A line break and the indent after it are the file's layout, and so is more than one space: spaces typed
+        // are `sp`.
+        const t = raw.replace(/[\r\n]+[\t ]*/g, '').replace(/[\t ]+/g, ' ');
+        runs.push({ t: symbol ? t.replace(/[A-Za-z]/g, (ch) => SYMBOL_GREEK[ch] ?? ch) : t, ...rest });
+        continue;
+      }
+      if (c.nodeType !== 1) continue;
+      const tag = c.localName;
+      if (tag === 'region') {
+        const id = math(c);
+        if (id !== null) runs.push({ t: '', math: id });
+      } else if (tag === 'sp') runs.push({ t: ' '.repeat(Math.min(20, Math.max(1, Number(c.getAttribute('count') ?? 1) || 1))), ...look });
+      else if (tag === 'tab') runs.push({ t: ' ', ...look });
+      else if (tag === 'br') runs.push({ t: '\n', ...look });
+      else if (tag === 'b') walk(c, { ...look, bold: true }, runs);
+      else if (tag === 'i') walk(c, { ...look, italic: true }, runs);
+      else if (tag === 'u') walk(c, { ...look, underline: true }, runs);
+      else if (tag === 'sub' || tag === 'sup') walk(c, { ...look, script: tag }, runs);
+      else if (tag === 'c') {
+        const color = colorOf(c.getAttribute('val'));
+        walk(c, color ? { ...look, color } : look, runs);
+      } else if (tag === 'f') {
+        walk(c, c.getAttribute('family') === 'Symbol' ? { ...look, symbol: true } : look, runs);
+      }
+      else if (tag === 'inlineAttr') {
+        const next: Look = { ...look };
+        if (c.getAttribute('font-weight') === 'bold') next.bold = true;
+        if (c.getAttribute('font-style') === 'italic') next.italic = true;
+        if (c.getAttribute('underline') === 'true') next.underline = true;
+        walk(c, next, runs);
+      } else walk(c, look, runs);
+    }
+  };
+  for (const p of kids(body).filter((c) => c.localName === 'p')) {
+    const runs: TextRun[] = [];
+    walk(p, {}, runs);
+    // A paragraph's own edges are the file's layout too.
+    const first = runs.find((r) => r.t !== '');
+    if (first) first.t = first.t.replace(/^ +/, '');
+    const last = runs.findLast((r) => r.t !== '');
+    if (last) last.t = last.t.replace(/ +$/, '');
+    blocks.push({ runs: runs.filter((r) => r.t !== '' || r.math !== undefined) });
+  }
+  return blocks;
+}
+
 /** `serialize` keeps the original XML of regions this version can't edit. */
 export function importWorksheet(root: XElement, serialize?: (e: XElement) => string): Worksheet {
   const regions: Region[] = [];
@@ -380,18 +452,45 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
   const binary = readItems(root);
   const otherRegions: Record<string, number> = {};
   const componentOutputs: string[] = [];
+  // Math in a text's lines, by its region's id: the text it's in.
+  const inText = new Map<string, string>();
   for (const r of descendants(root, 'region')) {
     const body = kids(r).find((c) => c.localName !== 'rendering');
     if (!body) continue;
     if (body.localName === 'text') {
-      texts.push({
-        id: r.getAttribute('region-id') ?? '',
+      const id = r.getAttribute('region-id') ?? '';
+      const text: TextRegion = {
+        id,
         left: num(r, 'left'),
         top: num(r, 'top'),
         width: num(r, 'width'),
         height: num(r, 'height'),
         text: (body.textContent ?? '').replace(/\s+/g, ' ').trim(),
-      });
+      };
+      // Its paragraphs and their looks are kept, and math in its lines is math in the text, as it was laid out.
+      if (kids(body).some((c) => c.localName === 'p')) {
+        const mine = new Map<string, string>();
+        const blocks = textParagraphs(body, (nested) => {
+          const math = kids(nested).find((c) => c.localName === 'math');
+          const nestedId = nested.getAttribute('region-id');
+          if (!math || !nestedId) return null;
+          try {
+            if (!numberable({ content: parseMath(math) })) return null;
+          } catch {
+            return null;
+          }
+          mine.set(nestedId, id);
+          return nestedId;
+        });
+        const words = wordsOf(blocks);
+        const kept = textBlocksOf(blocks, words);
+        if (kept) {
+          text.text = words;
+          if (isFormatted(kept) || mine.size > 0) text.blocks = kept;
+          for (const [m, t] of mine) inText.set(m, t);
+        }
+      }
+      texts.push(text);
       continue;
     }
     if (body.localName !== 'math') {
@@ -509,12 +608,13 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
       alignY: num(r, 'align-y'),
       disabled: body.getAttribute('disable-calc') === 'true',
       content: parseMath(body),
+      ...(inText.has(r.getAttribute('region-id') ?? '') ? { inText: inText.get(r.getAttribute('region-id') ?? '')! } : {}),
     });
   }
   const vars = descendants(root, 'builtInVariables')[0];
   const results = descendants(root, 'results')[0];
   const general = results ? descendants(results, 'general')[0] : undefined;
-  return {
+  const ws: Worksheet = {
     page: readPage(root),
     assets: {},
     format: readFormat(general) ?? DEFAULT_FORMAT,
@@ -530,4 +630,7 @@ export function importWorksheet(root: XElement, serialize?: (e: XElement) => str
     exactCompare: descendants(root, 'calculationBehavior')[0]?.getAttribute('exact-boolean') !== 'false',
     zeroOverZero: descendants(root, 'calculationBehavior')[0]?.getAttribute('zero-over-zero') === '0',
   };
+  // Math in a text calculates where the text starts, as math typed in one does.
+  placeInline(ws);
+  return ws;
 }
