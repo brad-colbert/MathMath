@@ -23,8 +23,11 @@
  */
 import { TEXT_SIZES, type Worksheet } from './ast.js';
 
-/** What a block is: a paragraph when left out. Lists are flat, each item with its level. */
-export type BlockKind = 'title' | 'h1' | 'h2' | 'bullet' | 'number' | 'caption';
+/**
+ * What a block is: a paragraph when left out. Lists are flat, each item with its level. A caption is a figure's, under
+ * it; a table caption is a table's, over it, numbered apart.
+ */
+export type BlockKind = 'title' | 'h1' | 'h2' | 'bullet' | 'number' | 'caption' | 'table-caption';
 export type Align = 'left' | 'center' | 'right' | 'justify';
 
 /**
@@ -65,9 +68,11 @@ export interface TextBlock {
 /** How a sheet's text looks: 'paper' is a serif face, justified, with numbered headings. */
 export type TextLook = 'paper';
 
-const KINDS: readonly string[] = ['title', 'h1', 'h2', 'bullet', 'number', 'caption'] satisfies BlockKind[];
-/** The blocks a reference can name: sections and figures. */
-const NAMED: readonly string[] = ['h1', 'h2', 'caption'] satisfies BlockKind[];
+const KINDS: readonly string[] = ['title', 'h1', 'h2', 'bullet', 'number', 'caption', 'table-caption'] satisfies BlockKind[];
+/** The blocks a reference can name: sections, figures and tables. */
+const NAMED: readonly string[] = ['h1', 'h2', 'caption', 'table-caption'] satisfies BlockKind[];
+/** Whether a block is a caption, a figure's or a table's. */
+export const isCaption = (kind: unknown): kind is 'caption' | 'table-caption' => kind === 'caption' || kind === 'table-caption';
 const ALIGNS: readonly string[] = ['left', 'center', 'right', 'justify'] satisfies Align[];
 export const MAX_LEVEL = 3;
 export const LINES = { min: 1, max: 3 } as const;
@@ -225,12 +230,12 @@ export function placeInline(ws: Pick<Worksheet, 'texts' | 'regions' | 'page'>): 
 export const changeBlocks = (blocks: readonly TextBlock[], change: (b: TextBlock) => TextBlock): TextBlock[] =>
   blocks.map((b) => blockOf(change(b))!);
 
-/** How many headings, subheadings since the last heading, and figure captions come before a text region. */
-export interface Counts { h1: number; h2: number; fig: number }
+/** How many headings, subheadings since the last heading, and figure and table captions come before a text region. */
+export interface Counts { h1: number; h2: number; fig: number; tab: number }
 
-/** What a reference can name: a numbered equation, a figure's caption, or a heading. */
+/** What a reference can name: a numbered equation, a figure's or table's caption, or a heading. */
 export interface Target {
-  kind: 'eq' | 'fig' | 'h1' | 'h2';
+  kind: 'eq' | 'fig' | 'tab' | 'h1' | 'h2';
   /** Its number as shown: 3, or 1.2 for a subheading. */
   n: string;
   /** Its words, for a heading or caption; nothing for an equation. */
@@ -261,8 +266,8 @@ const readingOrder = <T extends { top: number; left: number }>(items: readonly T
   [...items].sort((a, b) => a.top - b.top || leftOf(a) - leftOf(b));
 
 /**
- * How everything is numbered, in the order it's read: headings and subheadings (shown in Paper style), figure
- * captions, and equations given a number. `typed` stands in for one region's blocks while they're being typed. A label
+ * How everything is numbered, in the order it's read: headings and subheadings (shown in Paper style), figure and
+ * table captions, each counted apart, and equations given a number. `typed` stands in for one region's blocks while they're being typed. A label
  * named twice belongs to the first block read.
  */
 export function numbering(
@@ -274,11 +279,11 @@ export function numbering(
   const add = (t: Target, label: string | undefined, at: [number, number, number]): void => {
     found.push({ t, label, at });
   };
-  let [h1, h2, fig] = [0, 0, 0];
+  let [h1, h2, fig, tab] = [0, 0, 0, 0];
   const margin = ws.page.margins.left;
   const leftOf = (x: { left: number; flow?: true }): number => (x.flow === true ? margin : x.left);
   for (const t of readingOrder(ws.texts, leftOf)) {
-    before.set(t.id, { h1, h2, fig });
+    before.set(t.id, { h1, h2, fig, tab });
     const blocks = typed?.id === t.id ? typed.blocks : t.blocks === undefined ? [] : textBlocksOf(t.blocks, t.text) ?? [];
     blocks.forEach((b, block) => {
       const words = b.runs.map((r) => r.t).join('').replace(/\s+/g, ' ').trim();
@@ -292,6 +297,9 @@ export function numbering(
       } else if (b.kind === 'caption') {
         fig++;
         add({ kind: 'fig', n: String(fig), words, region: t.id, block }, b.label, [t.top, leftOf(t), block]);
+      } else if (b.kind === 'table-caption') {
+        tab++;
+        add({ kind: 'tab', n: String(tab), words, region: t.id, block }, b.label, [t.top, leftOf(t), block]);
       }
     });
   }
@@ -320,6 +328,7 @@ export function refText(target: Target | undefined, paper: boolean): string {
   if (!target) return '(?)';
   if (target.kind === 'eq') return `(${target.n})`;
   if (target.kind === 'fig') return `Figure ${target.n}`;
+  if (target.kind === 'tab') return `Table ${target.n}`;
   return paper ? `Section ${target.n}` : `“${target.words || '…'}”`;
 }
 

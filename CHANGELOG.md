@@ -8,6 +8,44 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.66.0] - 2026-11-24
+
+Paper polish: units of answers in text, table captions, captions that move with their figures, headings kept
+with what they head, accented letters, Greek and Cyrillic in Paper style, and := typed inside f(x).
+
+### Added
+
+- The unit of an answer in a line of text can be chosen as on the page: click the answer when you aren't typing
+  in the text. Math copied into other text keeps the unit chosen for it, where it used to go back to the default.
+- Table captions: a Table caption paragraph starts with Table 1, Table 2 and so on, counted apart from figures, and
+  references to it show Table 1. Choose it on the format bar or from Format. Caption on both is now Figure caption.
+- A caption moves with its figure: dragging a plot or picture takes along the text just under it, when that text
+  holds only captions. Text with other words in it, or across the page, stays where it is.
+
+### Fixed
+
+- Accented letters, Greek and Cyrillic in Paper style now match the rest of the words on every computer. The math's
+  face has none of them, so they came from whatever serif the computer had, Times on most. They're now drawn in CMU
+  Serif, the same Computer Modern design, which the app serves, as it does the math's fonts. Only what the math's
+  face lacks comes from it, so English text lays out exactly as before, and the files are fetched only when a sheet
+  shows such a letter. The degree sign comes from it too: the math face's sat high. About links its notice.
+- Typing `:` with the caret still inside a function's parentheses, as after f(x, or in an index, puts := after them
+  and defines the function, where it used to go inside them. Once there is a :=, a `:` goes where the caret is.
+- A heading in text across the page no longer sits alone at the end of a page: it starts the next page with the
+  paragraph it heads, and a heading just above it goes too. A heading of two lines is no longer split. A block moved to a new page now lands on its top line,
+  where one after a heading or title could sit a little above it, in the margin.
+
+### Known limits
+
+- Version 0.65.1 and older show a table caption as a plain paragraph and references to it as (?) in red. Changing
+  that text there makes it a plain paragraph for good.
+- Text across the page laid out by an older version can now be a heading's height taller, where a heading moves to
+  the next page, and reach math placed close under it. Nothing moves when the sheet opens; move the math down.
+- Resizing a plot taller doesn't move the caption under it.
+- Other scripts, such as Chinese, Japanese, Arabic and Hebrew, still come from the computer's own fonts, as do
+  accented letters in math: strings, and names such as é. A Paper-style sheet with accented letters may rewrap a
+  little, as they're now in another face.
+
 ## [0.65.1] - 2026-11-23
 
 Licence notices for the math editor and its fonts.

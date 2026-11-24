@@ -107,6 +107,11 @@ with the KaTeX fonts, copyright Design Science and Khan Academy, under the SIL O
 reserved font names. The build bundles both, so the app serves their notices as `licenses/mathlive.txt`, linked
 from About.
 
+Accented letters, Greek and Cyrillic in Paper-style text are drawn in CMU Serif (Computer Modern Unicode 0.7.0), by
+Andrey V. Panov, under the SIL Open Font License 1.1, with the reserved font family name "Computer Modern Unicode
+fonts". The four font files in `src/fonts/cmu` are as released, unchanged, with the package's `OFL.txt`; the app
+serves the notice as `licenses/cmu.txt`, linked from About.
+
 The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
 `examples/assets/README.md`.
 

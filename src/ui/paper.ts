@@ -30,14 +30,16 @@ import { drawSaves } from './save-image.js';
 import { drawTraced } from './traced.js';
 import { paletteFor } from './colormap.js';
 import { drawText, flowWidth, forgetText } from './text.js';
-import { type Numbering, type Target, isFormatted, numberable, numbering, plainBlocks, refText, textBlocksOf } from '../model/richtext.js';
+import { type Numbering, type Target, isCaption, isFormatted, numberable, numbering, plainBlocks, refText, textBlocksOf } from '../model/richtext.js';
 import { type RefChoice, RichEditor } from './richedit.js';
-import { mathsOf, wordsOfDoc } from './richschema.js';
+import { copiesOf, mathsOf, wordsOfDoc } from './richschema.js';
 import { BUILTIN_MAPS, DEFAULT_MAP } from '../engine/colormaps.js';
 import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
+/** How far under a plot or picture its caption may start, in points: about a line. */
+const CAPTION_GAP = 12;
 const DRAG_THRESHOLD = 4;
 const LINE = 24;
 
@@ -60,7 +62,7 @@ function render(latex: string): string {
 type Press =
   | { kind: 'blank'; x: number; y: number }
   /** `math`: the press was on math in the text's words, which a click opens. */
-  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null; math?: string }
+  | { kind: 'region'; id: string; x: number; y: number; dragging: boolean; slot: Slot | null; math?: string; with?: string[] }
   | { kind: 'resize'; id: string; x: number; y: number; width: number; height: number }
   | { kind: 'rotate'; id: string; x: number; y: number; azimuth: number; elevation: number; was: { azimuth: number; elevation: number } | undefined };
 
@@ -369,7 +371,7 @@ export class Paper {
     const clip = (s: string): string => (s.length > 60 ? `${s.slice(0, 57)}…` : s);
     return this.numbers.targets.map((t): RefChoice => {
       const shown = refText(t, paper);
-      const title = t.kind === 'eq' ? shown : t.kind === 'fig' ? `${shown}. ${clip(t.words)}` : paper ? `${shown}  ${clip(t.words)}` : clip(t.words);
+      const title = t.kind === 'eq' ? shown : t.kind === 'fig' || t.kind === 'tab' ? `${shown}. ${clip(t.words)}` : paper ? `${shown}  ${clip(t.words)}` : clip(t.words);
       const choice: RefChoice = { title };
       if (t.kind === 'eq') {
         const math = this.views.get(t.region)?.querySelector('.katex');
@@ -646,6 +648,38 @@ export class Paper {
     // Plots show a resize handle when selected, so they redraw when that changes.
     const changed = new Set([...before, ...this.selected].filter((id) => before.has(id) !== this.selected.has(id)));
     if (changed.size > 0) this.draw(changed);
+  }
+
+  /**
+   * The captions a plot or picture being dragged takes with it: for each, the text just under it and the axis names
+   * it draws below itself, overlapping it across, that holds nothing but captions. Text across the page, or with words
+   * besides, stays where it is. They move with it, and aren't selected.
+   */
+  private captionsOf(dragged: ReadonlySet<string>): string[] {
+    const add: string[] = [];
+    for (const id of dragged) {
+      const item = this.doc.find(id);
+      const el = this.views.get(id);
+      if (item?.kind !== 'math' || (item.region.content.k !== 'plot' && item.region.content.k !== 'image') || !el) continue;
+      const { left, top } = item.region;
+      const [right, bottom] = [left + el.offsetWidth / PT, top + el.offsetHeight / PT];
+      // A plot's axis names are drawn below its box: the caption goes under those.
+      const sheet = this.sheet.getBoundingClientRect();
+      const drawn = Math.max(bottom, ...[...el.querySelectorAll('[data-slot]')].map((c) => (c.getBoundingClientRect().bottom - sheet.top) * pointsPerPixel()));
+      let best: { id: string; top: number } | null = null;
+      for (const t of this.doc.ws.texts) {
+        const view = this.views.get(t.id);
+        if (!view || t.flow === true || dragged.has(t.id) || add.includes(t.id) || t.top < bottom - CAPTION_GAP || t.top > drawn + 2 * CAPTION_GAP) continue;
+        if (t.left >= right || t.left + view.offsetWidth / PT <= left) continue;
+        const blocks = textBlocksOf(t.blocks, t.text) ?? [];
+        // Empty lines don't count; a run without words is math or a reference.
+        const held = blocks.filter((b) => b.runs.some((r) => r.t === '' || r.t.trim() !== ''));
+        if (held.length === 0 || !held.every((b) => isCaption(b.kind))) continue;
+        if (!best || t.top < best.top) best = { id: t.id, top: t.top };
+      }
+      if (best) add.push(best.id);
+    }
+    return add;
   }
 
   /** The one selected region of a kind, for the Format menu. */
@@ -1185,6 +1219,7 @@ export class Paper {
     const typed = editor.blocks();
     const words = wordsOfDoc(pm);
     const maths = mathsOf(pm);
+    const copies = copiesOf(pm);
     if (done) {
       this.textEdit = null;
       editor.destroy();
@@ -1204,7 +1239,7 @@ export class Paper {
     if (!done) {
       if (!same) {
         let renamed = new Map<string, string>();
-        this.doc.batch(() => { renamed = this.doc.setTextAndMath(region, words, blocks, maths); }, edit.join);
+        this.doc.batch(() => { renamed = this.doc.setTextAndMath(region, words, blocks, maths, copies); }, edit.join);
         editor.renameMath(renamed);
         // The editor holds each math as its region now reads, so it's drawn with its answer and compares the same.
         const now = new Map<string, string>();
@@ -1222,7 +1257,7 @@ export class Paper {
       else this.doc.remove(new Set([region.id]));
     } else if (!same || edit.kept) {
       const fresh = edit.fresh ? region.id : undefined;
-      this.reflow(() => this.doc.setTextAndMath(region, words, blocks, maths), fresh, new Map([[region.id, opened]]), edit.join);
+      this.reflow(() => this.doc.setTextAndMath(region, words, blocks, maths, copies), fresh, new Map([[region.id, opened]]), edit.join);
     } else this.draw(new Set([region.id]));
   }
 
@@ -1280,7 +1315,8 @@ export class Paper {
       return;
     }
     if (!this.selected.has(id)) this.select([id]);
-    const slot = math ? null : (target.closest<HTMLElement>('[data-slot]')?.dataset.slot ?? null) as Slot | null;
+    // In math in text, only the answer is a slot of its own: a click there chooses its unit, as on the page.
+    const slot = (math ? (target.closest('[data-slot="unit"]') ? 'unit' : null) : (target.closest<HTMLElement>('[data-slot]')?.dataset.slot ?? null)) as Slot | null;
     this.press = { kind: 'region', id, x: p.x, y: p.y, dragging: false, slot, ...(math ? { math } : {}) };
   }
 
@@ -1311,8 +1347,9 @@ export class Paper {
     }
     if (press.kind === 'region') {
       if (!press.dragging && !far) return;
+      if (!press.dragging) press.with = this.captionsOf(this.selected);
       press.dragging = true;
-      for (const id of this.selected) {
+      for (const id of [...this.selected, ...press.with ?? []]) {
         const el = this.views.get(id);
         if (el) el.style.transform = `translate(${dx}pt, ${dy}pt)`;
       }
@@ -1374,14 +1411,21 @@ export class Paper {
       this.select(inside.map(([id]) => id));
       return;
     }
-    for (const id of this.selected) {
+    const followers = press.kind === 'region' ? press.with ?? [] : [];
+    for (const id of [...this.selected, ...followers]) {
       const el = this.views.get(id);
       if (el) el.style.transform = '';
     }
     if (press.dragging) {
       const dx = snap(p.x - press.x);
       const dy = snap(p.y - press.y);
-      this.doc.move(this.selected, dx, dy);
+      this.doc.move(new Set([...this.selected, ...followers]), dx, dy);
+      return;
+    }
+    const inText = press.math ? this.doc.find(press.math) : undefined;
+    if (inText?.kind === 'math' && press.slot) {
+      this.select([]);
+      this.openSlot(inText.region, press.slot);
       return;
     }
     const item = this.doc.find(press.id);

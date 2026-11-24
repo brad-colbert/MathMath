@@ -24,7 +24,7 @@ import { DOMSerializer, type Mark, type MarkSpec, type Node, type NodeSpec, Sche
 import { MATH_ID, type TextBlock, type TextRun, textBlocksOf, wordsOf } from '../model/richtext.js';
 
 /** The kinds of block, each drawn as a class of its own. */
-export const BLOCK_KINDS = ['title', 'h1', 'h2', 'bullet', 'number', 'caption'] as const;
+export const BLOCK_KINDS = ['title', 'h1', 'h2', 'bullet', 'number', 'caption', 'table-caption'] as const;
 
 /** A block's attributes, checked as a file's are: one block with no words, run through the file's checks. */
 function blockAttrs(given: Record<string, unknown>): Record<string, unknown> {
@@ -98,14 +98,15 @@ const MAX_LATEX = 20000;
 
 /**
  * Math in a line of text: a math region of its own, by id, drawn where it's named. While typing, `latex` is the math
- * as typed, kept in the region when the text is. Read back only from its own two attributes.
+ * as typed, kept in the region when the text is. Read back only from its own two attributes. `from` is the math a
+ * pasted copy was copied from, so it keeps that math's unit and format; it's never read from a paste.
  */
 const math: NodeSpec = {
   inline: true,
   group: 'inline',
   atom: true,
   selectable: true,
-  attrs: { id: {}, latex: { default: '' } },
+  attrs: { id: {}, latex: { default: '' }, from: { default: null } },
   parseDOM: [{
     tag: 'span[data-math]',
     getAttrs: (dom) => {
@@ -253,6 +254,16 @@ export function mathsOf(doc: Node): Map<string, string> {
   const out = new Map<string, string>();
   doc.descendants((node) => {
     if (node.type === schema.nodes.math && !out.has(node.attrs.id as string)) out.set(node.attrs.id as string, node.attrs.latex as string);
+    return node.type !== schema.nodes.math;
+  });
+  return out;
+}
+
+/** The math in the editor's document that was pasted, by id: the id of the math it's a copy of. */
+export function copiesOf(doc: Node): Map<string, string> {
+  const out = new Map<string, string>();
+  doc.descendants((node) => {
+    if (node.type === schema.nodes.math && typeof node.attrs.from === 'string') out.set(node.attrs.id as string, node.attrs.from);
     return node.type !== schema.nodes.math;
   });
   return out;

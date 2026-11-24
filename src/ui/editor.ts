@@ -340,6 +340,19 @@ export class Editor {
     this.events.commit('stay');
   }
 
+  /**
+   * := makes what's typed a definition. Typed while the caret is still inside the parentheses of f(x), or an index's
+   * subscript, as when a function's arguments have just been typed, it goes at the end, after what it defines. Once
+   * there is a := the caret is in the value, and a : goes where it is.
+   */
+  private define(): void {
+    const f = this.field;
+    const [start, end] = f.selection.ranges[0] ?? [0, 0];
+    const inside = start === end && (f.getElementInfo(f.position)?.depth ?? 0) > 0;
+    if (inside && !this.value().includes('\\coloneq')) f.executeCommand('moveToMathfieldEnd');
+    this.insert('\\coloneq ');
+  }
+
   /** Inside a name's literal subscript, anything but a name character ends the subscript. */
   private endName(key: string): void {
     if (!this.inName || key.length !== 1 || /[A-Za-z0-9]/.test(key)) return;
@@ -388,7 +401,7 @@ export class Editor {
       case ' ': return this.consume(e, () => growSelection(f));
       case '(': return this.consume(e, () => this.insert('\\left(#?\\right)'));
       case ')': return this.consume(e, () => f.executeCommand('moveAfterParent'));
-      case ':': return this.consume(e, () => this.insert('\\coloneq '));
+      case ':': return this.consume(e, () => this.define());
       case '*': return this.consume(e, () => this.insert('\\cdot '));
       case ';': return this.consume(e, () => this.insert('..'));
       case '[': return this.consume(e, () => f.executeCommand('moveToSubscript'));

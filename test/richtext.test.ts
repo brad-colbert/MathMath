@@ -62,7 +62,7 @@ test('headings are counted in reading order, subheadings afresh under each', () 
   };
   const ws = { ...emptyWorksheet(), texts: [t('c', 300, 0, ['h2']), t('a', 0, 0, ['title', 'h1', 'h2', 'h2']), t('b2', 100, 90, ['h2']), t('b', 100, 0, ['h1', undefined])] };
   const counts = numbering(ws).before;
-  expect(Object.fromEntries(counts)).toEqual({ a: { h1: 0, h2: 0, fig: 0 }, b: { h1: 1, h2: 2, fig: 0 }, b2: { h1: 2, h2: 0, fig: 0 }, c: { h1: 2, h2: 1, fig: 0 } });
+  expect(Object.fromEntries(counts)).toEqual({ a: { h1: 0, h2: 0, fig: 0, tab: 0 }, b: { h1: 1, h2: 2, fig: 0, tab: 0 }, b2: { h1: 2, h2: 0, fig: 0, tab: 0 }, c: { h1: 2, h2: 1, fig: 0, tab: 0 } });
 });
 
 test('a sheet keeps formatting, text across the page and Paper style; one without them saves as before', () => {
@@ -189,17 +189,19 @@ test('headings, captions and equations are numbered in the order read, and refer
     tb('b', 400, [{ kind: 'caption', label: 'Lf2', runs: [{ t: 'Second' }] }, { kind: 'h2', label: 'Ls', runs: [{ t: 'Sub' }] }]),
     // Across the page, it starts at the margin, before math further right on its row.
     tb('a', 100, [{ kind: 'h1', runs: [{ t: 'Start' }] }, { kind: 'caption', label: 'Lf1', runs: [{ t: '  First   one ' }] }], true),
-    tb('c', 600, [{ kind: 'caption', label: 'Lf1', runs: [{ t: 'Copy' }] }]),
+    tb('c', 600, [{ kind: 'caption', label: 'Lf1', runs: [{ t: 'Copy' }] }, { kind: 'table-caption', label: 'Lt', runs: [{ t: 'Loads' }] }]),
   ];
   const eq = (id: string, top: number, latex: string, numbered = true) => ({ id, left: 100, top, alignX: 100, alignY: top + 8, disabled: false, content: { k: 'draft' as const, latex, error: '' }, ...(numbered ? { numbered: true as const } : {}) });
   ws.regions = [eq('e2', 500, 'y'), eq('e1', 100, 'x'), eq('n', 300, 'z', false), eq('in', 120, 'w'), { ...eq('p', 130, ''), content: { k: 'other' as const, tag: 'x' } }];
   const n = numbering(ws, new Map([['in', {}]]));
   expect(Object.fromEntries(n.equations)).toEqual({ e1: 1, e2: 2 });
-  expect(n.targets.map((t) => `${t.kind}${t.n}:${t.words}`)).toEqual(['h11:Start', 'fig1:First one', 'eq1:', 'fig2:Second', 'h21.1:Sub', 'eq2:', 'fig3:Copy']);
-  expect(Object.fromEntries(n.before)).toEqual({ a: { h1: 0, h2: 0, fig: 0 }, b: { h1: 1, h2: 0, fig: 1 }, c: { h1: 1, h2: 1, fig: 2 } });
+  expect(n.targets.map((t) => `${t.kind}${t.n}:${t.words}`)).toEqual(['h11:Start', 'fig1:First one', 'eq1:', 'fig2:Second', 'h21.1:Sub', 'eq2:', 'fig3:Copy', 'tab1:Loads']);
+  expect(Object.fromEntries(n.before)).toEqual({ a: { h1: 0, h2: 0, fig: 0, tab: 0 }, b: { h1: 1, h2: 0, fig: 1, tab: 0 }, c: { h1: 1, h2: 1, fig: 2, tab: 0 } });
   // A label named twice belongs to the first read; the copy can't be referred to until it has one of its own.
   expect(n.labels.get('Lf1')?.words).toBe('First one');
-  expect(n.targets.at(-1)?.label).toBeUndefined();
+  expect(n.targets.at(-2)?.label).toBeUndefined();
+  // A table's caption is counted apart from figures.
+  expect(refText(n.labels.get('Lt'), false)).toBe('Table 1');
   expect(refText(n.labels.get('e2'), false)).toBe('(2)');
   expect(refText(n.labels.get('Lf2'), false)).toBe('Figure 2');
   expect(refText(n.labels.get('Ls'), true)).toBe('Section 1.1');
@@ -218,6 +220,7 @@ test('the editor holds captions, labels and references, and gives the same block
   const { blocksOf, docOf, wordsOfDoc } = await import('../src/ui/richschema.js');
   const blocks: TextBlock[] = [
     { kind: 'caption', label: 'Lf', runs: [{ t: 'A beam.' }] },
+    { kind: 'table-caption', label: 'Lt', runs: [{ t: 'Sizes.' }] },
     { kind: 'h1', label: 'Lh', align: 'center', runs: [{ t: 'Loads' }] },
     { runs: [{ t: 'See ' }, { t: '', ref: 'Lf' }, { t: '', ref: 'e1' }, { t: '\nand ' }, { t: '', ref: 'Lh' }] },
   ];
