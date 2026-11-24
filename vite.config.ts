@@ -15,6 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+import { writeServiceWorker } from './src/build/offline.js';
 import { SITE_SCRIPT_TAG, mergeCsp, readSite, writeSiteFiles } from './src/build/site.js';
 
 /** Shown in the app, so a deployed build says which version it is. */
@@ -43,6 +44,10 @@ export { CSP };
 const site = readSite(process.env.MATHMATH_SITE);
 const PAGE_CSP = mergeCsp(CSP, site?.config.csp);
 
+/** Where the build goes and the address it's served from, for the service worker. */
+let outDir = 'dist';
+let base = '/';
+
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(VERSION), __SOURCE_URL__: JSON.stringify(site?.config.source ?? '') },
   // Nothing inlined: the policy above refuses data: fonts.
@@ -62,6 +67,21 @@ export default defineConfig({
     },
     writeBundle: (options) => {
       if (site) writeSiteFiles(site, options.dir ?? 'dist', PAGE_CSP);
+    },
+  }, {
+    // Last, once every file is written: the service worker lists them all (src/offline/sw.template.js).
+    name: 'offline',
+    apply: 'build',
+    closeBundle: {
+      order: 'post',
+      sequential: true,
+      handler() {
+        writeServiceWorker(new URL('./src/offline/sw.template.js', import.meta.url).pathname, outDir, base);
+      },
+    },
+    configResolved(config) {
+      outDir = config.build.outDir;
+      base = config.base;
     },
   }],
 });

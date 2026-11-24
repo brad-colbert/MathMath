@@ -41,6 +41,7 @@ import { type Content, type NumberFormat, PAPERS, type Paper as PaperSize, type 
 import { SHEET_MIME, isSheetName } from '../engine/files.js';
 import { isCmpFile } from '../engine/colormaps.js';
 import { Doc } from './document.js';
+import { startOffline } from './offline.js';
 import { type BlockKind, type TextBlock, textBlocksOf } from '../model/richtext.js';
 import { TEXT_COLORS, clearFormat, setColor, setKind, toggle, toggleList } from '../ui/richedit.js';
 import type { Command } from 'prosemirror-state';
@@ -978,7 +979,23 @@ version.className = 'version';
 version.textContent = `MathMath ${__APP_VERSION__}`;
 version.title = 'About MathMath';
 version.addEventListener('click', () => splash.open());
-toolbar.append(busy, title, version);
+// When a new version is ready, a button to change to it: never by itself, as there may be work open.
+const update = document.createElement('button');
+update.className = 'update';
+update.textContent = 'New version: reload';
+update.title = 'A new version of MathMath is ready. Reload to use it; you\'ll be asked first if this sheet has unsaved changes';
+update.hidden = true;
+toolbar.append(busy, title, update, version);
+startOffline({
+  ready: () => {
+    version.textContent = `MathMath ${__APP_VERSION__} · offline`;
+    version.title = 'About MathMath. It works with no network here: it has been kept on this computer';
+  },
+  update: (apply) => {
+    update.hidden = false;
+    update.onclick = apply;
+  },
+});
 // The tools a phone shows without ☰: open and save, help, and LIVE, beside the phone-only ones.
 for (const b of toolbar.querySelectorAll<HTMLButtonElement>(':scope > button')) {
   if (['Open', 'Save'].includes(b.textContent ?? '') || b.classList.contains('mode')) b.classList.add('essential');

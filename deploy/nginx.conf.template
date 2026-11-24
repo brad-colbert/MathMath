@@ -46,6 +46,18 @@ server {
     location /assets/ {
         include /etc/nginx/mathmath-headers.conf;
         add_header Cache-Control "public, max-age=31536000, immutable" always;
+        # nginx's list of file types has no fonts as OpenType; without a type, they go as plain data.
+        location ~ \.otf$ {
+            include /etc/nginx/mathmath-headers.conf;
+            add_header Cache-Control "public, max-age=31536000, immutable" always;
+            default_type font/otf;
+        }
+    }
+    # The service worker, which keeps the app for working offline, is checked every time, so a new version is
+    # found as soon as it's deployed.
+    location = /sw.js {
+        include /etc/nginx/mathmath-headers.conf;
+        add_header Cache-Control "no-cache" always;
     }
     # nginx's list of file types has no entry for an app manifest. A types block here would replace the whole
     # list, so the one file gets its type by name.
