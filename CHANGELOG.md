@@ -8,6 +8,29 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.67.1] - 2026-11-24
+
+Older-format text opens as written: its paragraphs, looks, colors, Greek and the math in its lines; accented
+letters in math names.
+
+### Fixed
+
+- Worksheets in the older format with math inside a text's lines now open with that math in the line, live, as math
+  typed there is, and the text's paragraphs, bold, italic, sub- and superscripts kept around it. It used to show
+  twice: its symbols run into the words, and the math again on its own, wherever it had been on the page. What it
+  calculates is unchanged.
+- Names in math with a letter the math's faces lack, as é or ö, take it from the bundled CMU Serif, where they came
+  from whatever the computer had. Greek, symbols and everything else in math are drawn as before, at the same size.
+  Strings in math stay in the interface's own face, as before, the whole string alike.
+- Text in worksheets of the older format keeps its paragraphs, bold, italic, underline, sub- and superscripts and
+  colors, where all its paragraphs ran together in one, plain. Greek typed in the Symbol font, as λ, shows as Greek,
+  where it showed as the Latin letter typed for it.
+
+### Known limits
+
+- While math is being typed, such a letter still comes from the computer's own fonts; it's drawn in CMU Serif once
+  the math is done.
+
 ## [0.67.0] - 2026-11-24
 
 Working offline: once opened, MathMath opens and calculates with no network.

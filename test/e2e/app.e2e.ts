@@ -4318,7 +4318,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
 }
 
 // Paper style's letters: accented letters, Greek and Cyrillic, in every style, come from the fonts the app serves, the
-// math's face and CMU Serif, never from whatever the computer has; the degree sign from CMU Serif.
+// math's face and CMU Serif, never from whatever the computer has; the degree sign from CMU Serif. And names in math.
 {
   const page = await fresh();
   const sample = 'Café naïve Ångström señor ł ř ő ğ İ Tiếng Việt Ελληνικά Русский 5 °C ± 2 µm';
@@ -4327,6 +4327,11 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   ws.textLook = 'paper';
   const blocks = [...styles.map((st) => ({ runs: [{ t: sample, ...st }] })), { runs: [{ t: '°' }] }];
   ws.texts = [{ id: 'i18n', left: 72, top: 72, width: 0, height: 0, text: blocks.map((b) => b.runs[0]!.t).join('\n'), blocks, flow: true }];
+  // A name in math with a letter the math's faces lack, and one they have.
+  ws.regions = [
+    { id: 'name', left: 72, top: 400, alignX: 72, alignY: 408, disabled: false, content: readRegion('\\mathrm{Größe}') },
+    { id: 'greek', left: 72, top: 440, alignX: 72, alignY: 448, disabled: false, content: readRegion('\\alpha+\\Gamma') },
+  ];
   await page.evaluate((f) => (window as any).mathmath.load('letters.mathmath', f), saveWorksheet(ws));
   await page.evaluate(() => document.fonts.ready);
   await sleep(300);
@@ -4345,6 +4350,18 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   };
   const used = [];
   for (let n = 1; n <= 5; n++) used.push(await fontsOf(n));
+  const mathFonts = async (id: string): Promise<string[]> => {
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: `[data-id="${id}"]` });
+    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId, selector: '*' });
+    const out = new Set<string>();
+    for (const n of [nodeId, ...nodeIds]) {
+      for (const f of (await cdp.send('CSS.getPlatformFontsForNode', { nodeId: n })).fonts) out.add(`${f.familyName}${f.isCustomFont ? '' : ' (system)'}`);
+    }
+    return [...out].sort();
+  };
+  const names = { name: await mathFonts('name'), greek: await mathFonts('greek') };
+  check('a name in math with a letter the math faces lack takes it from CMU Serif, and Greek stays in the math faces',
+    JSON.stringify(names.name) === '["CMU Serif","KaTeX_Main"]' && JSON.stringify(names.greek) === '["KaTeX_Main","KaTeX_Math"]', names);
   check('accented letters, Greek and Cyrillic in Paper style come from the fonts the app serves, in every style, and the degree sign from CMU Serif',
     used.slice(0, 4).every((f) => JSON.stringify(f) === '["CMU Serif","KaTeX_Main"]') && JSON.stringify(used[4]) === '["CMU Serif"]', used);
   await page.close();
