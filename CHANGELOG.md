@@ -8,6 +8,15 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.65.1] - 2026-11-23
+
+Licence notices for the math editor and its fonts.
+
+### Fixed
+
+- About now links the notices of MathLive, the math editor, and of the KaTeX fonts it comes with, as their licenses
+  ask of a copy that bundles them. The README lists them too.
+
 ## [0.65.0] - 2026-11-23
 
 Numbered equations, figure captions, and references to them in text.

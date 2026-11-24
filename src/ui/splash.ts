@@ -29,6 +29,8 @@ const AMOS_NOTICES = `${import.meta.env.BASE_URL}licenses/amos.txt`;
 const LAPACK_NOTICES = `${import.meta.env.BASE_URL}licenses/lapack.txt`;
 /** ProseMirror's license, for the text editor (src/ui/richedit.ts), which the build bundles. */
 const PROSEMIRROR_NOTICES = `${import.meta.env.BASE_URL}licenses/prosemirror.txt`;
+/** MathLive's license, for the math editor and drawing, and the license of the KaTeX fonts it comes with. */
+const MATHLIVE_NOTICES = `${import.meta.env.BASE_URL}licenses/mathlive.txt`;
 /** The AT&T notice that comes with the port of Cleveland, Grosse and Shyu's loess (src/engine/loess.ts). */
 const LOESS_NOTICES = `${import.meta.env.BASE_URL}licenses/loess.txt`;
 export const GIAC_SOURCE = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz';
@@ -98,6 +100,9 @@ export class Splash {
           <a class="loess-license" href="${LOESS_NOTICES}" target="_blank" rel="noopener">its notice</a>.
           Text is typed with ProseMirror, by Marijn Haverbeke and others, under the MIT license:
           <a class="prosemirror-license" href="${PROSEMIRROR_NOTICES}" target="_blank" rel="noopener">its notice</a>.
+          Math is typed and drawn with MathLive, by Arno Gourdol, under the MIT license, in the KaTeX fonts by Design
+          Science and Khan Academy, under the SIL Open Font License:
+          <a class="mathlive-license" href="${MATHLIVE_NOTICES}" target="_blank" rel="noopener">their notices</a>.
           Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;

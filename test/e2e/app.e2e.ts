@@ -2199,6 +2199,19 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     return { href: a?.href ?? '', notice: text.includes('Copyright (c) 1989, 1992 by AT&T') && text.includes('this entire notice') };
   });
   check('About links the notice of the loess port, and it is served', loessNotice.notice, loessNotice);
+  const bundled = await page.evaluate(async () => {
+    const read = async (cls: string) => {
+      const a = document.querySelector<HTMLAnchorElement>(`#splash .legal a.${cls}`);
+      return a ? (await fetch(a.href)).text() : '';
+    };
+    const [pm, ml] = [await read('prosemirror-license'), await read('mathlive-license')];
+    return {
+      prosemirror: pm.includes('Marijn Haverbeke') && pm.includes('Permission is hereby granted'),
+      mathlive: ml.includes('Arno Gourdol') && ml.includes('Permission is hereby granted'),
+      fonts: ml.includes('Khan Academy') && ml.includes('Design Science') && ml.includes('SIL OPEN FONT LICENSE Version 1.1') && ml.includes('with Reserved Font Name KaTeX_Main.'),
+    };
+  });
+  check('About links the notices of the libraries the build bundles, ProseMirror, MathLive and its fonts, and they are served', bundled.prosemirror && bundled.mathlive && bundled.fonts, bundled);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);

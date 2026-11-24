@@ -102,6 +102,11 @@ The text editor, `src/ui/richedit.ts`, is built on [ProseMirror](https://prosemi
 and others, under the MIT license, with the small packages it uses (orderedmap, rope-sequence, w3c-keyname) under
 the same. The build bundles them, so the app serves their notices as `licenses/prosemirror.txt`, linked from About.
 
+Math is typed and drawn with [MathLive](https://mathlive.io/), by Arno Gourdol, under the MIT license. It comes
+with the KaTeX fonts, copyright Design Science and Khan Academy, under the SIL Open Font License 1.1 with their
+reserved font names. The build bundles both, so the app serves their notices as `licenses/mathlive.txt`, linked
+from About.
+
 The Earth example carries NASA's Apollo 17 photograph "The Blue Marble", which is in the public domain; see
 `examples/assets/README.md`.
 
