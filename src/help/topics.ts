@@ -267,4 +267,13 @@ export const TOPICS: Topic[] = [
       { p: 'Opening one reads it from GitHub, and nothing else is contacted: a link can only name a gist. A worksheet can\'t run programs on your computer or reach the network, and a file altered to put its own markup on the page is refused or its styles ignored. A long calculation can be stopped with Esc, and a region asking for a huge array or string is refused at once rather than filling the page\'s memory (see Ranges, vectors and matrices). Without signing in, GitHub lets each connection open 60 gists an hour.' },
     ],
   },
+  {
+    id: 'offline', title: 'Working offline', summary: 'Opening MathMath and calculating with no network, and changing to a new version.',
+    body: [
+      { p: 'Once MathMath has been opened with a network, your browser keeps it, and it opens and calculates with none: on a plane, in the field, or on poor Wi-Fi. Open it from the same address as before, or install it as an app from the browser\'s menu. The algebra engine for → is large, so it\'s fetched after the rest, while you work, or, when the browser is set to save data, the first time → is used; when everything is kept, the version at the right of the toolbar says offline.' },
+      { p: 'Worksheets are your own files, opened and saved on your computer, so they need no network either. Sharing through a gist, opening a shared link, and reading a picture from a web address do: they wait until you\'re online.' },
+      { h: 'New versions' },
+      { p: 'When a new version comes out, the first time you open MathMath it is still the version before; the browser fetches what changed in the background, and a New version: reload button shows on the toolbar. Nothing changes until you click it, or close MathMath and open it again, so the sheet in front of you is never interrupted. If it has unsaved changes, you\'re asked first.' },
+    ],
+  },
 ];

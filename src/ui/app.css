@@ -34,6 +34,9 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 #toolbar .sep { width: 1px; height: 18px; background: #d1d5db; margin: 0 4px; }
 #toolbar .name { margin-left: auto; color: #374151; }
 #toolbar .version { color: #6b7280; font-size: 11px; margin-left: 10px; }
+/* A new version, ready to change to. */
+#toolbar button.update { border-color: #2563eb; color: #1d4ed8; font-weight: 600; }
+#toolbar button.update[hidden] { display: none; }
 #toolbar .busy { color: #92400e; }
 #toolbar button.mode { min-width: 4.5em; font-weight: 600; letter-spacing: 0.05em; }
 #toolbar button.mode.live { background: #dcfce7; border-color: #16a34a; color: #166534; }

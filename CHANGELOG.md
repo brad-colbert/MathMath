@@ -8,6 +8,32 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.67.0] - 2026-11-24
+
+Working offline: once opened, MathMath opens and calculates with no network.
+
+### Added
+
+- Working offline: once opened with a network, MathMath opens and calculates with none, numbers, symbols, plots,
+  examples and Help alike. The browser keeps the app; the large algebra engine is fetched after the rest, and the
+  version on the toolbar says offline when everything is kept. A new version is fetched in the background, only
+  what changed, and waits for New version: reload on the toolbar, or the next time MathMath is opened, so a sheet
+  being worked on is never interrupted. Help has a Working offline page.
+
+### Fixed
+
+- Fonts in OpenType files, the accented letters' face, are served as fonts by the bundled server setup, where they
+  went as plain data.
+
+### Known limits
+
+- Sharing through a gist, opening a shared link, and reading a picture from a web address still need the network.
+- The first visit has to finish fetching the app, about 23 MB with the algebra engine, before it works offline.
+- After a new version is deployed, the first time MathMath is opened it is still the version before, version number
+  and all; the New version: reload button shows a few seconds later. A tab left open keeps its version until reloaded.
+- When the browser is set to save data, the algebra engine is fetched only when → is first used, so it works
+  offline only after that.
+
 ## [0.66.0] - 2026-11-24
 
 Paper polish: units of answers in text, table captions, captions that move with their figures, headings kept

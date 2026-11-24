@@ -16,7 +16,7 @@
 // Drives the production build in headless Chromium with real input events. Everything here is
 // invented: corpus checks live in src/cli. Pass a folder to keep screenshots outside the repository.
 import { execSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
@@ -68,6 +68,8 @@ async function fresh(withSplash = false): Promise<Page> {
   });
   page.on('dialog', (d) => void d.accept());
   await page.evaluateOnNewDocument('globalThis.__name = (f) => f;');
+  // The service worker's downloads would run under every test: the offline test turns it on in a browser of its own.
+  await page.evaluateOnNewDocument("try { localStorage.setItem('mathmath.offline', 'off') } catch {}");
   // The splash would cover the paper: tests of it open their own page.
   if (!withSplash) await page.evaluateOnNewDocument("try { localStorage.setItem('mathmath.splash', 'off') } catch {}");
   await page.goto(url);
@@ -3277,6 +3279,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     if (m.type() === 'error') problems.push(`console: ${m.text().slice(0, 200)}`);
   });
   page.on('dialog', (d) => void d.accept());
+  await page.evaluateOnNewDocument("try { localStorage.setItem('mathmath.offline', 'off') } catch {}");
   const away: string[] = [];
   await page.setRequestInterception(true);
   page.on('request', (r) => {
@@ -4376,6 +4379,122 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   check('a contour plot draws a second function\'s contours, a point and arrows over its own', got.whole && got.contours === 1 && got.points === 1 && got.arrows === 2 && got.own > 1, got);
   check('a contour plot\'s expressions that can\'t be drawn say why, a surface of three matrices among them', JSON.stringify(got.problems) === JSON.stringify(['Expression 5: q isn\'t defined', 'Expression 6: A contour plot needs a matrix of heights or a function']), got.problems);
   await page.close();
+}
+
+// Offline: once opened, the app opens and calculates with no network, symbolic math too; a new version waits for a
+// reload, fetches only what changed, and the page on the old one still calculates meanwhile. On a server of its own,
+// which can go away, in a browser context of its own.
+{
+  let online = true;
+  // A new version: sw.js with another version, and one file with new content and its new hash.
+  let next = false;
+  const CHANGED = '/licenses/cmu.txt';
+  const asked = new Map<string, number>();
+  const own = createServer((req, res) => {
+    if (!online) return void req.socket.destroy();
+    const at = decodeURIComponent(req.url!.split('?')[0]!);
+    asked.set(at, (asked.get(at) ?? 0) + 1);
+    const path = join('dist', at === '/' ? 'index.html' : at);
+    if (!existsSync(path) || !statSync(path).isFile()) return void res.writeHead(404).end();
+    res.writeHead(200, { 'content-type': mime[extname(path)] ?? 'application/octet-stream', 'content-security-policy': CSP });
+    if (next && at === '/sw.js') {
+      const sw = readFileSync(path, 'utf8').replace(/(const VERSION = \/\* VERSION \*\/ ")([^"]*)"/, '$1next"')
+        .replace(new RegExp(`("url":"${CHANGED}","hash":")[^"]*"`), '$1changed00000000"');
+      return void res.end(sw);
+    }
+    if (next && at === CHANGED) return void res.end(`${readFileSync(path, 'utf8')}\nChanged.\n`);
+    createReadStream(path).pipe(res);
+  });
+  await new Promise<void>((r) => own.listen(0, '127.0.0.1', () => r()));
+  const ownUrl = `http://127.0.0.1:${(own.address() as { port: number }).port}/`;
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage();
+  page.on('pageerror', (e) => problems.push(`offline page error: ${String((e as Error).stack ?? e).slice(0, 300)}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') problems.push(`offline console: ${m.text().slice(0, 200)}`);
+  });
+  page.on('dialog', (d) => void d.accept());
+  await page.evaluateOnNewDocument('globalThis.__name = (f) => f;');
+  await page.evaluateOnNewDocument("try { localStorage.setItem('mathmath.splash', 'off') } catch {}");
+  await page.goto(ownUrl);
+  await page.waitForFunction('!!window.mathmath');
+  const readied = await page.waitForFunction(() => document.querySelector('#toolbar .version')?.textContent?.includes('offline'), { timeout: 120000 }).then(() => true, () => false);
+  const label = await page.evaluate(() => document.querySelector('#toolbar .version')?.textContent);
+  check('opened once, the app says when it is kept for working offline, the algebra engine too', readied, label);
+  // The network goes. A reload still opens it, and it calculates, numbers and symbols.
+  online = false;
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath', { timeout: 30000 });
+  const ws = emptyWorksheet();
+  ws.regions = [
+    { id: 'a', left: 72, top: 72, alignX: 72, alignY: 80, disabled: false, content: readRegion('a\\coloneq 6') },
+    { id: 'b', left: 72, top: 110, alignX: 72, alignY: 118, disabled: false, content: readRegion('a\\cdot 7=') },
+    { id: 'c', left: 72, top: 150, alignX: 72, alignY: 158, disabled: false, content: readRegion('\\frac{\\mathrm{d}}{\\mathrm{d}x}x^{3}\\to ') },
+  ];
+  ws.textLook = 'paper';
+  ws.texts = [{ id: 't', left: 72, top: 200, width: 300, height: 0, text: 'Café Ελλάδα', blocks: [{ runs: [{ t: 'Café Ελλάδα' }] }] }];
+  await page.evaluate((f) => (window as any).mathmath.load('offline.mathmath', f), saveWorksheet(ws));
+  await page.waitForFunction(() => {
+    const o = (window as any).mathmath.doc.outcomes;
+    return o.get('b')?.value !== undefined && (o.get('c')?.value !== undefined || o.get('c')?.error);
+  }, { timeout: 60000 }).catch(() => undefined);
+  const away = await page.evaluate(async () => {
+    const o = (window as any).mathmath.doc.outcomes;
+    const fetched = async (u: string) => { try { return (await fetch(u)).ok; } catch { return false; } };
+    return {
+      b: o.get('b')?.value, c: o.get('c')?.value ?? o.get('c')?.error,
+      example: await fetched('examples/index.json'), notice: await fetched('licenses/cmu.txt'),
+      font: (await document.fonts.load('10pt "CMU Serif"', 'é')).length > 0,
+    };
+  });
+  check('with no network, a reload opens the app, and it calculates numbers and symbols, with its examples, notices and fonts',
+    away.b === '42' && typeof away.c === 'string' && away.c.includes('3') && !away.c.toLowerCase().includes('engine') && away.example && away.notice && away.font, away);
+  // A new version: only its changed files are fetched, the open page keeps working, and Reload changes to it.
+  online = true;
+  next = true;
+  const before = new Map(asked);
+  await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration())?.update(); });
+  const offered = await page.waitForSelector('#toolbar button.update:not([hidden])', { timeout: 60000 }).then(() => true, () => false);
+  const fetchedAgain = [...asked].filter(([at, n]) => n > (before.get(at) ?? 0)).map(([at]) => at);
+  await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    d.setMath(d.ws.regions[0], 'a\\coloneq 5');
+  });
+  await page.waitForFunction(() => (window as any).mathmath.doc.outcomes.get('b')?.value === '35', { timeout: 20000 }).catch(() => undefined);
+  const stillWorks = await page.evaluate(() => (window as any).mathmath.doc.outcomes.get('b')?.value);
+  check('a new version is offered, not forced, the open page still calculates, and nothing unchanged is fetched again',
+    offered && stillWorks === '35' && JSON.stringify(fetchedAgain.sort()) === JSON.stringify([CHANGED, '/sw.js']), { offered, stillWorks, fetchedAgain });
+  await page.evaluate(() => { (window as any).mathmath.doc.dirty = false; });
+  const reloaded = page.waitForNavigation({ timeout: 30000 }).then(() => true, () => false);
+  await page.click('#toolbar button.update');
+  const changed = await reloaded;
+  await page.waitForFunction('!!window.mathmath', { timeout: 30000 }).catch(() => undefined);
+  const after = await page.evaluate(async () => ({
+    controlled: !!navigator.serviceWorker.controller, waiting: !!(await navigator.serviceWorker.getRegistration())?.waiting,
+    button: !!document.querySelector('#toolbar button.update:not([hidden])'),
+  }));
+  const engine = asked.get('/giac/vendor/giacwasm.js') ?? 0;
+  const relabelled = await page.waitForFunction(() => document.querySelector('#toolbar .version')?.textContent?.includes('offline'), { timeout: 60000 }).then(() => true, () => false);
+  const kept = await page.evaluate(async () => ({
+    caches: (await caches.keys()).filter((k) => k.startsWith('mathmath-')).length,
+    changed: await (await fetch('licenses/cmu.txt')).text().then((t) => t.includes('Changed.')),
+  }));
+  check('Reload changes to the new version, with its changed file, keeping the last version\'s cache, and the engine isn\'t fetched again',
+    changed && after.controlled && !after.waiting && !after.button && relabelled && kept.caches === 2 && kept.changed && (asked.get('/giac/vendor/giacwasm.js') ?? 0) === engine,
+    { changed, after, relabelled, kept, engine });
+  // And the new version works offline too.
+  online = false;
+  await page.reload();
+  await page.waitForFunction('!!window.mathmath', { timeout: 30000 }).catch(() => undefined);
+  await page.evaluate((f) => (window as any).mathmath.load('offline.mathmath', f), saveWorksheet(ws));
+  await page.waitForFunction(() => (window as any).mathmath.doc.outcomes.get('c')?.value !== undefined, { timeout: 60000 }).catch(() => undefined);
+  const again = await page.evaluate(() => {
+    const o = (window as any).mathmath.doc.outcomes;
+    return { b: o.get('b')?.value, c: o.get('c')?.value };
+  });
+  check('the new version opens and calculates with no network, symbols too', again.b === '42' && typeof again.c === 'string' && again.c.includes('3'), again);
+  await context.close();
+  own.close();
 }
 
 check('no page errors, console errors or policy violations', problems.length === 0, problems);

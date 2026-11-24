@@ -44,9 +44,9 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
 }
 
 /** GET over HTTPS, checking the certificate against MATHMATH_CA when given. */
-function get(path: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+function get(path: string, method = 'GET'): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
   return new Promise((resolve, reject) => {
-    const req = request(new URL(path, base), { ca, rejectUnauthorized: Boolean(ca) }, (res) => {
+    const req = request(new URL(path, base), { ca, rejectUnauthorized: Boolean(ca), method }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (c) => (body += c));
@@ -67,6 +67,17 @@ const worker = workerName ? await get(`/assets/${workerName}`) : null;
 const policy = (h?: Record<string, unknown>) => String(h?.['content-security-policy'] ?? '');
 check('the security policy comes as a header with the page', policy(page0.headers).includes("'wasm-unsafe-eval'"), page0.headers);
 check('and with the calculation worker\'s script', Boolean(worker) && policy(worker!.headers) === policy(page0.headers), workerName);
+
+// Working offline: the service worker is served, and every file it keeps is there to fetch.
+const sw = await get('/sw.js');
+const listed = (name: string): { url: string }[] => JSON.parse(new RegExp(`const ${name} = /\\* ${name} \\*/ (\\[.*?\\]);`).exec(sw.body)?.[1] ?? '[]') as { url: string }[];
+const kept = [...listed('FILES'), ...listed('LATER')];
+const missing: string[] = [];
+for (const { url } of kept) {
+  const r = await get(url, 'HEAD');
+  if (r.status !== 200) missing.push(`${url} ${r.status}`);
+}
+check('the service worker is served, and every file it keeps for working offline is there', sw.status === 200 && kept.length > 20 && missing.length === 0, { status: sw.status, kept: kept.length, missing });
 
 // A real calculation in a real browser.
 const ws = emptyWorksheet();
