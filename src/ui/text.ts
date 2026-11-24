@@ -55,7 +55,7 @@ export function drawText(el: HTMLElement, region: TextRegion, { page, look, coun
   el.classList.toggle('flow', flow);
   el.classList.toggle('paper-look', paper);
   el.classList.toggle('blocks', blocks !== null);
-  el.style.counterReset = blocks ? `h1 ${counts?.h1 ?? 0} h2 ${counts?.h2 ?? 0} fig ${counts?.fig ?? 0}` : '';
+  el.style.counterReset = blocks ? `h1 ${counts?.h1 ?? 0} h2 ${counts?.h2 ?? 0} fig ${counts?.fig ?? 0} tab ${counts?.tab ?? 0}` : '';
   if (blocks) {
     el.replaceChildren(blockElements(blocks));
     // References in the order they're drawn, which is the order they're read.
@@ -84,8 +84,9 @@ const MAX_BREAKS = 2000;
 
 /**
  * Moves lines that would cross from one page to the next, or into its margins, to the top of the next page, by a gap
- * before each. Before a block's first line the gap is a block of its own. Inside one it's a float as wide as the
- * text: the line before it still wraps, so it stays justified.
+ * before each. Before a block's first line the gap is a block of its own, measured again once it's in, as the block
+ * may lose the space kept above it after another. Inside one it's a float as wide as the text: the line before it
+ * still wraps, so it stays justified. Headings just before a block moved go with it.
  */
 function keepOffBreaks(el: HTMLElement, top: number, page: PageModel): void {
   const { height, margins } = page;
@@ -99,8 +100,11 @@ function keepOffBreaks(el: HTMLElement, top: number, page: PageModel): void {
     gap.className = 'page-gap';
     gap.style.height = `${line.gap}pt`;
     gap.setAttribute('aria-hidden', 'true');
-    if (line.block) el.insertBefore(gap, line.block);
-    else {
+    if (line.block) {
+      el.insertBefore(gap, line.block);
+      const first = linesOf(line.block)[0];
+      if (first) gap.style.height = `${Math.max(0, line.gap + line.to - placeIn(el, top)(first.top))}pt`;
+    } else {
       const range = document.createRange();
       range.setStart(line.node, line.offset);
       range.insertNode(gap);
@@ -141,24 +145,56 @@ function linesOf(block: HTMLElement): Line[] {
  * The first line crossing into the margins between page `from` and any page after it, counting pages from 1: where it
  * starts, the block it starts if it does, and how far it must move.
  */
-function firstCrossing(el: HTMLElement, top: number, page: PageModel, from: number): { node: Text; offset: number; block: HTMLElement | null; gap: number; page: number } | null {
-  const box = el.getBoundingClientRect();
-  // The sheet may be zoomed, so positions are measured against the region's own size.
-  const k = (el.offsetWidth / PT) / (box.width || 1);
-  const at = (y: number): number => top + (y - box.top) * k;
+function firstCrossing(el: HTMLElement, top: number, page: PageModel, from: number): { node: Text; offset: number; block: HTMLElement | null; gap: number; to: number; page: number } | null {
+  const at = placeIn(el, top);
   const blocks = el.classList.contains('blocks') ? [...el.querySelectorAll<HTMLElement>(':scope > .tb')] : [el];
-  for (const block of blocks) {
+  for (const [i, block] of blocks.entries()) {
     const lines = linesOf(block);
     for (const [n, line] of lines.entries()) {
       const [a, b] = [at(line.top), at(line.bottom)];
       const p = Math.floor((b + page.margins.bottom) / page.height);
       if (p <= from || b <= p * page.height - page.margins.bottom + 0.5 || a >= p * page.height + page.margins.top - 0.5) continue;
-      return {
-        node: line.node, offset: lineStart(line), block: n === 0 && block !== el ? block : null, gap: p * page.height + page.margins.top - a, page: p,
-      };
+      const to = p * page.height + page.margins.top;
+      // A heading of two lines isn't split: it moves whole.
+      if ((n === 0 || isHeading(block)) && block !== el) {
+        const kept = withHeadings(blocks, i, at, page, p);
+        const first = linesOf(kept)[0];
+        const start = first ? at(first.top) : a;
+        return { node: line.node, offset: lineStart(line), block: kept, gap: to - start, to, page: p };
+      }
+      return { node: line.node, offset: lineStart(line), block: null, gap: to - a, to, page: p };
     }
   }
   return null;
+}
+
+const isHeading = (block: HTMLElement): boolean => ['title', 'h1', 'h2'].some((h) => block.classList.contains(h));
+
+/**
+ * The block to move to page `p` with block `i`: the first of the headings just before it, past empty lines between, so
+ * a heading isn't left at the foot of a page, apart from what it heads. Not when they start their page already: they'd
+ * only move again.
+ */
+function withHeadings(blocks: HTMLElement[], i: number, at: (y: number) => number, page: PageModel, p: number): HTMLElement {
+  let j = i;
+  for (let k = i; k > 0; k--) {
+    const before = blocks[k - 1]!;
+    if (isHeading(before)) j = k - 1;
+    else if (linesOf(before).length > 0) break;
+  }
+  if (j === i) return blocks[i]!;
+  const first = linesOf(blocks[j]!)[0];
+  if (!first) return blocks[i]!;
+  const a = at(first.top);
+  const pageTop = (p - 1) * page.height + page.margins.top;
+  return a > pageTop + 0.5 && a < p * page.height ? blocks[j]! : blocks[i]!;
+}
+
+/** Where a point on screen is, in points down the sheet, for the region at `top`: the sheet may be zoomed. */
+function placeIn(el: HTMLElement, top: number): (y: number) => number {
+  const box = el.getBoundingClientRect();
+  const k = (el.offsetWidth / PT) / (box.width || 1);
+  return (y: number): number => top + (y - box.top) * k;
 }
 
 /** Where a line starts in its node, by halving: lines only go down through a node. */

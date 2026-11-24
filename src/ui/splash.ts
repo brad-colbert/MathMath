@@ -31,6 +31,7 @@ const LAPACK_NOTICES = `${import.meta.env.BASE_URL}licenses/lapack.txt`;
 const PROSEMIRROR_NOTICES = `${import.meta.env.BASE_URL}licenses/prosemirror.txt`;
 /** MathLive's license, for the math editor and drawing, and the license of the KaTeX fonts it comes with. */
 const MATHLIVE_NOTICES = `${import.meta.env.BASE_URL}licenses/mathlive.txt`;
+const CMU_NOTICES = `${import.meta.env.BASE_URL}licenses/cmu.txt`;
 /** The AT&T notice that comes with the port of Cleveland, Grosse and Shyu's loess (src/engine/loess.ts). */
 const LOESS_NOTICES = `${import.meta.env.BASE_URL}licenses/loess.txt`;
 export const GIAC_SOURCE = 'https://www-fourier.univ-grenoble-alpes.fr/~parisse/debian/dists/stable/main/source/giac_2.0.0-14.tar.gz';
@@ -103,6 +104,8 @@ export class Splash {
           Math is typed and drawn with MathLive, by Arno Gourdol, under the MIT license, in the KaTeX fonts by Design
           Science and Khan Academy, under the SIL Open Font License:
           <a class="mathlive-license" href="${MATHLIVE_NOTICES}" target="_blank" rel="noopener">their notices</a>.
+          Accented letters, Greek and Cyrillic in Paper style are in CMU Serif, by Andrey V. Panov, under the SIL Open
+          Font License: <a class="cmu-license" href="${CMU_NOTICES}" target="_blank" rel="noopener">its notice</a>.
           Mathcad is a trademark of PTC Inc. MathMath is not affiliated with or endorsed by PTC.</p>
       </div>`;
     this.start = this.el.querySelector<HTMLButtonElement>('.start')!;

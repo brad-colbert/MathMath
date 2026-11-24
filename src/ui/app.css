@@ -122,8 +122,8 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.text .tb.number[data-level="2"]::before { content: counter(n2, lower-roman) "."; }
 .region.text .tb.number[data-level="3"] { counter-increment: n3; counter-reset: none; }
 .region.text .tb.number[data-level="3"]::before { content: counter(n3) ")"; }
-/* Paper style: the math's own serif face, justified, with numbered headings. */
-.region.text.paper-look { font-family: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif; line-height: 1.2; text-align: justify; }
+/* Paper style: the math's own serif face, justified, with numbered headings. CMU Serif draws only the letters it lacks (fonts.css). */
+.region.text.paper-look { font-family: "CMU Serif", KaTeX_Main, "Latin Modern Roman", "Times New Roman", serif; line-height: 1.2; text-align: justify; }
 .region.text.paper-look .tb.title { font-size: 1.8em; text-align: center; }
 .region.text.paper-look .tb.h1 { font-size: 1.4em; text-align: left; }
 .region.text.paper-look .tb.h2 { text-align: left; }
@@ -142,9 +142,12 @@ body { display: flex; flex-direction: column; background: var(--desk); }
 .region.text .inline-math.chosen { outline: 1px solid var(--select); outline-offset: 1px; }
 .region.text .math-typed { color: #6b7280; }
 /* A figure's caption, numbered in the order read; a reference, showing the number of what it names. */
-.region.text .tb.caption { counter-increment: fig; font-size: 0.9em; }
+.region.text .tb.caption, .region.text .tb.table-caption { font-size: 0.9em; }
+.region.text .tb.caption { counter-increment: fig; }
+.region.text .tb.table-caption { counter-increment: tab; }
 .region.text .tb.caption::before { content: "Figure " counter(fig) ". "; font-weight: bold; }
-.region.text.paper-look .tb.caption { text-align: center; }
+.region.text .tb.table-caption::before { content: "Table " counter(tab) ". "; font-weight: bold; }
+.region.text.paper-look .tb.caption, .region.text.paper-look .tb.table-caption { text-align: center; }
 .region.text .ref { white-space: nowrap; text-indent: 0; }
 .region.text .ref.missing { color: #b3261e; }
 .region.text .ref.chosen { outline: 1px solid var(--select); outline-offset: 1px; }

@@ -15,6 +15,7 @@
 
 import 'mathlive/fonts.css';
 import 'mathlive/static.css';
+import '../ui/fonts.css';
 import '../ui/app.css';
 import { forgetFile, openFile, readAny, saveFile } from '../ui/files.js';
 import { TEMPLATES, matrixTemplate } from '../ui/editor.js';
@@ -651,8 +652,10 @@ paperStyle.addEventListener('click', () => {
   pageMenu.open = false;
   paper.commitAll();
   const look = doc.ws.textLook === 'paper' ? undefined : 'paper';
-  // Heights are measured in the face they'll show in, so it has to be here first.
-  const faces = look ? ['', 'bold ', 'italic ', 'italic bold '].map((s) => document.fonts.load(`${s}10pt KaTeX_Main`)) : [];
+  // Heights are measured in the face they'll show in, so it has to be here first: CMU Serif too, for the letters
+  // the math face lacks, fetched only if the sheet's words have them.
+  const words = doc.ws.texts.map((t) => t.text).join(' ');
+  const faces = look ? ['', 'bold ', 'italic ', 'italic bold '].flatMap((s) => [document.fonts.load(`${s}10pt KaTeX_Main`), document.fonts.load(`${s}10pt "CMU Serif"`, words)]) : [];
   void Promise.allSettled(faces).then(() => paper.reflow(() => doc.setTextLook(look)));
 });
 pageList.appendChild(paperStyle);
@@ -846,7 +849,8 @@ const textFormats: [string, string, Command | null, (texts: TextRegion[]) => voi
   ['Title', 'Large centered text at the top of a paper', setKind('title'), asKind('title')],
   ['Heading', 'Large bold text, for a section (Ctrl+Alt+1 while typing). Numbered in Paper style', setKind('h1'), asKind('h1')],
   ['Subheading', 'Bold text a little larger than the rest (Ctrl+Alt+2 while typing). Numbered in Paper style', setKind('h2'), asKind('h2')],
-  ['Caption', 'A figure\'s caption, numbered Figure 1, Figure 2, … in the order read: put it under a plot or picture', setKind('caption'), asKind('caption')],
+  ['Figure caption', 'A figure\'s caption, numbered Figure 1, Figure 2, … in the order read: put it under a plot or picture', setKind('caption'), asKind('caption')],
+  ['Table caption', 'A table\'s caption, numbered Table 1, Table 2, … in the order read, apart from figures: put it over a table', setKind('table-caption'), asKind('table-caption')],
   ['Plain text', 'Back to plain 10-point words and paragraphs', clearFormat, (texts) => {
     doc.setTextStyle(texts, () => ({}));
     // Math and references in the words stay: they have no look of their own to take away.

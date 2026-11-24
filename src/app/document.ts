@@ -23,7 +23,7 @@ import { type Content, type OpaqueRegion, type Paper, onPaper, paperOf, type Reg
 import { fileKey } from '../engine/files.js';
 import { type ConvertContext, type Found, convertContent, fileClashes, findConvertible, originAt } from '../engine/convert.js';
 import { parseWav } from '../engine/wav.js';
-import { type InlinePlace, type TextBlock, type TextLook, changeBlocks, inlineMath, isFormatted, placeInline, plainBlocks, textBlocksOf } from '../model/richtext.js';
+import { type InlinePlace, type TextBlock, type TextLook, changeBlocks, inlineMath, isFormatted, numberable, placeInline, plainBlocks, textBlocksOf } from '../model/richtext.js';
 import { Algebra } from './algebra.js';
 import type { Answer, AskAlgebra, ComputeRequest, Done, Kept, Planned, Progress, Shown } from './compute.worker.js';
 
@@ -506,9 +506,11 @@ export class Doc {
   /**
    * Its words and formatting, and the math in them, typed as LaTeX by id: math regions are made, changed and removed
    * to match, all as one change. Math named by id that isn't this text's own, as when pasted, or named twice, becomes
-   * a region of its own with a new id. Returns the ids changed that way, old to new, for the editor to follow.
+   * a region of its own with a new id. Returns the ids changed that way, old to new, for the editor to follow. New
+   * math that is a copy, named in `copies` or by its id, starts as that math, unit and format and all, when it reads
+   * the same and is math that can be in a line: a paste names what it's a copy of, so it's never taken as more.
    */
-  setTextAndMath(region: TextRegion, text: string, blocks: TextBlock[] | null, maths: ReadonlyMap<string, string>): Map<string, string> {
+  setTextAndMath(region: TextRegion, text: string, blocks: TextBlock[] | null, maths: ReadonlyMap<string, string>, copies?: ReadonlyMap<string, string>): Map<string, string> {
     const renamed = new Map<string, string>();
     const mine = new Map(this.ws.regions.filter((r) => r.inText === region.id).map((r) => [r.id, r]));
     const taken = new Set([...this.ws.regions, ...this.ws.texts, ...this.ws.opaque].map((r) => r.id));
@@ -522,7 +524,10 @@ export class Doc {
         const fresh = taken.has(id) ? this.newId() : id;
         if (fresh !== id) renamed.set(id, fresh);
         taken.add(fresh);
-        math = { id: fresh, left: region.left, top: region.top, alignX: region.left, alignY: region.top, disabled: false, content: { k: 'draft', latex: '', error: '' }, inText: region.id };
+        const from = copies?.get(id) ?? id;
+        const source = this.ws.regions.find((r) => r.id === from);
+        const content = source && latex !== '' && numberable(source) && regionLatex(source.content) === latex ? structuredClone(source.content) : { k: 'draft' as const, latex: '', error: '' };
+        math = { id: fresh, left: region.left, top: region.top, alignX: region.left, alignY: region.top, disabled: false, content, inText: region.id };
         this.ws.regions.push(math);
         run.math = fresh;
       }

@@ -163,6 +163,22 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// A : typed with the caret still in a function's parentheses, or an index, defines the whole of it: := goes at the end.
+{
+  const page = await fresh();
+  await type(page, 72, 72, 'g(x,y:x+y');
+  await type(page, 72, 108, 'g(2,3', R, '=');
+  await type(page, 72, 144, 'h(t', { press: 'ArrowLeft' }, ':t*10');
+  await type(page, 72, 180, 'h(4', R, '=');
+  await type(page, 72, 216, 'v[2:7');
+  const ws = await model(page);
+  const kinds = ws.regions.map((r: any) => [r.content.k, r.content.target?.k ?? null]);
+  const text = (await shown(page)).join(' | ').replace(/\s/g, '');
+  check('a : typed inside f(x) or an index puts := after it', JSON.stringify(kinds.map(([k]: string[]) => k)) === '["define","eval","define","eval","define"]'
+    && text.includes('=5') && text.includes('=40'), { kinds, text });
+  await page.close();
+}
+
 // Ctrl+G turns the letter before the caret Greek, or back, as in Mathcad.
 {
   const page = await fresh();
@@ -2204,14 +2220,15 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
       const a = document.querySelector<HTMLAnchorElement>(`#splash .legal a.${cls}`);
       return a ? (await fetch(a.href)).text() : '';
     };
-    const [pm, ml] = [await read('prosemirror-license'), await read('mathlive-license')];
+    const [pm, ml, cmu] = [await read('prosemirror-license'), await read('mathlive-license'), await read('cmu-license')];
     return {
       prosemirror: pm.includes('Marijn Haverbeke') && pm.includes('Permission is hereby granted'),
       mathlive: ml.includes('Arno Gourdol') && ml.includes('Permission is hereby granted'),
       fonts: ml.includes('Khan Academy') && ml.includes('Design Science') && ml.includes('SIL OPEN FONT LICENSE Version 1.1') && ml.includes('with Reserved Font Name KaTeX_Main.'),
+      cmu: cmu.includes('Andrey V. Panov') && cmu.includes('Reserved Font Family Name "Computer Modern Unicode fonts"') && cmu.includes('SIL OPEN FONT LICENSE Version 1.1'),
     };
   });
-  check('About links the notices of the libraries the build bundles, ProseMirror, MathLive and its fonts, and they are served', bundled.prosemirror && bundled.mathlive && bundled.fonts, bundled);
+  check('About links the notices of the libraries the build bundles, ProseMirror, MathLive and its fonts, and CMU Serif, and they are served', bundled.prosemirror && bundled.mathlive && bundled.fonts && bundled.cmu, bundled);
   check('it says what the app is, and its button has focus', s.text.includes('So good we named it twice') && s.focus === 'Start calculating', s.focus);
   await page.keyboard.press('Escape');
   await sleep(60);
@@ -3510,7 +3527,8 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   const first = await page.$('.region.text');
   const fb = (await first!.boundingBox())!;
   await page.mouse.click(fb.x + 3, fb.y + 4);
-  await sleep(80);
+  // The editor takes a moment to take the caret: End pressed sooner can go unseen when the machine is busy.
+  await sleep(400);
   await page.keyboard.press('End');
   const paste = (html: string, text: string) => page.evaluate((h, t) => {
     const dt = new DataTransfer();
@@ -3701,6 +3719,42 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     return { bad: bad.length, gaps: el.querySelectorAll('.page-gap').length };
   });
   check('a long text across the page keeps its lines off the page\'s end', crossing.bad === 0 && crossing.gaps >= 1, crossing);
+  // A heading at a page's end goes to the next page with what it heads, two headings together, and lands on its top
+  // line, wherever the text starts.
+  const para = 'Words of a paragraph that runs on for a line or two, so there is something to read under each heading.';
+  const headed = [
+    { runs: [{ t: para }] }, { kind: 'h1', runs: [{ t: 'First' }] }, { runs: [{ t: para }] }, { kind: 'h1', runs: [{ t: 'Second' }] },
+    { kind: 'h2', runs: [{ t: 'Under it' }] }, { runs: [{ t: `${para} ${para}` }] }, { kind: 'h2', runs: [{ t: 'Third' }] }, { runs: [{ t: para }] },
+  ];
+  const kept: unknown[] = [];
+  let movedOne = false;
+  for (let top = 560; top <= 760; top += 6) {
+    await page.evaluate((blocks, at) => {
+      const w = (window as any).mathmath;
+      const text = blocks.map((b: any) => b.runs[0].t).join('\n');
+      w.load('headed.mathmath', JSON.stringify({ format: 'mathmath', version: 1, worksheet: { ...JSON.parse(w.save()).worksheet, textLook: 'paper', regions: [], texts: [{ id: 'H', left: 72, top: at, width: 0, height: 0, text, blocks, flow: true }] } }));
+    }, headed, top);
+    await sleep(60);
+    const r = await page.evaluate((at) => {
+      const { height, margins } = (window as any).mathmath.doc.ws.page;
+      const el = document.querySelector('[data-id="H"]') as HTMLElement;
+      const box = el.getBoundingClientRect();
+      const k = el.offsetWidth / box.width * 72 / 96;
+      const firstLine = (b: Element): number => {
+        const range = document.createRange();
+        const walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+        range.selectNodeContents(walker.nextNode()!);
+        return at + (range.getClientRects()[0]!.top - box.top) * k;
+      };
+      const blocks = [...el.querySelectorAll(':scope > .tb')];
+      const stranded = blocks.flatMap((b, i) => /h1|h2/.test(b.className) && blocks[i + 1] && Math.floor(firstLine(blocks[i + 1]!) / height) > Math.floor(firstLine(b) / height) ? [b.textContent] : []);
+      const onTop = blocks.filter((b) => /h1|h2/.test(b.className)).some((b) => Math.abs(firstLine(b) % height - margins.top) < 1.5);
+      return { stranded, onTop };
+    }, top);
+    if (r.stranded.length) kept.push({ top, stranded: r.stranded });
+    movedOne ||= r.onTop;
+  }
+  check('a heading at a page\'s end goes to the next page with what it heads, on its top line', kept.length === 0 && movedOne, { kept, movedOne });
   await page.close();
 }
 
@@ -3926,6 +3980,98 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// The unit of an answer in text: chosen by a click on the answer, as on the page, kept as the words change, one step
+// to undo, and kept by a copy of the math pasted into other text.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.texts = [{ id: 't', left: 72, top: 140, width: 300, height: 0, text: 'The length is  in all.', blocks: [{ runs: [{ t: 'The length is ' }, { t: '', math: 'm2' }, { t: ' in all.' }] }] }];
+  ws.regions = [
+    { id: 'm1', left: 72, top: 72, alignX: 72, alignY: 80, disabled: false, content: readRegion('L\\coloneq 2\\cdot \\mathrm{m}') },
+    { id: 'm2', left: 72, top: 140, alignX: 72, alignY: 140, disabled: false, inText: 't', content: readRegion('L=') },
+    { id: 'p1', left: 300, top: 400, alignX: 300, alignY: 400, disabled: false, content: { k: 'plot', x: null, ys: [readTex('L')], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: 120, height: 80 } },
+  ];
+  await page.evaluate((f) => (window as any).mathmath.load('unit-in-text.mathmath', f), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const shown = () => page.evaluate(() => document.querySelector('[data-id="t"]')!.textContent!.replace(/\s+/g, ' '));
+  const unitOf = (id: string) => page.evaluate((i) => JSON.stringify((window as any).mathmath.doc.ws.regions.find((r: any) => r.id === i)?.content.unit ?? null), id);
+  const undo0 = await page.evaluate(() => (window as any).mathmath.doc.undoStack.length);
+  let a = (await (await page.$('[data-id="m2"] [data-slot="unit"]'))!.boundingBox())!;
+  await page.mouse.click(a.x + a.width - 3, a.y + a.height / 2);
+  await sleep(150);
+  const opened = await page.evaluate(() => ({ editor: document.activeElement?.id, typing: !!document.querySelector('[data-id="t"] .pm') }));
+  await page.keyboard.type('cm');
+  await page.keyboard.press('Enter');
+  await idle(page);
+  await sleep(150);
+  const chosen = { shown: await shown(), unit: await unitOf('m2'), steps: (await page.evaluate(() => (window as any).mathmath.doc.undoStack.length)) - undo0 };
+  check('a click on an answer in text chooses its unit, as on the page, in one step to undo',
+    opened.editor === 'editor' && !opened.typing && chosen.shown.includes('L=200 cm') && chosen.unit.includes('cm') && chosen.steps === 1, { opened, chosen });
+  // Words typed later keep it.
+  const t = (await (await page.$('[data-id="t"]'))!.boundingBox())!;
+  await page.mouse.click(t.x + 3, t.y + t.height / 2);
+  await sleep(150);
+  await page.keyboard.press('Home');
+  await page.keyboard.type('So: ');
+  // A click on the answer while the words are open opens the math, as before.
+  a = (await (await page.$('[data-id="m2"] [data-slot="unit"]'))!.boundingBox())!;
+  await page.mouse.click(a.x + a.width / 2, a.y + a.height / 2);
+  await sleep(150);
+  const whileTyping = await page.evaluate(() => (window as any).mathmath.paper.editing?.kind ?? null);
+  await page.keyboard.press('Escape');
+  // Copied into new text, the math keeps its unit.
+  await page.evaluate(() => {
+    const v = (window as any).mathmath.paper.typing.view;
+    const TS = v.state.selection.constructor;
+    v.dispatch(v.state.tr.setSelection(TS.create(v.state.doc, 0, v.state.doc.content.size)));
+  });
+  const copied = await page.evaluate(() => {
+    const dt = new DataTransfer();
+    document.querySelector('.region.text .pm')!.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+    return { html: dt.getData('text/html'), text: dt.getData('text/plain') };
+  });
+  await page.keyboard.press('Escape');
+  await idle(page);
+  const kept = { shown: await shown(), unit: await unitOf('m2') };
+  await clickAt(page, 72, 400);
+  await keys(page, '"');
+  await sleep(40);
+  await page.evaluate((c) => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', c.html);
+    dt.setData('text/plain', c.text);
+    document.querySelector('.region.text.editing .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, copied);
+  await page.keyboard.press('Escape');
+  await idle(page);
+  await sleep(150);
+  const copy = await page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const text = d.ws.texts.find((x: any) => x.id !== 't');
+    const math = d.ws.regions.find((r: any) => r.inText === text?.id);
+    return { id: math?.id, unit: JSON.stringify(math?.content.unit ?? null), shown: document.querySelector(`[data-id="${text?.id}"]`)?.textContent?.replace(/\s+/g, ' ') };
+  });
+  check('the unit of an answer in text stays as the words change, and a copy pasted into other text keeps it',
+    kept.shown.includes('So: The length is L=200 cm') && kept.unit.includes('cm') && whileTyping === 'inline'
+      && copy.id !== 'm2' && copy.unit.includes('cm') && copy.shown?.includes('L=200 cm') === true, { kept, whileTyping, copy });
+  // A paste that names a plot as what its math is a copy of makes no plot in the words.
+  await clickAt(page, 72, 600);
+  await keys(page, '"');
+  await sleep(40);
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', '<div data-pm-slice="1 1 []"><div class="tb">Forged <span class="inline-math" data-math="p1" data-latex=""></span> and <span class="inline-math" data-math="p1" data-latex="x"></span></div></div>');
+    dt.setData('text/plain', 'Forged');
+    document.querySelector('.region.text.editing .pm')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await page.keyboard.press('Escape');
+  await idle(page);
+  const forged = await page.evaluate(() => (window as any).mathmath.doc.ws.regions.map((r: any) => [r.id, r.content.k, r.inText ?? null]));
+  check('a paste naming a plot as what its math copies makes no plot in the words', forged.filter(([, k]: any) => k === 'plot').length === 1 && forged.some(([id, k]: any) => id === 'p1' && k === 'plot'), forged);
+  await page.close();
+}
+
 // Numbered equations, figure captions and references: numbers in the order read, kept up to date in references as
 // things are numbered, typed or taken away, a reference made from the format bar, one step to undo, and a hostile file's
 // references and labels held to what typing makes.
@@ -4069,6 +4215,135 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     plain: document.querySelector('[data-id="nb"]')?.textContent,
   }));
   check('a hostile file\'s references and labels are held to what typing makes', JSON.stringify(hostile.refs) === '["Figure 1","(?)","(?)"]' && hostile.captions === 2 && !hostile.img && hostile.numbers === 0 && hostile.plain === 'plain', hostile);
+  await page.close();
+}
+
+// Table captions, numbered apart from figures, in other text too; and a caption dragged with its plot or picture,
+// as one step to undo, while text that isn't only captions, or isn't just under it, stays.
+{
+  const page = await fresh();
+  const plotAt = { id: 'p', left: 72, top: 100, alignX: 72, alignY: 100, disabled: false, content: { k: 'plot' as const, x: null, ys: [readTex('1')], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: 200, height: 120 } };
+  const load = async (texts: any[], plot: any = plotAt) => {
+    const ws = emptyWorksheet();
+    ws.regions = [plot];
+    ws.texts = texts;
+    await page.evaluate((f) => (window as any).mathmath.load('captions.mathmath', f), saveWorksheet(ws));
+    await idle(page);
+    await sleep(100);
+  };
+  // Where the plot's drawing ends, in points down the sheet.
+  await load([]);
+  const [bottom, drawn] = await page.evaluate(() => {
+    const el = document.querySelector('[data-id="p"]') as HTMLElement;
+    const k = el.offsetHeight / el.getBoundingClientRect().height * 72 / 96;
+    const top = el.getBoundingClientRect().top;
+    // Its axis names are drawn below its box.
+    return [100 + el.offsetHeight * 72 / 96, 100 + Math.max(...[...el.querySelectorAll('*')].map((c) => (c.getBoundingClientRect().bottom - top) * k))];
+  });
+  const text = (id: string, left: number, top: number, blocks: any[], flow?: true) => ({ id, left, top, width: 0, height: 0, text: blocks.map((b) => b.runs.map((r: any) => r.t).join('')).join('\n'), blocks, ...(flow ? { flow } : {}) });
+  const cap = (kind: string, t: string) => ({ kind, runs: [{ t }] });
+  // Numbered apart: a figure, then a table, then a reference to each from other text.
+  await load([
+    text('c', 80, bottom + 4, [cap('caption', 'The plot.')]),
+    text('t', 80, bottom + 60, [{ kind: 'table-caption', label: 'Lt', runs: [{ t: 'Sizes.' }] }, { kind: 'caption', label: 'Lf', runs: [{ t: 'Another.' }] }]),
+    text('r', 80, bottom + 140, [{ runs: [{ t: 'See ' }, { t: '', ref: 'Lt' }, { t: ' and ' }, { t: '', ref: 'Lf' }] }]),
+  ]);
+  const numbers = await page.evaluate(() => ({
+    before: [...document.querySelectorAll('.tb.caption, .tb.table-caption')].map((b) => getComputedStyle(b, '::before').content),
+    refs: [...document.querySelectorAll('[data-id="r"] .ref')].map((e) => e.textContent),
+    // The second text's captions count on from the first's: its table is Table 1, its figure Figure 2.
+    reset: (document.querySelector('[data-id="t"]') as HTMLElement).style.counterReset,
+  }));
+  check('a table caption is numbered apart from figures, as it shows and where it is referred to',
+    JSON.stringify(numbers.before) === '["\\"Figure \\" counter(fig) \\". \\"","\\"Table \\" counter(tab) \\". \\"","\\"Figure \\" counter(fig) \\". \\""]' && JSON.stringify(numbers.refs) === '["Table 1","Figure 2"]' && numbers.reset === 'h1 0 h2 0 fig 1 tab 0', numbers);
+  // Drag the plot by its middle; which texts went with it.
+  const dragPlot = async () => {
+    const box = (await (await page.$('[data-id="p"] svg'))!.boundingBox())!;
+    const undo0 = await page.evaluate(() => (window as any).mathmath.doc.undoStack.length);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 90, { steps: 6 });
+    await page.mouse.up();
+    await sleep(150);
+    return page.evaluate((u) => {
+      const d = (window as any).mathmath.doc;
+      return { at: Object.fromEntries([...d.ws.regions, ...d.ws.texts].map((r: any) => [r.id, [r.left, r.top]])), steps: d.undoStack.length - u, selected: [...(window as any).mathmath.paper.selection] };
+    }, undo0);
+  };
+  await load([
+    text('c', 80, Math.round(drawn + 20), [cap('caption', 'The plot.'), { runs: [] }]),
+    text('far', 80, Math.round(drawn + 60), [cap('caption', 'Far below.')]),
+    text('side', 400, bottom + 4, [cap('caption', 'Beside it.')]),
+  ]);
+  const before = await page.evaluate(() => Object.fromEntries([...(window as any).mathmath.doc.ws.texts].map((r: any) => [r.id, [r.left, r.top]])));
+  const dragged = await dragPlot();
+  const moved = (id: string) => JSON.stringify(dragged.at[id]) !== JSON.stringify(before[id]);
+  const delta = (id: string) => [dragged.at[id][0] - (id === 'p' ? 72 : before[id][0]), dragged.at[id][1] - (id === 'p' ? 100 : before[id][1])];
+  await page.evaluate(() => (window as any).mathmath.doc.undo());
+  await sleep(100);
+  const undone = await page.evaluate(() => Object.fromEntries([...(window as any).mathmath.doc.ws.regions, ...(window as any).mathmath.doc.ws.texts].map((r: any) => [r.id, [r.left, r.top]])));
+  check('a caption just under a plot and its axis names moves with it, by as much, as one step to undo, and captions further off stay',
+    moved('p') && moved('c') && JSON.stringify(delta('c')) === JSON.stringify(delta('p')) && !moved('far') && !moved('side') && dragged.steps === 1
+      && JSON.stringify(dragged.selected) === '["p"]'
+      && JSON.stringify(undone.c) === JSON.stringify(before.c) && JSON.stringify(undone.p) === '[72,100]', { dragged, before, undone, bottom, drawn });
+  // A paragraph under the plot, a caption with words besides, and a caption across the page all stay.
+  const stays: Record<string, boolean> = {};
+  for (const [id, t] of [
+    ['para', text('para', 80, bottom + 4, [{ runs: [{ t: 'Just words.' }] }])],
+    ['mixed', text('mixed', 80, bottom + 4, [cap('caption', 'The plot.'), { runs: [{ t: 'And more words.' }] }])],
+    ['flow', text('flow', 36, bottom + 4, [cap('caption', 'The plot.')], true)],
+    // A trace far past the plot's limits doesn't reach a caption well below it.
+    ['clipped', text('clipped', 80, Math.round(drawn + 50), [cap('caption', 'Another figure.')])],
+  ] as const) {
+    await load([t], id === 'clipped' ? { ...plotAt, content: { ...plotAt.content, ys: [readTex('0')], yAxis: { min: 0.9, max: 1, log: false } } } : plotAt);
+    const was = await page.evaluate((i) => (window as any).mathmath.doc.ws.texts.find((x: any) => x.id === i).top, id);
+    const after = await dragPlot();
+    stays[id] = after.at[id][1] === was && after.at.p[1] !== 100;
+  }
+  // The caption dragged alone moves alone.
+  await load([text('c', 80, bottom + 4, [cap('caption', 'The plot.')])]);
+  const capBox = (await (await page.$('[data-id="c"]'))!.boundingBox())!;
+  await page.mouse.move(capBox.x + capBox.width / 2, capBox.y + capBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(capBox.x + capBox.width / 2 + 40, capBox.y + capBox.height / 2 + 60, { steps: 6 });
+  await page.mouse.up();
+  await sleep(150);
+  const alone = await page.evaluate(() => { const d = (window as any).mathmath.doc; return { p: [d.ws.regions[0].left, d.ws.regions[0].top], c: d.ws.texts[0].top }; });
+  check('text under a plot that isn\'t only its captions stays when the plot is dragged, and a caption dragged moves alone',
+    stays.para === true && stays.mixed === true && stays.flow === true && stays.clipped === true && JSON.stringify(alone.p) === '[72,100]' && alone.c !== bottom + 4, { stays, alone });
+  await page.close();
+}
+
+// Paper style's letters: accented letters, Greek and Cyrillic, in every style, come from the fonts the app serves, the
+// math's face and CMU Serif, never from whatever the computer has; the degree sign from CMU Serif.
+{
+  const page = await fresh();
+  const sample = 'Café naïve Ångström señor ł ř ő ğ İ Tiếng Việt Ελληνικά Русский 5 °C ± 2 µm';
+  const styles: { bold?: true; italic?: true }[] = [{}, { bold: true }, { italic: true }, { bold: true, italic: true }];
+  const ws = emptyWorksheet();
+  ws.textLook = 'paper';
+  const blocks = [...styles.map((st) => ({ runs: [{ t: sample, ...st }] })), { runs: [{ t: '°' }] }];
+  ws.texts = [{ id: 'i18n', left: 72, top: 72, width: 0, height: 0, text: blocks.map((b) => b.runs[0]!.t).join('\n'), blocks, flow: true }];
+  await page.evaluate((f) => (window as any).mathmath.load('letters.mathmath', f), saveWorksheet(ws));
+  await page.evaluate(() => document.fonts.ready);
+  await sleep(300);
+  const cdp = await page.createCDPSession();
+  await cdp.send('DOM.enable');
+  await cdp.send('CSS.enable');
+  const { root } = await cdp.send('DOM.getDocument', { depth: -1 });
+  const fontsOf = async (n: number): Promise<string[]> => {
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: `[data-id="i18n"] .tb:nth-child(${n})` });
+    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId, selector: '*' });
+    const out = new Set<string>();
+    for (const id of [nodeId, ...nodeIds]) {
+      for (const f of (await cdp.send('CSS.getPlatformFontsForNode', { nodeId: id })).fonts) out.add(`${f.familyName}${f.isCustomFont ? '' : ' (system)'}`);
+    }
+    return [...out].sort();
+  };
+  const used = [];
+  for (let n = 1; n <= 5; n++) used.push(await fontsOf(n));
+  check('accented letters, Greek and Cyrillic in Paper style come from the fonts the app serves, in every style, and the degree sign from CMU Serif',
+    used.slice(0, 4).every((f) => JSON.stringify(f) === '["CMU Serif","KaTeX_Main"]') && JSON.stringify(used[4]) === '["CMU Serif"]', used);
   await page.close();
 }
 

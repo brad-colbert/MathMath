@@ -27,7 +27,7 @@ import { keymap } from 'prosemirror-keymap';
 import { Fragment, type MarkType, type Node, type ResolvedPos, Slice } from 'prosemirror-model';
 import { AllSelection, type Command, EditorState, NodeSelection, TextSelection, type Transaction } from 'prosemirror-state';
 import { EditorView, type NodeView } from 'prosemirror-view';
-import { AFTER, type Align, type BlockKind, LINES, MAX_LEVEL, type TextBlock } from '../model/richtext.js';
+import { AFTER, type Align, type BlockKind, isCaption, LINES, MAX_LEVEL, type TextBlock } from '../model/richtext.js';
 import { BLOCK_KINDS, blocksOf, docOf, schema, showRef } from './richschema.js';
 
 type Attrs = { kind: BlockKind | null; level: number; align: Align | null; line: number | null; after: number | null; label: string | null };
@@ -151,7 +151,7 @@ const enter: Command = (state, dispatch) => {
   return splitBlockAs((n, atEnd) => ({
     type: n.type,
     // A heading's or caption's label stays with its first part: what follows is a block of its own.
-    attrs: atEnd && (isHeadingKind(n.attrs.kind) || n.attrs.kind === 'caption') ? { kind: null, level: 0, align: null, line: null, after: null, label: null } : { ...n.attrs, label: null },
+    attrs: atEnd && (isHeadingKind(n.attrs.kind) || isCaption(n.attrs.kind)) ? { kind: null, level: 0, align: null, line: null, after: null, label: null } : { ...n.attrs, label: null },
   }))(state, dispatch);
 };
 
@@ -291,11 +291,11 @@ function mathNodeView(node: Node, draw: (id: string, latex: string) => HTMLEleme
   };
 }
 
-/** Pasted math is new math: each gets a new id, so it's a region of its own. */
+/** Pasted math is new math: each gets a new id, so it's a region of its own, and remembers what it's a copy of. */
 function freshMath(fragment: Fragment, newId: () => string): Fragment {
   const nodes: Node[] = [];
   fragment.forEach((n) => {
-    if (n.type === schema.nodes.math) nodes.push(schema.nodes.math!.create({ ...n.attrs, id: newId() }));
+    if (n.type === schema.nodes.math) nodes.push(schema.nodes.math!.create({ ...n.attrs, id: newId(), from: n.attrs.from ?? n.attrs.id }));
     else if (n.isText || n.isLeaf) nodes.push(n);
     else nodes.push(n.copy(freshMath(n.content, newId)));
   });
@@ -611,7 +611,8 @@ function icon(lines: [number, number, number][], before?: 'dots' | 'numbers'): S
 }
 
 const KINDS: [string, BlockKind | null, string][] = [
-  ['Paragraph', null, 'Ctrl+Alt+0'], ['Title', 'title', ''], ['Heading', 'h1', 'Ctrl+Alt+1'], ['Subheading', 'h2', 'Ctrl+Alt+2'], ['Caption', 'caption', ''],
+  ['Paragraph', null, 'Ctrl+Alt+0'], ['Title', 'title', ''], ['Heading', 'h1', 'Ctrl+Alt+1'], ['Subheading', 'h2', 'Ctrl+Alt+2'],
+  ['Figure caption', 'caption', ''], ['Table caption', 'table-caption', ''],
 ];
 
 /**
@@ -634,7 +635,7 @@ class FormatBar {
     this.el.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'mouse') e.preventDefault();
     });
-    this.kind = this.button('Paragraph ▾', 'Paragraph, title, heading, subheading or a figure\'s caption', (b) => this.menu(b, KINDS.map(([label, kind, keys]) => [label, keys, () => editor.run(setKind(kind))])));
+    this.kind = this.button('Paragraph ▾', 'Paragraph, title, heading, subheading, or a figure\'s or table\'s caption', (b) => this.menu(b, KINDS.map(([label, kind, keys]) => [label, keys, () => editor.run(setKind(kind))])));
     this.kind.classList.add('kind');
     this.sep();
     this.toggle('B', 'Bold (Ctrl+B)', () => editor.run(toggle('bold')), () => editor.is('bold')).style.fontWeight = 'bold';
@@ -749,7 +750,7 @@ class FormatBar {
   update(): void {
     for (const [b, on] of this.toggles) b.setAttribute('aria-pressed', String(on()));
     const kind = this.editor.block.kind;
-    this.kind.textContent = `${KINDS.find(([, k]) => k === (isHeadingKind(kind) || kind === 'caption' ? kind : null))?.[0] ?? 'Paragraph'} ▾`;
+    this.kind.textContent = `${KINDS.find(([, k]) => k === (isHeadingKind(kind) || isCaption(kind) ? kind : null))?.[0] ?? 'Paragraph'} ▾`;
     this.position();
   }
 
