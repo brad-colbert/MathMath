@@ -35,6 +35,12 @@ export type Item =
 /** The grid regions snap to, in points. */
 export const GRID = 6;
 
+/**
+ * The `join` of a change that follows from the last one rather than being one of its own, as what's below text
+ * moving out of the way of an answer that grew: it's undone with that change.
+ */
+export const FOLLOWS = '\u0000follows';
+
 /** Everything undo restores. Picture data is shared, since nothing ever changes it. */
 type Snapshot = Pick<Worksheet, 'regions' | 'texts' | 'opaque' | 'page' | 'seed' | 'textLook'>;
 
@@ -119,6 +125,10 @@ export class Doc {
   onCalculating: (id: string | null) => void = () => {};
   /** Called when a calculation can't finish. */
   onProblem: (message: string) => void = () => {};
+  /** True while `onChange` is called for what a calculation sent back: answers, not an edit. */
+  answering = false;
+  /** Whether the last change was an edit, rather than opening the sheet, undo or redo, or one that followed it. */
+  private edited = false;
   private nextId = 1;
   private worker: Worker | null = null;
   private algebra = new Algebra();
@@ -133,6 +143,7 @@ export class Doc {
     this.ws = ws;
     this.name = name;
     this.dirty = false;
+    this.edited = false;
     this.undoStack = [];
     this.redoStack = [];
     this.placeInline();
@@ -235,6 +246,14 @@ export class Doc {
       this.onProblem(`Calculation failed: ${reason}`);
       this.onChange(null);
     };
+    const answered = (ids: Set<string> | null): void => {
+      this.answering = true;
+      try {
+        this.onChange(ids);
+      } finally {
+        this.answering = false;
+      }
+    };
     worker.onerror = (e) => failed(e.message || 'the calculation stopped unexpectedly');
     worker.onmessage = (m: MessageEvent<Done | AskAlgebra | Progress | Planned | Kept | Answer>) => {
       if ('ask' in m.data) {
@@ -250,12 +269,12 @@ export class Doc {
       }
       if ('pending' in m.data) {
         this.mayChange = new Set(m.data.pending);
-        this.onChange(null);
+        answered(null);
         return;
       }
       if ('kept' in m.data) {
         this.mayChange?.delete(m.data.kept);
-        this.onChange(new Set([m.data.kept]));
+        answered(new Set([m.data.kept]));
         return;
       }
       // An answer as soon as it's ready: shown, and current, while the rest of the sheet calculates.
@@ -263,7 +282,7 @@ export class Doc {
         const one = m.data.ready;
         this.outcomes.set(one.id, one);
         this.mayChange?.delete(one.id);
-        this.onChange(new Set([one.id]));
+        answered(new Set([one.id]));
         return;
       }
       this.onCalculating(null);
@@ -277,7 +296,7 @@ export class Doc {
       this.outcomes = new Map(m.data.shown.map((s) => [s.id, s]));
       this.behind = '';
       this.onBusy(false);
-      this.onChange(null);
+      answered(null);
     };
     return worker;
   }
@@ -333,14 +352,18 @@ export class Doc {
     }
     this.dirty = true;
     this.placeInline();
-    if (join === undefined || join !== this.joined || this.undoStack.length === 0) {
+    const follows = join === FOLLOWS;
+    if (!follows && (join === undefined || join !== this.joined || this.undoStack.length === 0)) {
       this.undoStack.push(this.saved);
       if (this.undoStack.length > HISTORY) this.undoStack.shift();
     }
-    this.joined = join ?? null;
+    if (!follows) this.joined = join ?? null;
+    this.edited = !follows;
     this.redoStack = [];
     this.saved = snapshot(this.ws);
     this.recompute();
+    // An edit made as answers are drawn, as what's below them moving, is an edit, not more answers.
+    this.answering = false;
     this.onChange(ids);
   }
 
@@ -348,6 +371,7 @@ export class Doc {
     const state = from.pop();
     if (!state) return;
     this.joined = null;
+    this.edited = false;
     to.push(this.saved);
     this.saved = state;
     // A seed that wasn't set then isn't set now: undoing New random numbers goes back to the default draws.
@@ -357,6 +381,11 @@ export class Doc {
     this.dirty = true;
     this.recompute();
     this.onChange(null);
+  }
+
+  /** Whether the answers being calculated follow from an edit, rather than from opening the sheet, undo or redo. */
+  get followsEdit(): boolean {
+    return this.edited;
   }
 
   undo(): void {

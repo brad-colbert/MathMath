@@ -3983,6 +3983,163 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
+// An answer in text across the page that grows, as a number turning into a matrix, moves what's below the text by
+// as much, with the edit that grew it: one undo takes both back. Opening a sheet, or undo and redo, moves nothing.
+{
+  const page = await fresh();
+  const ws = emptyWorksheet();
+  ws.textLook = 'paper';
+  ws.texts = [{ id: 'g', left: 36, top: 120, width: 400, height: 0, text: 'So M is  here.', flow: true, blocks: [{ runs: [{ t: 'So M is ' }, { t: '', math: 'gm' }, { t: ' here.' }] }] }];
+  ws.regions = [
+    { id: 'gd', left: 72, top: 72, alignX: 72, alignY: 80, disabled: false, content: readRegion('M\\coloneq 2') },
+    { id: 'gm', left: 72, top: 120, alignX: 72, alignY: 128, disabled: false, inText: 'g', content: readRegion('M=') },
+    { id: 'gb', left: 72, top: 200, alignX: 72, alignY: 208, disabled: false, content: readRegion('1+1=') },
+  ];
+  const saved = saveWorksheet(ws);
+  await page.evaluate((f) => (window as any).mathmath.load('grows.mathmath', f), saved);
+  await idle(page);
+  await sleep(150);
+  const state = () => page.evaluate(() => {
+    const d = (window as any).mathmath.doc;
+    const t = document.querySelector('[data-id="g"]')!.getBoundingClientRect();
+    const b = document.querySelector('[data-id="gb"]')!.getBoundingClientRect();
+    return { gap: Math.round((b.top - t.bottom) * 72 / 96 * 10) / 10, tall: Math.round(t.height * 72 / 96), top: d.ws.regions.find((r: any) => r.id === 'gb').top, undo: d.undoStack.length };
+  });
+  const set = (latex: string) => page.evaluate((l) => {
+    const d = (window as any).mathmath.doc;
+    d.batch(() => d.setMath(d.ws.regions.find((r: any) => r.id === 'gd'), l));
+  }, latex);
+  const press = async (key: 'KeyZ' | 'KeyY' | 'KeyM') => {
+    await page.keyboard.down('Control');
+    await page.keyboard.press(key);
+    await page.keyboard.up('Control');
+    await sleep(120);
+  };
+  const opened = await state();
+  check('opening a sheet with an answer in text across the page moves nothing below it', opened.top === 200, opened);
+  await set('M\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}');
+  await idle(page);
+  await sleep(200);
+  const grown = await state();
+  check('an answer in text across the page that grows moves what is below as far', grown.tall > opened.tall + 20 && Math.abs(grown.gap - opened.gap) < 1.5 && grown.undo === opened.undo + 1, { opened, grown });
+  await set('M\\coloneq 3');
+  await idle(page);
+  await sleep(200);
+  const shrunk = await state();
+  check('and back up as it shrinks again', Math.abs(shrunk.tall - opened.tall) < 1 && Math.abs(shrunk.gap - opened.gap) < 1.5 && shrunk.top === 200, { opened, shrunk });
+  await page.keyboard.press('Escape');
+  await press('KeyZ');
+  await idle(page);
+  await sleep(200);
+  const undone = await state();
+  check('one undo puts the matrix and what is below back together', undone.top === grown.top && Math.abs(undone.gap - opened.gap) < 1.5, { grown, undone });
+  await press('KeyZ');
+  await idle(page);
+  await sleep(200);
+  const first = await state();
+  check('and another, the number and the place it started at', first.top === 200 && Math.abs(first.gap - opened.gap) < 1.5, { opened, first });
+  await press('KeyY');
+  await idle(page);
+  await sleep(200);
+  const redone = await state();
+  check('redo moves it as far as the edit did, once', redone.top === grown.top && Math.abs(redone.gap - opened.gap) < 1.5, { grown, redone });
+  // A sheet saved with the matrix opens as it was saved: nothing moves again.
+  const again = await page.evaluate(() => (window as any).mathmath.save());
+  await page.evaluate((f) => (window as any).mathmath.load('grown.mathmath', f), again);
+  await idle(page);
+  await sleep(200);
+  const reopened = await state();
+  check('a sheet saved after it grew opens with nothing moving', reopened.top === grown.top && Math.abs(reopened.gap - opened.gap) < 1.5, { grown, reopened });
+  // Typed: a matrix answer put in the words, the text left at once, before or after the answer arrives.
+  for (const wait of [0, 600]) {
+    const w = emptyWorksheet();
+    w.textLook = 'paper';
+    w.texts = [{ id: 'g', left: 36, top: 120, width: 400, height: 0, text: 'Words.', flow: true }];
+    w.regions = [ws.regions[0]!, ws.regions[2]!].map((r) => (r.id === 'gd' ? { ...r, content: readRegion('M\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}') } : r));
+    await page.evaluate((f) => (window as any).mathmath.load('typed.mathmath', f), saveWorksheet(w));
+    await idle(page);
+    await sleep(150);
+    const start = await state();
+    const g = (await (await page.$('[data-id="g"]'))!.boundingBox())!;
+    await page.mouse.click(g.x + g.width - 2, g.y + g.height / 2);
+    await sleep(400);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' M is ');
+    await press('KeyM');
+    await keys(page, 'M=');
+    await page.keyboard.press('Escape');
+    await sleep(wait);
+    await page.keyboard.press('Escape');
+    await idle(page);
+    await sleep(250);
+    const typed = await state();
+    check(`a matrix answer typed in text across the page moves what is below as far (left after ${wait} ms)`, typed.tall > start.tall + 20 && Math.abs(typed.gap - start.gap) < 1.5, { start, typed });
+    await press('KeyZ');
+    await idle(page);
+    await sleep(200);
+    const back = await state();
+    check(`one undo takes back the words, the answer and the move (left after ${wait} ms)`, back.top === 200 && Math.abs(back.gap - start.gap) < 1.5 && back.undo === start.undo, { start, back });
+  }
+  // An answer that grows while other text is being typed: nothing moves under the typing; once it's done, what's
+  // below the grown text moves, that other text with it, and the words typed are kept.
+  {
+    const w = emptyWorksheet();
+    w.textLook = 'paper';
+    w.texts = [ws.texts[0]!, { id: 'h', left: 36, top: 200, width: 400, height: 0, text: 'More words.', flow: true }];
+    w.regions = [ws.regions[0]!, ws.regions[1]!, { ...ws.regions[2]!, top: 300, alignY: 308 }];
+    await page.evaluate((f) => (window as any).mathmath.load('typing.mathmath', f), saveWorksheet(w));
+    await idle(page);
+    await sleep(150);
+    const tops = () => page.evaluate(() => Object.fromEntries([...(window as any).mathmath.doc.ws.texts, ...(window as any).mathmath.doc.ws.regions].map((r: any) => [r.id, r.top])));
+    const start = await tops();
+    const h = (await (await page.$('[data-id="h"]'))!.boundingBox())!;
+    await page.mouse.click(h.x + h.width - 2, h.y + h.height / 2);
+    await sleep(400);
+    await page.keyboard.press('End');
+    await set('M\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}');
+    await idle(page);
+    await sleep(200);
+    const during = await tops();
+    const open = await page.evaluate(() => !!document.querySelector('[data-id="h"].editing'));
+    check('an answer that grows while other text is typed moves nothing under the typing', open && during.h === start.h && during.gb === start.gb, { start, during, open });
+    await page.keyboard.type(' Typed.');
+    await page.keyboard.press('Escape');
+    await idle(page);
+    await sleep(250);
+    const done = await tops();
+    const tall = await page.evaluate(() => document.querySelector('[data-id="g"]')!.getBoundingClientRect().height * 72 / 96);
+    const words = await page.evaluate(() => (window as any).mathmath.doc.ws.texts.find((t: any) => t.id === 'h').text);
+    const dy = done.h - start.h;
+    check('once it is done, what is below the grown text moves by as much, the typed words kept', dy > 20 && Math.abs(done.gb - start.gb - dy) < 0.5 && Math.abs(tall - opened.tall - dy) < 2 && words === 'More words. Typed.', { start, done, tall, words });
+  }
+  // New text with an answer in it: the same layout whether its answer arrives before or after the text is left.
+  {
+    const placed: number[] = [];
+    for (const wait of [0, 800]) {
+      const w = emptyWorksheet();
+      w.textLook = 'paper';
+      w.regions = [{ ...ws.regions[0]!, content: readRegion('M\\coloneq \\begin{pmatrix}1\\\\2\\\\3\\\\4\\\\5\\end{pmatrix}') }, ws.regions[2]!];
+      await page.evaluate((f) => (window as any).mathmath.load('new-text.mathmath', f), saveWorksheet(w));
+      await idle(page);
+      await sleep(150);
+      await clickAt(page, 72, 150);
+      await keys(page, '"');
+      await sleep(60);
+      await page.keyboard.type('M is ');
+      await press('KeyM');
+      await keys(page, 'M=');
+      await page.keyboard.press('Escape');
+      await sleep(wait);
+      await page.keyboard.press('Escape');
+      await idle(page);
+      await sleep(250);
+      placed.push(await page.evaluate(() => (window as any).mathmath.doc.ws.regions.find((r: any) => r.id === 'gb').top));
+    }
+    check('new text with an answer in it lays out the same whether the answer comes before or after it is left', placed[0] === placed[1], placed);
+  }
+  await page.close();
+}
+
 // The unit of an answer in text: chosen by a click on the answer, as on the page, kept as the words change, one step
 // to undo, and kept by a copy of the math pasted into other text.
 {
