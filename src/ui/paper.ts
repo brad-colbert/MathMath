@@ -17,7 +17,7 @@
  * The sheet of paper. Positions are in points, like the file format. The paper is continuous, with
  * dashed guides where pages break, because a worksheet can run for many pages.
  */
-import { type Doc, GRID, type Item } from '../app/document.js';
+import { type Doc, FOLLOWS, GRID, type Item } from '../app/document.js';
 import { tex } from '../latex/latex.js';
 import { isEditable, regionLatex } from '../latex/region.js';
 import { type Content, type NumberFormat, type Region, type TextRegion } from '../model/ast.js';
@@ -89,6 +89,10 @@ export class Paper {
   private selected = new Set<string>();
   private editor: Editor;
   private editing: Editing | null = null;
+  /** How much each text across the page has grown from answers in it, in points, since what's below last moved. */
+  private grown = new Map<string, number>();
+  /** Text just written and done with, until its answers are in: it only pushes down what it reaches. */
+  private freshText: string | undefined;
   /**
    * The text being typed: its editor, its height as drawn when it opened (to keep what's below as far below it when
    * it's done) and the editor's own, and what's below, moved as it grows while typing.
@@ -136,7 +140,11 @@ export class Paper {
     sheet.appendChild(this.ghost);
     // Text measured before its font arrived may wrap, and so break across pages, differently once it has.
     document.fonts?.addEventListener('loadingdone', () => this.redrawText());
-    doc.onChange = (ids) => this.draw(ids);
+    doc.onChange = (ids) => {
+      if (doc.answering) this.drawAnswers(ids);
+      else this.draw(ids);
+      this.settleAnswers();
+    };
     doc.onCalculating = (id) => this.calculating(id);
     sheet.addEventListener('mousedown', (e) => this.onDown(e));
     window.addEventListener('mousemove', (e) => this.onMove(e));
@@ -243,6 +251,50 @@ export class Paper {
     }
     this.mountInline(inline.keys());
     this.drawPages();
+  }
+
+  /**
+   * Draws what a calculation sent back. An answer in text across the page can make the text taller or shorter: how
+   * much is added up while the calculation runs, for `settleAnswers` to move what's below once it's done.
+   */
+  private drawAnswers(ids: Set<string> | null): void {
+    const before = this.mathTextHeights();
+    this.draw(ids);
+    // Text being typed moves what's below it as it shows, as it grows, and for real once it's done.
+    this.pushBelow();
+    for (const [id, h] of this.mathTextHeights()) {
+      const was = before.get(id);
+      if (was !== undefined && h !== was) this.grown.set(id, (this.grown.get(id) ?? 0) + h - was);
+    }
+  }
+
+  /**
+   * Once answers are calculated, moves what's below text across the page that they made taller or shorter by as
+   * much, as when the text is typed in, with the edit that changed them: one undo takes both back. Text just written
+   * only pushes what it now reaches, as when it's done with its answers in. Nothing moves while anything is being
+   * typed or dragged, until it's done; nor for answers calculated on opening a sheet, or after undo or redo, as the
+   * layout is already the one they were made for.
+   */
+  private settleAnswers(): void {
+    if (this.doc.computing || this.textEdit || this.editing || this.titleEdit || this.press) return;
+    const grown = [...this.grown].filter(([, dy]) => Math.abs(dy) > 0.5);
+    const fresh = this.freshText;
+    this.grown.clear();
+    this.freshText = undefined;
+    if (!this.doc.followsEdit || grown.length === 0) return;
+    const heights = new Map(grown.map(([id, dy]) => [id, (this.views.get(id)?.offsetHeight ?? 0) / PT - dy]));
+    this.reflow(() => {}, grown.some(([id]) => id === fresh) ? fresh : undefined, heights, FOLLOWS);
+  }
+
+  /** The height drawn of each text across the page that holds math, but the one being typed, in points. */
+  private mathTextHeights(): Map<string, number> {
+    const hosts = new Set([...this.inline.values()].map((at) => at.text));
+    const out = new Map<string, number>();
+    for (const t of this.doc.ws.texts) {
+      const el = this.views.get(t.id);
+      if (t.flow === true && hosts.has(t.id) && t.id !== this.textEdit?.region.id && el) out.set(t.id, el.offsetHeight / PT);
+    }
+    return out;
   }
 
   /** Math in a line of text: drawn as any math is, in an element of its own that its text holds. */
@@ -963,6 +1015,11 @@ export class Paper {
   }
 
   private commit(next: 'stay' | 'below' | 'next'): void {
+    this.commitOne(next);
+    this.settleAnswers();
+  }
+
+  private commitOne(next: 'stay' | 'below' | 'next'): void {
     const editing = this.editing;
     if (!editing) return;
     if (editing.kind === 'inline') {
@@ -1257,8 +1314,10 @@ export class Paper {
       else this.doc.remove(new Set([region.id]));
     } else if (!same || edit.kept) {
       const fresh = edit.fresh ? region.id : undefined;
+      this.freshText = fresh;
       this.reflow(() => this.doc.setTextAndMath(region, words, blocks, maths, copies), fresh, new Map([[region.id, opened]]), edit.join);
     } else this.draw(new Set([region.id]));
+    this.settleAnswers();
   }
 
   private onDown(e: MouseEvent): void {
@@ -1371,6 +1430,11 @@ export class Paper {
   }
 
   private onUp(e: MouseEvent): void {
+    this.release(e);
+    this.settleAnswers();
+  }
+
+  private release(e: MouseEvent): void {
     const press = this.press;
     this.press = null;
     if (!press) return;

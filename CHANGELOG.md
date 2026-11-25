@@ -8,6 +8,17 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.67.2] - 2026-11-24
+
+What's below text across the page makes room as an answer in the text grows.
+
+### Fixed
+
+- An answer in text across the page that grows or shrinks, as a number that becomes a matrix, now moves the math and
+  plots below the text to keep their distance, as typing in the text does. It used to run into them until the text was
+  next edited. The move is undone with the edit that changed the answer. Opening a sheet, undo and redo move nothing,
+  and nothing moves under text or math being typed, or while something is dragged, until that's done.
+
 ## [0.67.1] - 2026-11-24
 
 Older-format text opens as written: its paragraphs, looks, colors, Greek and the math in its lines; accented
