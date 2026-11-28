@@ -8,6 +8,40 @@ patch version is fixes only. Each release is a git tag, `v` plus the version.
 The `.mathmath` file format has its own version number, stored in each file. It changes only when the format
 does, and those changes are noted here.
 
+## [0.68.0] - 2026-11-27
+
+A sheet wider than a page prints the pages to its right, and built-in array functions under the vectorize arrow
+take their arrays whole.
+
+### Added
+
+- A sheet wider than a page prints the pages to its right too, where before printing left out everything past the
+  first page width. Pages print a column at a time, as the older format does: down the first column of pages, then
+  down the next one to its right. Math or a plot across a page's right edge is cut there, and the rest of it prints at
+  the left of the page to its right. A column to the right prints only the pages with something on them, where the
+  older format also prints the blank pages above them.
+- Page → Print single page width prints the first page width only, as before, leaving out what's to the right. The
+  sheet keeps the setting, and worksheets in the older format bring theirs.
+
+### Fixed
+
+- A plot or picture running across a page's right edge made the browser shrink the whole print to fit it, so every
+  page printed smaller than the paper's true scale. Now the print stays at true scale.
+- With a single page width printed, text running across the page's right edge is cut at the edge. It was squeezed
+  into the room left before the edge instead, its words wrapped onto more lines.
+- Under the vectorize arrow, a built-in function that takes an array now takes it whole, as the older format does.
+  Before, every function was worked out once per element, so →(v/max(v)) gave all 1s instead of v scaled to a
+  largest element of 1, →(x − mean(x)) gave all 0s, and →augment(a, b) or →reverse(v) gave the wrong shape or
+  values. Functions of numbers, and the sheet's own functions, still go element by element.
+- Under the vectorize arrow, the sheet's own function given arrays of different sizes says the sizes don't match.
+  Before, it gave an answer anyway, the size of the first array, with NaN where a shorter one ran out.
+
+### Known limits
+
+- The older format counts positions from the page's margins and its pages sideways are the width between them;
+  MathMath counts from the paper's edge, with pages a paper wide. So a worksheet from the older format can break
+  across pages sideways in different places than it did there.
+
 ## [0.67.2] - 2026-11-24
 
 What's below text across the page makes room as an answer in the text grows.

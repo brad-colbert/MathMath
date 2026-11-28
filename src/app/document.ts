@@ -633,6 +633,14 @@ export class Doc {
   }
 
   /** The same margin, in points, on every side. */
+  /** Whether printing covers the first page width only, or the pages to the right of it too. */
+  setSingleWidth(on: boolean): void {
+    if ((this.ws.page.singleWidth === true) === on) return;
+    const { singleWidth: _, ...page } = this.ws.page;
+    this.ws.page = on ? { ...page, singleWidth: true } : page;
+    this.touched();
+  }
+
   setMargins(margin: number): void {
     this.ws.page = { ...this.ws.page, margins: { left: margin, right: margin, top: margin, bottom: margin } };
     this.touched();

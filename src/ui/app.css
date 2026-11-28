@@ -231,12 +231,23 @@ body { display: flex; flex-direction: column; background: var(--desk); }
   #sheet { transform: none !important; }
   #desk { overflow: visible; padding: 0; }
   #sheet { margin: 0; box-shadow: none; width: var(--print-width) !important; height: var(--print-height) !important; overflow: clip; }
-  .region.past-page { display: none; }
-  .region.across-page { max-width: var(--room); overflow: hidden; }
+  /* A plot's or picture's size is its own: the labels placed around it would otherwise count towards the page's
+     width, and one reaching past the page makes the browser shrink the whole print. */
+  #sheet .region.plot, #sheet .region.image, #sheet .region.opaque { contain: size; }
+  #sheet:not(.laid) .region.past-page { display: none; }
+  #sheet:not(.laid) .region.across-page { clip-path: polygon(-100000pt -100000pt, var(--room) -100000pt, var(--room) 100000pt, -100000pt 100000pt); }
+  /* A sheet wider than a page, laid out a page at a time by preparePrint. */
+  #sheet.laid { height: var(--print-pages) !important; }
+  #sheet.laid > .region { left: var(--print-left) !important; top: var(--print-top) !important; }
+  #sheet.laid > .region.print-clip { clip-path: var(--print-clip); }
+  #sheet.laid > .print-copy { display: block; }
   .region.selected { outline: none; }
   .region.plot .slot.empty, .region.image .slot.empty, .region .handle, .region.plot .readout { display: none; }
   .region.draft, .region.calculating { outline: none; }
 }
+
+/* The rest of a region across a page's right edge, for the page to its right: printed only. */
+.print-copy { display: none; position: absolute; overflow: hidden; }
 
 /* Save buttons under a region that wrote image files. Not printed: they're for the screen. */
 .region .saves { position: absolute; left: 0; top: 100%; margin-top: 2pt; display: flex; gap: 4pt; white-space: nowrap; }

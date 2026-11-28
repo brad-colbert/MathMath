@@ -17,6 +17,7 @@ import { type Content, DEL_OPS, type Expr, type Region, type Stmt, type Target, 
 import { Defs } from '../symbolic/defs.js';
 import { type Files, NO_FILES, fileKey, sheetKey } from './files.js';
 import { makeBuiltins } from './builtins.js';
+import { wholeArgument } from './vectorize.js';
 import { Compiler, type Host, type ProgramState } from './compile.js';
 import { brent, leastSquares, minimize, minimizeWithin, multipleShooting, secant } from './solve.js';
 import { nthDerivative } from './differentiate.js';
@@ -752,7 +753,11 @@ export class Evaluator implements Host {
     const callee = this.callee(fn, s);
     if (callee.name === 'if' && callee === this.builtinIf) return this.evalIf(args, s, vec);
     const values = args.map((a) => this.eval(a, s, vec));
-    if (vec && values.some((v) => v.t === 'mat')) return this.mapCall(callee, values);
+    if (vec && values.some((v) => v.t === 'mat')) {
+      // A built-in's array arguments go in whole; the sheet's own functions go element by element.
+      const builtin = this.builtins.get(callee.name) === callee;
+      return this.mapCall(callee, values, (i) => builtin && wholeArgument(callee.name, i, values.length));
+    }
     return callee.call(values);
   }
 
@@ -1501,13 +1506,20 @@ export class Evaluator implements Host {
     return this.eval(truthy(cond) ? args[1]! : args[2]!, s, vec);
   }
 
-  private mapCall(fn: Fn, values: Value[]): Value {
-    const shape = values.find((v): v is Mat => v.t === 'mat')!;
+  /** A call under the vectorize arrow: once for each element of the arrays among the arguments not taken whole. */
+  private mapCall(fn: Fn, values: Value[], whole: (i: number) => boolean): Value {
+    const mapped = values.map((v, i) => v.t === 'mat' && !whole(i));
+    const shape = values.find((v, i): v is Mat => mapped[i]!);
+    if (!shape) return fn.call(values);
+    // Arrays under the arrow go element by element together, so they must be one size.
+    values.forEach((v, i) => {
+      if (mapped[i] && v.t === 'mat' && (v.rows !== shape.rows || v.cols !== shape.cols)) throw new EvalError('runtime', 'array sizes do not match');
+    });
     const out: Value[] = [];
     for (let n = 0; n < shape.rows * shape.cols; n++) {
       const i = n % shape.rows;
       const j = Math.floor(n / shape.rows);
-      out.push(fn.call(values.map((v) => (v.t === 'mat' ? getEl(v, i, j) : v))));
+      out.push(fn.call(values.map((v, k) => (mapped[k] && v.t === 'mat' ? getEl(v, i, j) : v))));
     }
     return fromValues(shape.rows, shape.cols, out);
   }
