@@ -358,6 +358,7 @@ function readPage(root: XElement): PageModel {
     width: num(model, 'page-width') || (landscape ? DEFAULT_PAGE.height : DEFAULT_PAGE.width),
     height: num(model, 'page-height') || (landscape ? DEFAULT_PAGE.width : DEFAULT_PAGE.height),
     landscape,
+    ...(model.getAttribute('print-single-page-width') === 'true' ? { singleWidth: true } : {}),
     margins: margins
       ? { left: num(margins, 'left'), right: num(margins, 'right'), top: num(margins, 'top'), bottom: num(margins, 'bottom') }
       : DEFAULT_PAGE.margins,

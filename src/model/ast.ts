@@ -265,6 +265,11 @@ export interface PageModel {
   height: number;
   landscape: boolean;
   margins: { left: number; right: number; top: number; bottom: number };
+  /**
+   * Printing covers the first page width only, leaving out what's to the right of it. Otherwise a sheet wider than
+   * a page prints the pages to the right too, after the first column of pages. Only `true` counts.
+   */
+  singleWidth?: boolean;
 }
 
 export const DEFAULT_PAGE: PageModel = {

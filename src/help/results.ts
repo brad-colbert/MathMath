@@ -450,6 +450,7 @@ export const RESULTS: Record<string, string[]> = {
   "toGray": ["","\\begin{pmatrix}100\\\\200\\end{pmatrix}"],
   "topic:arrays-1": ["","","\\begin{pmatrix}0\\\\1\\\\4\\\\9\\\\16\\end{pmatrix}"],
   "topic:arrays-2": ["","\\begin{pmatrix}7&10\\\\15&22\\end{pmatrix}","\\begin{pmatrix}-2&1\\\\1.5&-0.5\\end{pmatrix}"],
+  "topic:arrays-3": ["","\\begin{pmatrix}4\\\\1\\\\16\\end{pmatrix}","\\begin{pmatrix}0.5\\\\-0.25\\\\1\\end{pmatrix}"],
   "topic:complex-1": ["","5","0.927","-7+24\\mathrm{i}"],
   "topic:complex-2": ["0.5+0.866\\mathrm{i}","1.571-1.317\\mathrm{i}"],
   "topic:finance-1": ["","-1.896\\times10^{3}","-1.94\\times10^{4}"],

@@ -21,7 +21,8 @@ To report a security problem, don't open an issue: see [SECURITY.md](SECURITY.md
    npm run dev         # run the app
    npm run typecheck
    npm test
-   npm run test:e2e    # browser tests on the production build; needs Chromium at /usr/bin/chromium
+   npm run test:e2e    # browser tests on the production build; needs Chromium at /usr/bin/chromium, and
+                       # pdftotext (poppler-utils) for the printing checks, which are skipped without it
    ```
 
 3. Keep each pull request to one change, and say in it what a user would notice.

@@ -382,7 +382,11 @@ const print = (): void => {
   window.print();
 };
 // Printing from the browser's own menu finishes typing too, so the page prints without the editor's outline.
-window.addEventListener('beforeprint', () => paper.commitAll());
+window.addEventListener('beforeprint', () => {
+  paper.commitAll();
+  paper.preparePrint();
+});
+window.addEventListener('afterprint', () => paper.finishPrint());
 
 function button(label: string, title_: string, run: () => void): HTMLButtonElement {
   const b = document.createElement('button');
@@ -597,7 +601,7 @@ const pageMenu = document.createElement('details');
 pageMenu.className = 'menu';
 const pageSummary = document.createElement('summary');
 pageSummary.textContent = 'Page';
-pageSummary.title = 'Paper size, orientation, margins and Paper style';
+pageSummary.title = 'Paper size, orientation, margins, printing and Paper style';
 pageSummary.addEventListener('mousedown', (e) => e.preventDefault());
 const pageList = document.createElement('div');
 pageMenu.append(pageSummary, pageList);
@@ -646,6 +650,15 @@ const marginButtons = ([['Narrow margins, ½ in', 36], ['Wide margins, 1 in', 72
   return { b, label, margin };
 });
 pageList.appendChild(document.createElement('hr'));
+const singleWidth = document.createElement('button');
+singleWidth.title = 'Print only what is within the first page width, leaving out what is to the right of it';
+singleWidth.addEventListener('mousedown', (e) => e.preventDefault());
+singleWidth.addEventListener('click', () => {
+  pageMenu.open = false;
+  paper.commitAll();
+  doc.setSingleWidth(doc.ws.page.singleWidth !== true);
+});
+pageList.appendChild(singleWidth);
 const paperStyle = document.createElement('button');
 paperStyle.title = 'Text as in a paper: a serif face to match the math, justified, with numbered headings. New text runs across the page';
 paperStyle.addEventListener('mousedown', (e) => e.preventDefault());
@@ -668,6 +681,10 @@ pageMenu.addEventListener('toggle', () => {
     b.setAttribute('aria-checked', String(on));
     b.setAttribute('role', 'menuitemradio');
   }
+  const single = doc.ws.page.singleWidth === true;
+  singleWidth.textContent = `${single ? '✓ ' : '\u2003'}Print single page width`;
+  singleWidth.setAttribute('aria-checked', String(single));
+  singleWidth.setAttribute('role', 'menuitemcheckbox');
   const styled = doc.ws.textLook === 'paper';
   paperStyle.textContent = `${styled ? '✓ ' : '\u2003'}Paper style`;
   paperStyle.setAttribute('aria-checked', String(styled));

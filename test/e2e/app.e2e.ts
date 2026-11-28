@@ -1921,7 +1921,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
   await page.close();
 }
 
-// Regions past the page edge must not shrink the rest of the print.
+// Regions past the page edge must not shrink the rest of the print, when it's of the first page width only.
 {
   const page = await fresh();
   await page.evaluate(() => {
@@ -1930,6 +1930,7 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
       format: 'mathmath', version: 1,
       worksheet: {
         ...m.doc.ws,
+        page: { ...m.doc.ws.page, singleWidth: true },
         texts: [
           { id: '1', left: 100, top: 100, width: 80, height: 14, text: 'marker' },
           { id: '2', left: 900, top: 72, width: 100, height: 14, text: 'off to the side' },
@@ -1948,7 +1949,99 @@ function check(name: string, ok: boolean, detail: unknown = ''): void {
     const at = /xMin="([\d.]+)" yMin="[\d.]+" xMax="[\d.]+" yMax="[\d.]+">marker</.exec(bbox);
     check('printing keeps true scale when regions run past the edge', Math.abs(Number(at?.[1]) - 100) < 0.5, at?.[1]);
     check('regions past the edge do not print', !bbox.includes('>side<'));
+    // Cut at the edge, not narrowed: its words don't wrap onto more lines.
+    check('a text across the edge is cut there, not wrapped narrower', bbox.includes('>across<') && !bbox.includes('>sheet<'), bbox.match(/>[^<]+</g));
   }
+  await page.close();
+}
+
+// A sheet wider than a page prints the pages to its right too: down the first column of pages, then down the next,
+// only the pages with something on them; what runs across a page's edge prints its rest on the page to the right.
+// Page → Print single page width prints the first page width only, as before. Reading the PDFs takes pdftotext.
+const pdftotext = (() => {
+  try {
+    execSync('pdftotext -v', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+if (!pdftotext) console.log('  skipped: printing wide sheets, which needs pdftotext (poppler-utils)');
+if (pdftotext) {
+  const page = await fresh();
+  const folder = mkdtempSync(join(tmpdir(), 'mathmath-wide-'));
+  const ws = emptyWorksheet();
+  ws.texts = [
+    { id: 'w1', left: 100, top: 100, width: 80, height: 14, text: 'marker' },
+    { id: 'w2', left: 900, top: 72, width: 100, height: 14, text: 'sideways' },
+    { id: 'w3', left: 560, top: 300, width: 400, height: 14, text: 'begins here and continues rightwards' },
+    { id: 'w4', left: 100, top: 900, width: 100, height: 14, text: 'downwards' },
+  ];
+  // A plot across the edge too: the labels around it mustn't make the browser shrink the print.
+  ws.regions = [{ id: 'wp', left: 420, top: 420, alignX: 420, alignY: 420, disabled: false, content: { k: 'plot', x: null, ys: [readTex('1')], xAxis: autoAxis(), yAxis: autoAxis(), markers: false, width: 300, height: 120 } }];
+  await page.evaluate((f) => (window as any).mathmath.load('wide.mathmath', f), saveWorksheet(ws));
+  await idle(page);
+  await sleep(150);
+  const printed = async (name: string) => {
+    await page.evaluate(() => (window as any).mathmath.paper.preparePrint());
+    const laid = await page.evaluate(() => ({ laid: document.getElementById('sheet')!.classList.contains('laid'), copies: document.querySelectorAll('.print-copy').length }));
+    const file = join(folder, `${name}.pdf`);
+    writeFileSync(file, await page.pdf({ preferCSSPageSize: true, printBackground: true }));
+    await page.evaluate(() => (window as any).mathmath.paper.finishPrint());
+    const bbox = execSync(`pdftotext -bbox ${file} -`).toString();
+    // Each page's words, with where each starts and ends across it.
+    const pages = bbox.split('<page ').slice(1).map((pg) => [...pg.matchAll(/xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="[\d.]+">([^<]+)</g)].map((m) => ({ w: m[4]!, x: Number(m[1]), y: Number(m[2]), right: Number(m[3]) })));
+    return { ...laid, pages };
+  };
+  const where = (pages: { w: string; x: number }[][], w: string) => pages.findIndex((pg) => pg.some((t) => t.w === w));
+  const wide = await printed('wide');
+  const side = wide.pages[2]?.find((t) => t.w === 'sideways');
+  check('a sheet wider than a page prints its first column of pages, then the page to the right', wide.laid && wide.pages.length === 3 && where(wide.pages, 'marker') === 0 && where(wide.pages, 'downwards') === 1 && where(wide.pages, 'sideways') === 2, wide.pages.map((p) => p.map((t) => t.w)));
+  check('the page to the right is at true scale, from its own left edge', Math.abs((side?.x ?? 0) - (900 - 612)) < 1 && Math.abs((wide.pages[0]!.find((t) => t.w === 'marker')?.x ?? 0) - 100) < 0.5, { side });
+  check('what runs across the edge prints its start on its own page and its rest on the page to the right', where(wide.pages, 'begins') === 0 && where(wide.pages, 'rightwards') === 2 && wide.copies === 2, wide.pages.map((p) => p.map((t) => t.w)));
+  // A word cut at the edge is reported whole; none may start past it.
+  check('nothing prints past a page\'s right edge', wide.pages.every((pg) => pg.every((t) => t.x < 612)) && where(wide.pages.slice(0, 2), 'rightwards') === -1, wide.pages.map((p) => p.filter((t) => t.x >= 612)));
+  check('printing done, the sheet shows as before', await page.evaluate(() => !document.getElementById('sheet')!.classList.contains('laid') && document.querySelectorAll('.print-copy').length === 0 && (document.querySelector('[data-id="w2"]') as HTMLElement).style.left === '900pt'));
+  // Zoomed in, the same layout: it's measured on screen, and worked out in points.
+  const layout = () => page.evaluate(() => {
+    const m = (window as any).mathmath;
+    m.paper.preparePrint();
+    const out = JSON.stringify({
+      at: [...document.querySelectorAll<HTMLElement>('#sheet > .region')].map((e) => [e.dataset.id, e.style.getPropertyValue('--print-left'), e.style.getPropertyValue('--print-top')]),
+      copies: [...document.querySelectorAll<HTMLElement>('.print-copy')].map((e) => [e.style.top, Math.round(parseFloat(e.style.width)), Math.round(parseFloat(e.style.height))]),
+      pages: document.getElementById('sheet')!.style.getPropertyValue('--print-pages'),
+    });
+    m.paper.finishPrint();
+    return out;
+  });
+  const at100 = await layout();
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === '+')!.click());
+  await sleep(200);
+  const zoomed = await layout();
+  check('zoomed in, a wide sheet prints the same', zoomed === at100, { at100, zoomed });
+  await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('#toolbar button')].find((b) => b.textContent === '−')!.click());
+  await sleep(200);
+  // Print single page width, from the Page menu, as one step to undo.
+  await page.click('details.menu > summary ::-p-text(Page)');
+  await sleep(100);
+  await page.click('::-p-text(Print single page width)');
+  await sleep(150);
+  const single = await printed('single');
+  check('Page → Print single page width prints the first page width only', !single.laid && single.pages.length === 2 && where(single.pages, 'sideways') === -1 && where(single.pages, 'marker') === 0, single.pages.map((p) => p.map((t) => t.w)));
+  const saved = await page.evaluate(() => JSON.parse((window as any).mathmath.save()).worksheet.page.singleWidth);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyZ');
+  await page.keyboard.up('Control');
+  await sleep(150);
+  check('the sheet keeps it, and undo takes it back', saved === true && await page.evaluate(() => (window as any).mathmath.doc.ws.page.singleWidth === undefined));
+  // A sheet no wider than a page prints as it always has.
+  const narrow = emptyWorksheet();
+  narrow.texts = [ws.texts[0]!, ws.texts[3]!];
+  await page.evaluate((f) => (window as any).mathmath.load('narrow.mathmath', f), saveWorksheet(narrow));
+  await idle(page);
+  await sleep(150);
+  const plain = await printed('narrow');
+  check('a sheet within the page width prints as before', !plain.laid && plain.pages.length === 2 && where(plain.pages, 'downwards') === 1, plain.pages.map((p) => p.map((t) => t.w)));
   await page.close();
 }
 

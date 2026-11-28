@@ -38,6 +38,39 @@ import { getZoom, pointsPerPixel } from './zoom.js';
 import { NEXT_SLOT, type Slot, type TitleSlot, isTitleSlot, slotLatex, titleText, withSlot, withTitle } from './slots.js';
 
 const PT = 96 / 72;
+/** Parts of a region that show on screen but don't print (see app.css): they don't decide its pages. */
+const SCREEN_ONLY = '.saves, .traced, .handle, .readout, .slot.empty, .eq-number:empty';
+
+/**
+ * How far right and down what's drawn in a region reaches, in screen pixels: its words, pictures and plots, not its
+ * box, which can be wider than its words and lower or higher than a hanging label.
+ */
+function inkOf(el: HTMLElement): { right: number; bottom: number } {
+  const box = el.getBoundingClientRect();
+  let right = box.left;
+  let bottom = box.top;
+  const take = (r: DOMRect): void => {
+    if (r.width === 0 && r.height === 0) return;
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  };
+  const range = document.createRange();
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+    if (!t.nodeValue?.trim() || t.parentElement?.closest(SCREEN_ONLY)) continue;
+    range.selectNodeContents(t);
+    take(range.getBoundingClientRect());
+  }
+  for (const pic of el.querySelectorAll('svg, canvas, img, .ML__frac-line, .ML__sqrt-line, .ML__delim-size1, .ML__delim-size2, .ML__delim-size3, .ML__delim-size4, .ML__left-right')) {
+    if (!pic.closest(SCREEN_ONLY)) take(pic.getBoundingClientRect());
+  }
+  // Nothing drawn, as an empty region: its box.
+  if (right === box.left && bottom === box.top) return { right: box.right, bottom: box.bottom };
+  return { right, bottom };
+}
+
+/** The most pages a sheet prints on, across and down: past that, the first page width only. */
+const MAX_PRINT_PAGES = 500;
 /** How far under a plot or picture its caption may start, in points: about a line. */
 const CAPTION_GAP = 12;
 const DRAG_THRESHOLD = 4;
@@ -639,6 +672,118 @@ export class Paper {
     // While calculating, only what the calculation may change: the first region affected and those below.
     if (this.doc.computing) return this.doc.mayChange?.has(id) ? 'Calculating' : '';
     return this.doc.behind;
+  }
+
+  /**
+   * Lays the sheet out for printing, when it's wider than a page and isn't set to print a single page width. Pages
+   * print a column at a time, down the first column of pages and then down each column to its right, as the older
+   * format does; but a column to the right prints only the pages with something on them, where the older format
+   * printed blank ones. The first column prints every page down to its last used one, as before.
+   *
+   * Each region is moved, for print only, to the page it starts on. One that runs across a page's right edge is
+   * trimmed there, and the rest of it is printed on the page to the right from a copy, clipped to that page: nothing
+   * may reach past a page's width, or the browser shrinks the whole print. Undone by `finishPrint`; doing it again
+   * starts over, so a print that never finished leaves nothing behind.
+   */
+  preparePrint(): void {
+    this.finishPrint();
+    const { page } = this.doc.ws;
+    if (page.singleWidth === true) return;
+    const W = page.width;
+    const H = page.height;
+    const k = pointsPerPixel();
+    type Placed = { el: HTMLElement; left: number; top: number; right: number; bottom: number; drawn: number };
+    const placed: Placed[] = [];
+    for (const { region } of this.doc.items()) {
+      const el = this.views.get(region.id);
+      if (!el || el.offsetParent === null) continue;
+      const left = parseFloat(el.style.left) || 0;
+      const top = parseFloat(el.style.top) || 0;
+      const box = el.getBoundingClientRect();
+      // What's drawn, rather than the box, decides the pages a region is on: a text's box can reach well past its
+      // words, and a plot's axis label can hang below its box.
+      const ink = inkOf(el);
+      placed.push({ el, left, top, right: left + (ink.right - box.left) * k, bottom: top + el.offsetHeight / PT, drawn: top + (ink.bottom - box.top) * k });
+    }
+    if (!placed.some((p) => p.right > W + 0.5)) return;
+    const column = (x: number): number => Math.max(0, Math.floor(x / W));
+    const row = (y: number): number => Math.max(0, Math.floor(y / H));
+    // The rows printed in each column: the first column all down to its last used page, as before; the others only
+    // the pages something reaches.
+    const rows = new Map<number, Set<number>>([[0, new Set()]]);
+    let last = 0;
+    for (const p of placed) {
+      if (p.left < W) last = Math.max(last, row(p.bottom - 0.01));
+      for (let c = column(p.left); c <= column(p.right - 0.01); c++) {
+        if (c === 0) continue;
+        const set = rows.get(c) ?? new Set<number>();
+        for (let r = row(p.top); r <= row(Math.max(p.bottom, p.drawn) - 0.01); r++) set.add(r);
+        rows.set(c, set);
+      }
+    }
+    for (let r = 0; r <= last; r++) rows.get(0)!.add(r);
+    const slots = new Map<string, number>();
+    let n = 0;
+    for (const c of [...rows.keys()].sort((a, b) => a - b)) for (const r of [...rows.get(c)!].sort((a, b) => a - b)) slots.set(`${c},${r}`, n++);
+    if (n > MAX_PRINT_PAGES) {
+      this.doc.onProblem(`This sheet would print on ${n} pages, more than ${MAX_PRINT_PAGES}: only the first page width prints`);
+      return;
+    }
+    // Where a run of pages in a column that print one after another ends, from a page in it: overhang past it is cut.
+    const runEnd = (c: number, r: number): number => {
+      let end = r;
+      while (slots.get(`${c},${end + 1}`) === slots.get(`${c},${end}`)! + 1) end++;
+      return (end + 1) * H;
+    };
+    const at = (c: number, r: number, y: number): number => slots.get(`${c},${r}`)! * H + y - r * H;
+    const FAR = 100000;
+    for (const p of placed) {
+      const c = column(p.left);
+      const r = row(p.top);
+      const s = p.el.style;
+      s.setProperty('--print-left', `${p.left - c * W}pt`);
+      s.setProperty('--print-top', `${at(c, r, p.top)}pt`);
+      // Cut at the page's right edge, and at the end of its run of pages: clipped, not narrowed, so words don't
+      // wrap again. FAR is beyond any side that isn't cut.
+      const room = p.right > (c + 1) * W ? (c + 1) * W - p.left : FAR;
+      const end = runEnd(c, r);
+      const low = Math.max(p.bottom, p.drawn) > end ? end - p.top : FAR;
+      if (room !== FAR || low !== FAR) {
+        s.setProperty('--print-clip', `polygon(${-FAR}pt ${-FAR}pt, ${room}pt ${-FAR}pt, ${room}pt ${low}pt, ${-FAR}pt ${low}pt)`);
+        p.el.classList.add('print-clip');
+      }
+      // The rest of a region across a page's right edge, on each page it reaches.
+      for (let d = c + 1; d <= column(p.right - 0.01); d++) {
+        const end2 = runEnd(d, r);
+        const clip = document.createElement('div');
+        clip.className = 'print-copy';
+        clip.style.left = '0';
+        clip.style.top = `${at(d, r, p.top)}pt`;
+        clip.style.width = `${Math.min(W, p.right - d * W)}pt`;
+        clip.style.height = `${Math.min(Math.max(p.bottom, p.drawn), end2) - p.top}pt`;
+        const copy = p.el.cloneNode(true) as HTMLElement;
+        copy.removeAttribute('data-id');
+        for (const inner of copy.querySelectorAll('[data-id]')) inner.removeAttribute('data-id');
+        copy.classList.remove('selected', 'past-page', 'across-page', 'print-clip');
+        copy.style.left = `${p.left - d * W}pt`;
+        copy.style.top = '0';
+        // A canvas's picture isn't part of its markup: it's drawn into the copy.
+        const from = p.el.querySelectorAll('canvas');
+        copy.querySelectorAll('canvas').forEach((cv, i) => cv.getContext('2d')?.drawImage(from[i]!, 0, 0));
+        clip.appendChild(copy);
+        this.sheet.appendChild(clip);
+      }
+    }
+    this.sheet.style.setProperty('--print-pages', `${n * H}pt`);
+    this.sheet.classList.add('laid');
+  }
+
+  /** Puts the sheet back as it shows on screen after printing. */
+  finishPrint(): void {
+    this.sheet.classList.remove('laid');
+    this.sheet.style.removeProperty('--print-pages');
+    this.sheet.querySelectorAll('.print-copy').forEach((n) => n.remove());
+    for (const el of this.sheet.querySelectorAll<HTMLElement>('.print-clip')) el.classList.remove('print-clip');
   }
 
   private drawPages(): void {

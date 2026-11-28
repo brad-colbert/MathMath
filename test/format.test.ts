@@ -16,6 +16,7 @@
 import { describe, expect, test } from 'vitest';
 import { emptyWorksheet, loadWorksheet, saveWorksheet } from '../src/format/native.js';
 import { sheet } from './helpers.js';
+import { parseSheet } from '../src/cli/corpus.js';
 
 describe('native files', () => {
   test('a saved worksheet loads back the same', () => {
@@ -75,5 +76,11 @@ describe('importing page settings', () => {
     expect(ws.page.width).toBe(612);
     const landscape = sheet([], 'array-origin="0"');
     expect(landscape.origin).toBe(0);
+  });
+  test('Print single page width is read, and only when it is on', () => {
+    const page = (single: string) => parseSheet(`<worksheet xmlns:ml="m"><settings><pageModel orientation="portrait" ${single} page-width="612" page-height="792"><margins left="36" right="36" top="36" bottom="36"/></pageModel></settings><regions/></worksheet>`).page;
+    expect(page('print-single-page-width="true"').singleWidth).toBe(true);
+    expect(page('print-single-page-width="false"')).not.toHaveProperty('singleWidth');
+    expect(page('')).not.toHaveProperty('singleWidth');
   });
 });
